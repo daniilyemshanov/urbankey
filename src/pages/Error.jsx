@@ -12,7 +12,7 @@ const Error = () => {
 
   return (
     <section className={s.wrap}>
-      <Seo title="Страница не найдена" noIndex />
+      <Seo title={t("seoErrorTitle")} noIndex />
 
       <div className={s.skyline} aria-hidden="true">
         <img src="/city-skyline.svg" alt="" />

@@ -5,11 +5,13 @@ import Realtor from '../components/Realtor'
 import Achievements from '../components/Achievements'
 import Footer from '../components/Footer'
 import Seo from '../components/Seo'
+import { useTranslation } from 'react-i18next'
 
 const AboutUs = () => {
+  const { t } = useTranslation();
   return (
     <>
-      <Seo title="О компании" description="UrbanKey — агентство недвижимости в Ташкенте: миссия, ценности и команда." />
+      <Seo title={t("seoAboutTitle")} description={t("seoAboutDescription")} />
       <Journey />
       <Value />
       <Achievements />

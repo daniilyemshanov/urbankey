@@ -43,12 +43,12 @@ const World = () => {
 
                     <img
                         src="/preview.webp"
-                        alt="Владислав Емшанов"
+                        alt={t("world.name")}
                         className={s.realtorImg}
                     />
 
                     <div className={s.photoCaption}>
-                        <p className={s.name}>Владислав Емшанов</p>
+                        <p className={s.name}>{t("world.name")}</p>
                         <p className={s.role}>{t("world.role")}</p>
                     </div>
 

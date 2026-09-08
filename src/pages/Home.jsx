@@ -5,14 +5,16 @@ import Questions from '../components/Questions'
 import Footer from '../components/Footer'
 import CommercialSection from '../components/CommercialSection'
 import Seo from '../components/Seo'
+import { useTranslation } from 'react-i18next'
 import { buildOrganizationJsonLd } from '../utils/structuredData'
 
 const Home = () => {
+    const { t } = useTranslation();
     return (
         <>
             <Seo
-                title="Недвижимость в Ташкенте"
-                description="UrbanKey — подбор и продажа вилл, квартир и коммерческой недвижимости в Ташкенте. Ключи от вашей недвижимости."
+                title={t("seoHomeTitle")}
+                description={t("seoHomeDescription")}
                 jsonLd={buildOrganizationJsonLd()}
             />
             <Hero />
