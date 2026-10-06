@@ -63,6 +63,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { runListingAiChain } from "./aiProviders.js";
+import { processPhoto } from "./_telegramPhotos.js";
 
 
 // Чистая логика разбора поста и перевода — без Telegram/Supabase.
@@ -1050,59 +1051,20 @@ async function bot_getFile(fileId) {
 }
 
 
+// Загрузка ОДНОГО фото (одиночный пост, редактирование поста). Для
+// альбомов webhook фото больше не скачивает — только регистрирует file_id
+// (см. handleAlbumMessage), а скачивает и грузит их api/finalize-albums.js
+// пулом из 4 воркеров. Возвращает URL или "" при ошибке — как и раньше.
 async function uploadPhoto(fileId) {
 
-    try {
+    const result = await processPhoto({
+        supabase,
+        botToken: BOT_TOKEN,
+        fileId,
+        label: "single"
+    });
 
-        const fileResp = await telegramApi("getFile", { file_id: fileId });
-        if (!fileResp.ok) return "";
-
-        const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileResp.result.file_path}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            console.log("DOWNLOAD FROM TELEGRAM FAILED:", response.status);
-            return "";
-        }
-
-        const buffer = Buffer.from(await response.arrayBuffer());
-
-        const looksLikeImage =
-            buffer.length > 100 &&
-            ((buffer[0] === 0xff && buffer[1] === 0xd8) ||
-                (buffer[0] === 0x89 && buffer[1] === 0x50));
-
-        if (!looksLikeImage) {
-            console.log("DOWNLOADED FILE DOES NOT LOOK LIKE AN IMAGE, size:", buffer.length);
-            return "";
-        }
-
-        // Date.now() может совпасть у нескольких фото одного альбома,
-        // загружаемых почти одновременно (параллельные вызовы serverless-
-        // функции) — совпавшее имя файла тихо перезаписывает предыдущее в
-        // Storage, и вместо нескольких разных фото в галерею попадает
-        // одно. Добавляем случайный суффикс для гарантированной уникальности.
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
-
-        const { error } =
-            await supabase.storage
-                .from("images")
-                .upload(fileName, buffer, { contentType: "image/jpeg" });
-
-        if (error) {
-            console.log("UPLOAD ERROR:", error);
-            return "";
-        }
-
-        const { data } = supabase.storage.from("images").getPublicUrl(fileName);
-        return data.publicUrl;
-
-    } catch (e) {
-
-        console.log("UPLOAD EXCEPTION:", e);
-        return "";
-    }
+    return result.ok ? result.url : "";
 }
 
 
@@ -1398,21 +1360,34 @@ async function handleAlbumMessage(msg) {
 
     if (ownFileId) {
 
-        const uploaded = await uploadPhoto(ownFileId);
-
-        if (uploaded) {
-            // append_album_image добавляет фото в общий список атомарно на
-            // стороне базы (и обновляет updated_at) — это защищает от
-            // гонки, когда несколько фото альбома прилетают почти
-            // одновременно отдельными вызовами функции
-            const { error: rpcError } = await supabase.rpc(
-                "append_album_image",
-                { p_media_group_id: groupId, p_image: uploaded }
-            );
-
-            if (rpcError) {
-                console.log("APPEND ALBUM IMAGE ERROR:", rpcError);
+        // Фото здесь НЕ скачиваем и НЕ грузим в Storage. Раньше каждое фото
+        // альбома (до 10 штук) обрабатывалось в отдельном параллельном вызове
+        // функции без какого-либо лимита: десяток одновременных
+        // getFile+download+upload упирались в таймаут serverless-функции,
+        // Telegram при таймауте присылал апдейт повторно, а
+        // array_append в БД не идемпотентен — фото терялись или
+        // дублировались. Теперь вебхук только регистрирует file_id
+        // (быстро: один атомарный и идемпотентный RPC, без сети наружу), а
+        // скачивание и загрузку делает api/finalize-albums.js пулом из 4
+        // воркеров и пишет итоговый массив images одним INSERT.
+        const { error: rpcError } = await supabase.rpc(
+            "append_album_photo",
+            {
+                p_media_group_id: groupId,
+                p_file_id: ownFileId,
+                p_message_id: msg.message_id
             }
+        );
+
+        if (rpcError) {
+            // не маскируем: код 42P10 здесь означает, что не выполнена
+            // миграция sql/fix_album_pipeline.sql
+            console.log(
+                `APPEND ALBUM PHOTO ERROR grp=${groupId} message_id=${msg.message_id} file_id=${ownFileId}:`,
+                rpcError
+            );
+        } else {
+            console.log(`ALBUM PHOTO REGISTERED grp=${groupId} message_id=${msg.message_id} file_id=${ownFileId}`);
         }
     }
 
@@ -1429,10 +1404,19 @@ async function handleAlbumMessage(msg) {
             const videoUrl = await uploadVideo(videoInfo.fileId);
 
             if (videoUrl) {
-                await supabase
+                // upsert, а не update: если строки группы ещё нет (видео
+                // прилетело раньше всех фото), update молча затронул бы 0
+                // строк и видео терялось
+                const { error: videoSaveError } = await supabase
                     .from("bot_pending_albums")
-                    .update({ video: videoUrl, updated_at: new Date().toISOString() })
-                    .eq("media_group_id", groupId);
+                    .upsert(
+                        { media_group_id: groupId, video: videoUrl, updated_at: new Date().toISOString() },
+                        { onConflict: "media_group_id" }
+                    );
+
+                if (videoSaveError) {
+                    console.log("SAVE ALBUM VIDEO ERROR:", videoSaveError);
+                }
             }
         }
     }
@@ -1449,14 +1433,23 @@ async function handleAlbumMessage(msg) {
     // и данные о сообщении — объект создаст отдельная задача по
     // расписанию (api/finalize-albums.js, дёргается Vercel Cron), когда
     // увидит, что в группу какое-то время не добавлялись новые фото.
+    // upsert, а не update: сообщение с подписью может быть обработано
+    // РАНЬШЕ, чем зарегистрировано любое фото группы (параллельные вызовы
+    // функции не упорядочены). Тогда update затронул бы 0 строк, подпись
+    // терялась навсегда, и альбом никогда не публиковался. Строка группы
+    // создаётся/дополняется атомарно; photo_file_ids upsert не трогает.
     const { error: saveError, data: saveData } = await supabase
         .from("bot_pending_albums")
-        .update({
-            chat_id: msg.chat.id,
-            message_id: msg.message_id,
-            caption: text
-        })
-        .eq("media_group_id", groupId)
+        .upsert(
+            {
+                media_group_id: groupId,
+                chat_id: msg.chat.id,
+                message_id: msg.message_id,
+                caption: text,
+                updated_at: new Date().toISOString()
+            },
+            { onConflict: "media_group_id" }
+        )
         .select("media_group_id");
 
     if (saveError) {

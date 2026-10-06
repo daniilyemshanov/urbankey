@@ -37,6 +37,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { runListingAiChain, isGeminiConfigured } from "./aiProviders.js";
+import { processAlbumPhotos } from "./_telegramPhotos.js";
 
 
 // Чистая логика разбора поста и перевода — без Telegram/Supabase.
@@ -1109,7 +1110,9 @@ async function createDraftPage(table, linkIdField, cardId, parsed, images, video
 }
 
 
-async function processPost(mainMsg, images, videoUrl) {
+// photoReport (необязательно, только для альбомов): { total, okCount } —
+// если часть фото не загрузилась, это попадёт в ответ в канал.
+async function processPost(mainMsg, images, videoUrl, photoReport) {
 
     const image = images[0] || "";
     const hasVideo = Boolean(videoUrl);
@@ -1199,6 +1202,10 @@ async function processPost(mainMsg, images, videoUrl) {
         ? "\n📝 Черновик страницы объекта создан — откройте её в админке и дозаполните описание/удобства при необходимости."
         : "\n⚠️ Карточка создана, но черновик страницы объекта создать не удалось — заведите её вручную.";
 
+    if (photoReport && photoReport.okCount < photoReport.total) {
+        statusLine += `\n⚠️ Загружено фото: ${photoReport.okCount} из ${photoReport.total}. Недостающие добавьте вручную в админке (причины — в логах функции).`;
+    }
+
     await replyToChannel(mainMsg, statusLine);
 }
 
@@ -1208,6 +1215,15 @@ async function processPost(mainMsg, images, videoUrl) {
 // добавленного фото прошло не меньше 10 секунд — то есть все фото
 // альбома точно успели долететь и загрузиться.
 const SETTLE_SECONDS = 10;
+
+// Бюджет времени одного запуска (maxDuration функции — 60 с, см.
+// vercel.json). Новый альбом берём в работу только пока прошло не больше
+// START_NEW_ALBUM_BEFORE_MS; на скачивание/загрузку фото выделяем
+// PHOTO_DEADLINE_MS от начала запуска — остаток нужен на разбор текста
+// (ИИ/перевод) и запись в БД. Не успевшие альбомы остаются в очереди и
+// подхватываются следующим запуском cron (через минуту).
+const START_NEW_ALBUM_BEFORE_MS = 25_000;
+const PHOTO_DEADLINE_MS = 40_000;
 
 export default async function handler(req, res) {
 
@@ -1247,6 +1263,8 @@ export default async function handler(req, res) {
         }
 
         let processedCount = 0;
+        const startedAt = Date.now();
+        const botToken = process.env.PARSER_BOT_TOKEN;
 
         // Бесплатный тир Gemini обычно даёт ~10-15 запросов/мин для
         // Flash-моделей. Обычно посты прилетают по одному, но здесь за
@@ -1259,6 +1277,11 @@ export default async function handler(req, res) {
 
         for (const row of candidates) {
 
+            if (Date.now() - startedAt > START_NEW_ALBUM_BEFORE_MS) {
+                console.log("FINALIZE: time budget reached, remaining albums go to the next run");
+                break;
+            }
+
             if (throttleAiCalls && processedCount > 0) {
                 await sleep(400);
             }
@@ -1266,13 +1289,20 @@ export default async function handler(req, res) {
             // атомарно "забираем" группу — если её уже кто-то забрал
             // (например, два последовательных запуска cron наложились
             // друг на друга), просто пропускаем
-            const { data: claimed } = await supabase
+            const { data: claimed, error: claimError } = await supabase
                 .from("bot_pending_albums")
                 .update({ processed: true })
                 .eq("media_group_id", row.media_group_id)
                 .eq("processed", false)
-                .select("images")
+                .select("images, photo_file_ids")
                 .maybeSingle();
+
+            if (claimError) {
+                // не маскируем: "column photo_file_ids does not exist" значит,
+                // что не выполнена миграция sql/fix_album_pipeline.sql
+                console.log("FINALIZE CLAIM ERROR:", row.media_group_id, claimError);
+                continue;
+            }
 
             if (!claimed) continue;
 
@@ -1285,8 +1315,53 @@ export default async function handler(req, res) {
                 caption: row.caption
             };
 
+            // 1) Скачиваем и грузим ВСЕ фото альбома — не больше
+            //    PHOTO_CONCURRENCY (4) одновременно. Результат собирается
+            //    в локальный массив по индексам: ни один параллельный
+            //    воркер не пишет в БД и не меняет общий images[].
+            let photos;
+
             try {
-                await processPost(syntheticMsg, claimed.images || [], row.video || "");
+                photos = await processAlbumPhotos({
+                    supabase,
+                    botToken,
+                    entries: claimed.photo_file_ids,
+                    groupId: row.media_group_id,
+                    deadline: startedAt + PHOTO_DEADLINE_MS
+                });
+            } catch (e) {
+                // сюда попадаем только при неожиданной ошибке самого
+                // конвейера (ошибки отдельных фото он обрабатывает
+                // внутри). Объект ещё не создан — безопасно вернуть
+                // альбом в очередь, чтобы следующий запуск попробовал снова.
+                console.log("FINALIZE PHOTOS PIPELINE ERROR:", row.media_group_id, e);
+                await supabase
+                    .from("bot_pending_albums")
+                    .update({ processed: false })
+                    .eq("media_group_id", row.media_group_id);
+                continue;
+            }
+
+            // фото, уже лежащие в images (строки, созданные прежней версией
+            // webhook во время выката), сохраняем и добавляем к новым
+            const legacyImages = Array.isArray(claimed.images) ? claimed.images.filter(Boolean) : [];
+            const allImages = [...new Set([...legacyImages, ...photos.urls])];
+
+            console.log(
+                `FINALIZE grp=${row.media_group_id}: images=${allImages.length} ` +
+                `(registered=${photos.total}, uploaded=${photos.okCount}, failed=${photos.failures.length}, legacy=${legacyImages.length})`
+            );
+
+            // 2) ОДИН INSERT карточки и ОДИН INSERT страницы объекта — со
+            //    всем собранным массивом images. Никаких поштучных
+            //    UPDATE/UPSERT на каждое фото.
+            try {
+                await processPost(
+                    syntheticMsg,
+                    allImages,
+                    row.video || "",
+                    { total: photos.total + legacyImages.length, okCount: allImages.length }
+                );
                 processedCount++;
             } catch (e) {
                 console.log("FINALIZE PROCESS POST ERROR:", row.media_group_id, e);
