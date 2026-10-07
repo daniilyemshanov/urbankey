@@ -315,10 +315,7 @@ const Property = ({ data }) => {
 
 
                             </div>
-                            <div className={s.card}>
-                                <h4>{t("year")}</h4>
-                                <h3>{data.year || "—"}</h3>
-                            </div>
+                          
 
 
                             <div className={s.card}>
