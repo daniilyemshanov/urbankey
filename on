@@ -1,0 +1,18 @@
+warning: in the working copy of 'vercel.json', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/vercel.json b/vercel.json[m
+[1mindex 9d8f62c..59e06c8 100644[m
+[1m--- a/vercel.json[m
+[1m+++ b/vercel.json[m
+[36m@@ -77,9 +77,9 @@[m
+                 },[m
+                 {[m
+                     "key": "Content-Security-Policy",[m
+[31m-                    "value": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data:; frame-src https://challenges.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"[m
+[32m+[m[32m                    "value": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data:; frame-src https://challenges.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"[m
+                 }[m
+             ][m
+         }[m
+     ][m
+[31m-}[m
+[32m+[m[32m}[m
+\ No newline at end of file[m
