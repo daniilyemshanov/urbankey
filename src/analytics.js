@@ -1,5 +1,4 @@
-@'
-const GA_ID = 'G-GWK8BLPSFB';
+﻿const GA_ID = 'G-GWK8BLPSFB';
 
 if (typeof window !== 'undefined' && !window.gtag) {
   window.dataLayer = window.dataLayer || [];
@@ -16,4 +15,3 @@ if (typeof window !== 'undefined' && !window.gtag) {
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
   document.head.appendChild(script);
 }
-'@ | Set-Content -Encoding utf8 .\src\analytics.js
