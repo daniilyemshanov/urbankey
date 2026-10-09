@@ -1017,5 +1017,13 @@
   "aiSearchBar": {
     "placeholder": "Describe what you're looking for: \"2-bedroom under $60k in Yunusabad\"",
     "button": "Search"
-  }
+  },
+  "partnersEyebrow": "TRUSTED PARTNERS",
+  "partnersTitleStart": "Our",
+  "partnersTitleAccent": "Partners",
+  "partnersDescription": "We work with Tashkent's leading developers to bring you verified new-build projects and the best terms.",
+  "partnersDeveloper": "Developer",
+  "partnersProjects": "Projects",
+  "partnersImageAlt": "{{name}} — developer projects",
+  "partnersFooter": "Built on trust. Driven by quality."
 }

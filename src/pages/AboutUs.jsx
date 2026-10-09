@@ -6,6 +6,7 @@ import Achievements from '../components/Achievements'
 import Footer from '../components/Footer'
 import Seo from '../components/Seo'
 import { useTranslation } from 'react-i18next'
+import Partners from '../components/Partners'
 
 const AboutUs = () => {
   const { t } = useTranslation();
@@ -16,6 +17,7 @@ const AboutUs = () => {
       <Value />
       <Achievements />
       <Navigating />
+      <Partners />
       <Realtor />
       <Footer />
     </>

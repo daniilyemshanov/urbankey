@@ -1017,5 +1017,13 @@
   "aiSearchBar": {
     "placeholder": "Опишите, что ищете: «2-комнатная до $60k в Юнусабаде»",
     "button": "Найти"
-  }
+  },
+  "partnersEyebrow": "НАДЁЖНЫЕ ПАРТНЁРЫ",
+  "partnersTitleStart": "Наши",
+  "partnersTitleAccent": "партнёры",
+  "partnersDescription": "Мы сотрудничаем с ведущими застройщиками Ташкента, чтобы предлагать вам проверенные новостройки и лучшие условия.",
+  "partnersDeveloper": "Застройщик",
+  "partnersProjects": "Проекты",
+  "partnersImageAlt": "{{name}} — проекты застройщика",
+  "partnersFooter": "Основано на доверии. Движимы качеством."
 }

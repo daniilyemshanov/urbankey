@@ -1091,5 +1091,13 @@
   "aiSearchBar": {
     "placeholder": "Nima izlayotganingizni yozing: «Yunusobodda $60k gacha 2 xonali»",
     "button": "Qidirish"
-  }
+  },
+  "partnersEyebrow": "ISHONCHLI HAMKORLAR",
+  "partnersTitleStart": "Bizning",
+  "partnersTitleAccent": "hamkorlarimiz",
+  "partnersDescription": "Biz Toshkentning yetakchi quruvchilari bilan hamkorlik qilamiz va sizga ishonchli yangi binolar hamda eng yaxshi shartlarni taklif etamiz.",
+  "partnersDeveloper": "Quruvchi",
+  "partnersProjects": "Loyihalar",
+  "partnersImageAlt": "{{name}} — quruvchi loyihalari",
+  "partnersFooter": "Ishonchga asoslangan. Sifatga intilamiz."
 }
