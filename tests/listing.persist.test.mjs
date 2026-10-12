@@ -19,6 +19,7 @@ import {
     omitEmpty,
 } from "../api/_listingDb.js";
 import { formatFloor, residentialFloorSlot } from "../src/utils/floor.js";
+import { roomsLabel } from "../src/utils/rooms.js";
 
 const realFetch = globalThis.fetch;
 const realLog = console.log;
@@ -304,9 +305,16 @@ test("утилиты этажа для карточек", () => {
     assert.equal(formatFloor("abc", 9, "ru"), "");
 
     assert.deepEqual(residentialFloorSlot({ floor: 5, totalFloors: 9 }, "ru"), { kind: "floor", label: "5/9 этаж" });
-    assert.deepEqual(residentialFloorSlot({ bathrooms: { ru: "2 ванные", en: "2 bathrooms" } }, "ru"), { kind: "bath", label: "2 ванные" });
-    assert.deepEqual(residentialFloorSlot({ bathrooms: { ru: "2 ванные", en: "2 bathrooms" } }, "en"), { kind: "bath", label: "2 bathrooms" });
-    assert.deepEqual(residentialFloorSlot({}, "ru"), { kind: "empty", label: "—" });
-    // этаж важнее санузлов
+    // ванн в карточках больше нет: нет этажа — пункт пустой и не рисуется
+    assert.deepEqual(residentialFloorSlot({ bathrooms: { ru: "2 ванные", en: "2 bathrooms" } }, "ru"), { kind: "empty", label: "" });
+    assert.deepEqual(residentialFloorSlot({}, "ru"), { kind: "empty", label: "" });
+    // этаж берётся из текста описания, если колонок нет
+    assert.deepEqual(residentialFloorSlot({ description: { ru: "Квартира. Этаж 5 из 9." } }, "ru"), { kind: "floor", label: "5/9 этаж" });
     assert.equal(residentialFloorSlot({ floor: 3, bathrooms: { ru: "1 ванная" } }, "ru").kind, "floor");
+    // комнаты вместо спален
+    assert.equal(roomsLabel("2 спальни", "ru"), "2 комнаты");
+    assert.equal(roomsLabel("5 спален", "ru"), "5 комнат");
+    assert.equal(roomsLabel("1 спальня", "ru"), "1 комната");
+    assert.equal(roomsLabel("3 bedrooms", "en"), "3 rooms");
+    assert.equal(roomsLabel("4 ta yotoqxona", "uz"), "4 ta xona");
 });

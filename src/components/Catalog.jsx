@@ -3,9 +3,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { MapPin, Ruler, BedDouble, Bath, SlidersHorizontal, X, Trash2 } from "lucide-react";
+import { MapPin, Ruler, BedDouble, SlidersHorizontal, X, Trash2 } from "lucide-react";
 import FloorIcon from "./FloorIcon";
-import { formatFloor } from "../utils/floor";
+import { residentialFloorLabel } from "../utils/floor";
+import { itemRoomsLabel } from "../utils/rooms";
 
 import { MyContext } from "../Context";
 import { localizedPath } from "../utils/lang";
@@ -139,10 +140,9 @@ const Catalog = () => {
             price: item.price,
             typeLabel: item.type?.[lang] || item.type?.ru || "",
             isRent: item.is_rent === true,
-            bedroomsLabel: item.bedrooms?.[lang] || item.bedrooms?.ru || "",
+            bedroomsLabel: itemRoomsLabel(item, lang),
             bedroomsValue: parseFirstNumber(item.bedrooms?.ru),
-            bathroomsLabel: item.bathrooms?.[lang] || item.bathrooms?.ru || "",
-            floorLabel: formatFloor(item.floor, item.totalFloors, lang),
+            floorLabel: residentialFloorLabel(item, lang),
             link: localizedPath(`/property/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
             raw: item
@@ -706,15 +706,10 @@ const Catalog = () => {
                                                 </span>
                                             )}
 
-                                            {item.floorLabel ? (
+                                            {item.floorLabel && (
                                                 <span>
                                                     <FloorIcon size={15} />
                                                     {item.floorLabel}
-                                                </span>
-                                            ) : item.bathroomsLabel && (
-                                                <span>
-                                                    <Bath size={15} />
-                                                    {item.bathroomsLabel}
                                                 </span>
                                             )}
 

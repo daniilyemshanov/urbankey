@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Bath } from "lucide-react";
 import FloorIcon from "./FloorIcon";
 import { residentialFloorSlot } from "../utils/floor";
+import { itemRoomsLabel } from "../utils/rooms";
 import s from './Featured.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
@@ -166,18 +166,16 @@ const Feautured = () => {
                                         alt=""
                                     />
 
-                                    {item.bedrooms?.[i18n.language] || "—"}
+                                    {itemRoomsLabel(item, i18n.language) || "—"}
 
                                 </span>
 
-                                <span>
-                                    {residentialFloorSlot(item, i18n.language).kind === "bath"
-                                        ? <Bath size={22} stroke="#FFFFFF" strokeWidth={2} />
-                                        : <FloorIcon size={22} stroke="#FFFFFF" />}
-
-                                    {residentialFloorSlot(item, i18n.language).label}
-
-                                </span>
+                                {residentialFloorSlot(item, i18n.language).label && (
+                                    <span>
+                                        <FloorIcon size={22} stroke="#FFFFFF" />
+                                        {residentialFloorSlot(item, i18n.language).label}
+                                    </span>
+                                )}
 
                                 <span>
 

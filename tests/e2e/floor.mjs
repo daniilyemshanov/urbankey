@@ -39,11 +39,11 @@ ok("owner_phone по-прежнему не раскрывается", !("owner_p
 const item = { floor: card.floor ?? null, totalFloors: card.total_floors ?? null, bathrooms: { ru: card.bathrooms_ru } };
 ok("карточка: значок этажа и подпись «5/9 этаж»", JSON.stringify(residentialFloorSlot(item, "ru")) === JSON.stringify({ kind: "floor", label: "5/9 этаж" }));
 
-// существующие карточки (без этажа) продолжают показывать санузлы или прочерк
+// существующие карточки (без этажа) продолжают работать (без этажа пункт не рисуется)
 const { data: all } = await anon.from("cardss_public").select("*").order("id");
 const old = all.find((c) => c.floor == null && c.bathrooms_ru);
 ok("старые карточки без этажа не ломаются (floor = null)", all.some((c) => c.floor == null));
-if (old) ok("старая карточка с санузлами: слот «ванна»", residentialFloorSlot({ floor: old.floor, totalFloors: old.total_floors, bathrooms: { ru: old.bathrooms_ru } }, "ru").kind === "bath");
+if (old) ok("старая карточка без этажа: пункт этажа пустой, ванны нет", residentialFloorSlot({ floor: old.floor, totalFloors: old.total_floors, bathrooms: { ru: old.bathrooms_ru } }, "ru").kind === "empty");
 
 console.log(fail ? `\n${fail} FAILED` : "\nВСЕ ПРОВЕРКИ ЭТАЖА ПРОЙДЕНЫ");
 process.exit(fail ? 1 : 0);

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Bath } from "lucide-react";
 import FloorIcon from "./FloorIcon";
 import { residentialFloorSlot } from "../utils/floor";
+import { itemRoomsLabel } from "../utils/rooms";
 import s from './Featured.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
@@ -24,8 +24,6 @@ const BedIcon = () => (
         <path d="M9.90246 0C11.8472 0 13.7912 0 15.7351 0C16.3862 0 16.9949 0.143411 17.52 0.539535C18.1956 1.04884 18.59 1.71938 18.6231 2.56124C18.6514 3.27519 18.6388 3.9907 18.642 4.70543C18.6444 5.16589 18.642 5.62636 18.642 6.08682C18.642 6.12791 18.6396 6.17132 18.6286 6.21085C18.5948 6.33566 18.5263 6.38527 18.3971 6.36124C18.2562 6.33488 18.12 6.27829 17.979 6.26279C17.6476 6.22713 17.3153 6.20233 16.9823 6.18527C16.7602 6.17364 16.6917 6.13411 16.6602 5.91938C16.5595 5.23876 15.9194 4.62636 15.1005 4.63566C14.1872 4.64574 13.2739 4.63798 12.3613 4.63798C11.6819 4.63798 11.1016 5.03643 10.8709 5.66434C10.8378 5.75426 10.8252 5.85194 10.8079 5.94651C10.7756 6.11628 10.7119 6.17984 10.5402 6.18217C10.1804 6.18605 9.81979 6.18605 9.45997 6.18217C9.29463 6.18062 9.22928 6.11628 9.19936 5.92791C9.15763 5.66357 9.0537 5.42791 8.88364 5.22093C8.57579 4.84574 8.17739 4.64186 7.68609 4.63953C6.74363 4.63488 5.80118 4.63721 4.85794 4.63876C4.06587 4.63953 3.44623 5.24884 3.34545 5.91783C3.31317 6.13411 3.24782 6.17209 3.02579 6.18605C2.6581 6.21008 2.29041 6.24419 1.92351 6.28295C1.81092 6.29457 1.70305 6.34264 1.59125 6.36124C1.47078 6.38062 1.41488 6.34031 1.38103 6.22403C1.36764 6.17829 1.36134 6.12946 1.36134 6.0814C1.36055 4.97674 1.3456 3.87209 1.36449 2.76744C1.38418 1.61163 1.92666 0.762016 2.988 0.248062C3.40844 0.0457364 3.86431 0 4.3257 0C6.18462 0 8.04354 0 9.90246 0Z" fill="currentColor" />
     </svg>
 );
-
-const BathIcon = () => <Bath size={15} />;
 
 const TypeIcon = () => (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -125,11 +123,13 @@ const Feautured = ({ excludeId } = {}) => {
                         const title = item.title?.[i18n.language];
 
                         const slot = residentialFloorSlot(item, i18n.language);
+                        const rooms = itemRoomsLabel(item, i18n.language);
+                        const typeLabel = item.type?.[i18n.language] || item.type?.ru;
                         const meta = [
-                            { icon: <BedIcon />, label: item.bedrooms?.[i18n.language] || "—" },
-                            { icon: slot.kind === "bath" ? <BathIcon /> : <FloorIcon size={15} />, label: slot.label },
-                            { icon: <TypeIcon />, label: item.type?.[i18n.language] || "—" }
-                        ];
+                            rooms && { icon: <BedIcon />, label: rooms },
+                            slot.label && { icon: <FloorIcon size={15} />, label: slot.label },
+                            typeLabel && { icon: <TypeIcon />, label: typeLabel }
+                        ].filter(Boolean);
 
                         return (
 

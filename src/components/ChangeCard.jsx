@@ -86,7 +86,6 @@ const ChangeCard = () => {
       image: data.image,
 
       bedroomIcon: "/BACKGROUND_2.svg",
-      bathroomIcon: "/Icon.svg",
       typeIcon: "/Icon (1).svg",
 
       bedrooms: {

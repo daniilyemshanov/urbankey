@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { useTranslation } from "react-i18next"
 import { useCurrency } from "../context/CurrencyContext"
 import { formatPriceIn } from "../utils/currency"
+import { roomsLabel } from "../utils/rooms"
 
 import { Swiper, SwiperSlide } from "swiper/react"
 import { Navigation, Pagination, Autoplay } from "swiper/modules"
@@ -240,7 +241,7 @@ const Property = ({ data }) => {
 
 
                         <h2>
-                            {data.bedrooms} {t("bedroomsShort")}
+                            {roomsLabel(data.bedrooms, i18n.language)}
                         </h2>
 
 
@@ -284,7 +285,7 @@ const Property = ({ data }) => {
 
                                 <h3>
 
-                                    {data.bedrooms}
+                                    {roomsLabel(data.bedrooms, i18n.language)}
 
                                 </h3>
 

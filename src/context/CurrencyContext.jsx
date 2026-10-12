@@ -40,10 +40,21 @@ export const CurrencyProvider = ({ children }) => {
         localStorage.setItem("currency", currency);
     }, [currency]);
 
-    // Курс читается из нашей базы один раз за загрузку сайта. К ЦБ браузер
-    // не обращается: курс обновляет серверный cron (api/update-exchange-rate).
+    // Курс: сначала наша база (Supabase, exchange_rates), а если там пусто или
+    // база недоступна — серверный эндпоинт /api/exchange-rate (официальный курс
+    // ЦБ). Без этого запасного пути при незаполненной таблице курса нет, и
+    // кнопка смены валюты ничего не пересчитывает. К ЦБ браузер напрямую не
+    // ходит (CSP), только через наш сервер.
     useEffect(() => {
         let cancelled = false;
+
+        const apply = (record) => {
+            const fresh = normalizeRateRecord(record);
+            if (!fresh || cancelled) return false;
+            setRateRecord(fresh);
+            writeCachedRate(fresh);
+            return true;
+        };
 
         (async () => {
             try {
@@ -53,13 +64,14 @@ export const CurrencyProvider = ({ children }) => {
                     .eq("pair", "USD_UZS")
                     .maybeSingle();
 
-                if (cancelled || error) return;
+                if (!error && apply(data)) return;
+            } catch {
+                // идём к запасному источнику
+            }
 
-                const fresh = normalizeRateRecord(data);
-                if (!fresh) return;
-
-                setRateRecord(fresh);
-                writeCachedRate(fresh);
+            try {
+                const res = await fetch("/api/exchange-rate");
+                if (res.ok) apply(await res.json());
             } catch {
                 // оставляем последний известный курс (из кэша), если он есть
             }
