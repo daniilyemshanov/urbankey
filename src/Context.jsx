@@ -69,6 +69,13 @@ const deleteImagesFromStorage = async (urls) => {
 };
 
 
+// id объекта в URL — положительное целое. "abc", "-1", "1e3" — заведомо
+// несуществующий объект (не отправляем такой запрос в базу вообще).
+const parseListingId = (raw) => {
+    const str = String(raw ?? "");
+    return /^[1-9]\d{0,14}$/.test(str) ? Number(str) : null;
+};
+
 export const MyProvider = ({ children }) => {
 
     const { t } = useTranslation();
@@ -85,6 +92,17 @@ export const MyProvider = ({ children }) => {
     const [cardId, setCardId] = useState(null);
 
     const [villa, setVilla] = useState(null);
+
+    // Состояние загрузки detail-страниц: "idle" | "loading" | "ready" |
+    // "notfound" | "error". Нужно, чтобы страница отличала "ещё грузим"
+    // от "объекта нет" и не показывала данные предыдущего объекта.
+    const [villaStatus, setVillaStatus] = useState("idle");
+    const [commercialStatus, setCommercialStatus] = useState("idle");
+
+    // Счётчики запросов: ответ устаревшего запроса (пользователь уже
+    // перешёл на другой объект) игнорируется.
+    const villaRequest = useRef(0);
+    const commercialRequest = useRef(0);
 
 
     const [commercials, setCommercials] = useState([]);
@@ -237,6 +255,9 @@ export const MyProvider = ({ children }) => {
                 image: item.image,
 
                 price: item.price,
+                // этаж жилья (опциональные колонки cardss_public; пусто, если их нет)
+                floor: item.floor ?? null,
+                totalFloors: item.total_floors ?? null,
 
                 link: item.link,
 
@@ -337,6 +358,9 @@ export const MyProvider = ({ children }) => {
                 image: item.image,
 
                 price: item.price,
+                // этаж жилья (опциональные колонки cardss_public; пусто, если их нет)
+                floor: item.floor ?? null,
+                totalFloors: item.total_floors ?? null,
 
                 link: item.link,
 
@@ -897,26 +921,36 @@ export const MyProvider = ({ children }) => {
 
     const getCommercialById = async (id) => {
 
+        const requestId = ++commercialRequest.current;
 
         setCommercialPage(null);
+        setCommercialStatus("loading");
+
+        const commercialId = parseListingId(id);
+
+        if (commercialId === null) {
+            setCommercialStatus("notfound");
+            return;
+        }
 
         const { data, error } = await supabase
             .from("commercial_pages")
             .select("*")
-            .eq("commercial_id", id)
+            .eq("commercial_id", commercialId)
             .maybeSingle();
 
+        if (requestId !== commercialRequest.current) return;
 
         if (error) {
             console.error(error);
+            setCommercialStatus("error");
             return;
         }
 
         if (!data) {
-            await getCommercial(id);
+            await getCommercial(commercialId, requestId);
             return;
         }
-
 
         setCommercialPage({
 
@@ -979,20 +1013,31 @@ export const MyProvider = ({ children }) => {
             images: data.images || [],
             amenities: data.amenities || []
 
-        })
+        });
 
+        setCommercialStatus("ready");
 
     }
 
-    const getCommercial = async (id) => {
+    // Упрощённая страница коммерции из commercials_public (когда у объекта
+    // нет строки commercial_pages). requestId передаётся из getCommercialById,
+    // чтобы не плодить второй счётчик запросов.
+    const getCommercial = async (id, requestId = ++commercialRequest.current) => {
+
+        const commercialId = parseListingId(id);
+
+        if (commercialId === null) {
+            if (requestId === commercialRequest.current) setCommercialStatus("notfound");
+            return;
+        }
 
         try {
 
             let { data, error } = await supabase
                 .from("commercials_public")
                 .select("*")
-                .eq("id", id)
-                .single();
+                .eq("id", commercialId)
+                .maybeSingle();
 
 
             if (error && isMissingRelation(error)) {
@@ -1000,18 +1045,27 @@ export const MyProvider = ({ children }) => {
                 ({ data, error } = await supabase
                     .from("commercials")
                     .select(COMMERCIAL_PUBLIC_COLUMNS)
-                    .eq("id", id)
-                    .single());
+                    .eq("id", commercialId)
+                    .maybeSingle());
 
             }
 
 
+            if (requestId !== commercialRequest.current) return;
+
             if (error) throw error;
+
+            if (!data) {
+                setCommercialStatus("notfound");
+                return;
+            }
 
 
             setCommercialPage({
 
                 id: data.id,
+
+                commercial_id: commercialId,
 
                 title: {
                     ru: data.title_ru,
@@ -1053,14 +1107,15 @@ export const MyProvider = ({ children }) => {
 
             });
 
+            setCommercialStatus("ready");
 
         } catch (err) {
 
+            if (requestId !== commercialRequest.current) return;
+
             console.error(err);
 
-            toast.error(
-                t("commercialNotFound")
-            );
+            setCommercialStatus("error");
 
         }
 
@@ -1753,13 +1808,25 @@ export const MyProvider = ({ children }) => {
 
     const getVilla = async (id) => {
 
+        const requestId = ++villaRequest.current;
+
+        // Не показываем данные предыдущего объекта, пока грузится новый.
+        setVilla(null);
+        setVillaStatus("loading");
+
+        const cardId = parseListingId(id);
+
+        if (cardId === null) {
+            setVillaStatus("notfound");
+            return;
+        }
 
         try {
 
             const { data, error } = await supabase
                 .from("villas")
                 .select("*")
-                .eq("card_id", Number(id))
+                .eq("card_id", cardId)
                 .order("id", {
                     ascending: false
                 })
@@ -1767,14 +1834,17 @@ export const MyProvider = ({ children }) => {
                 .maybeSingle();
 
 
+            if (requestId !== villaRequest.current) return;
+
             if (error) throw error;
 
 
+            // Строки страницы нет — такого объекта нет.
+            // is_draft на видимость не влияет: объявления из Telegram
+            // публикуются сразу, как и раньше.
             if (!data) {
 
-                toast.error(
-                    t("villaNotFound")
-                );
+                setVillaStatus("notfound");
 
                 return;
 
@@ -1785,6 +1855,8 @@ export const MyProvider = ({ children }) => {
 
 
                 id: data.id,
+
+                card_id: cardId,
 
 
                 title: {
@@ -1852,11 +1924,17 @@ export const MyProvider = ({ children }) => {
 
             });
 
+            setVillaStatus("ready");
+
 
         } catch (err) {
 
 
+            if (requestId !== villaRequest.current) return;
+
             console.error(err);
+
+            setVillaStatus("error");
 
         }
 
@@ -2720,6 +2798,7 @@ export const MyProvider = ({ children }) => {
 
             villa,
 
+            villaStatus,
 
             setVilla,
 
@@ -2757,6 +2836,7 @@ export const MyProvider = ({ children }) => {
             createCommercial,
 
             commercialPage,
+            commercialStatus,
             setCommercialPage,
             getCommercialPage,
             getCommercial,

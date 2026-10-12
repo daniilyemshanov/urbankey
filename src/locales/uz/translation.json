@@ -272,6 +272,7 @@
   "getTitle": "Urban Key bilan bog‘laning",
   "getDescription": "Urban Key aloqa sahifasiga xush kelibsiz. Biz sizning barcha savollaringiz, takliflaringiz va murojaatlaringizga yordam berishga tayyormiz. Uy sotib olish, sotish yoki investitsiya imkoniyatlarini ko‘rib chiqish uchun biz bilan bog‘laning.",
   "rights": "@2026 Urban Key. Barcha huquqlar himoyalangan.",
+  "exchangeRateNote": "MB kursi: 1 USD = {{rate}} so'm ({{date}} holatiga)",
   "terms": "Foydalanish shartlari",
   "happenTitle": "Keling, buni amalga oshiraylik",
   "happenDescription": "Orzuingizdagi uy sari birinchi qadamni tashlashga tayyormisiz? Formani to‘ldiring va mutaxassislarimiz sizga eng yaxshi variantni topishga yordam beradi.",

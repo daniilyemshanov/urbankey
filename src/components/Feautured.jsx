@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom'
+import { Bath } from "lucide-react";
+import FloorIcon from "./FloorIcon";
+import { residentialFloorSlot } from "../utils/floor";
 import s from './Featured.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
@@ -22,18 +25,7 @@ const BedIcon = () => (
     </svg>
 );
 
-const BathIcon = () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 22h16" />
-        <path d="M7 22V4h10v18" />
-        <path d="M10 8h1" />
-        <path d="M13 8h1" />
-        <path d="M10 12h1" />
-        <path d="M13 12h1" />
-        <path d="M10 16h1" />
-        <path d="M13 16h1" />
-    </svg>
-);
+const BathIcon = () => <Bath size={15} />;
 
 const TypeIcon = () => (
     <svg width="15" height="15" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -55,7 +47,7 @@ const Feautured = ({ excludeId } = {}) => {
     }, []);
 
     const { t, i18n } = useTranslation();
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
     const isAdmin = profile?.role === "admin";
 
     return (
@@ -132,9 +124,10 @@ const Feautured = ({ excludeId } = {}) => {
 
                         const title = item.title?.[i18n.language];
 
+                        const slot = residentialFloorSlot(item, i18n.language);
                         const meta = [
                             { icon: <BedIcon />, label: item.bedrooms?.[i18n.language] || "—" },
-                            { icon: <BathIcon />, label: item.bathrooms?.[i18n.language] || "—" },
+                            { icon: slot.kind === "bath" ? <BathIcon /> : <FloorIcon size={15} />, label: slot.label },
                             { icon: <TypeIcon />, label: item.type?.[i18n.language] || "—" }
                         ];
 
@@ -157,7 +150,7 @@ const Feautured = ({ excludeId } = {}) => {
                                     title={title}
                                     meta={meta}
                                     description={item.description?.[i18n.language]}
-                                    price={formatPriceIn(item.price, currency)}
+                                    price={formatPriceIn(item.price, currency, rate)}
                                     detailsLink={localizedPath(`/property/${item.id}`, i18n.language)}
                                     detailsLabel={t("viewProperty")}
                                     isAdmin={isAdmin}

@@ -11,6 +11,8 @@ import { useParams } from "react-router-dom";
 import { useContext, useEffect } from "react";
 import { MyContext } from "../Context";
 import { useTranslation } from "react-i18next";
+import Error from "./Error";
+import DetailLoading from "../components/DetailLoading";
 
 
 const PropertyPage = () => {
@@ -22,9 +24,9 @@ const PropertyPage = () => {
 
     const {
         getVilla,
-        villa
+        villa,
+        villaStatus
     } = useContext(MyContext);
-
 
 
     useEffect(() => {
@@ -34,9 +36,14 @@ const PropertyPage = () => {
     }, [id]);
 
 
+    // Объект не найден / ошибка загрузки — нормальная страница 404 (noindex).
+    if (villaStatus === "notfound" || villaStatus === "error") return <Error />;
 
-
-    if (!villa) return null;
+    // Пока грузится — и пока в состоянии лежит ДРУГОЙ объект
+    // (первый рендер после смены id) — показываем загрузку.
+    if (villaStatus !== "ready" || !villa || String(villa.card_id) !== String(id)) {
+        return <DetailLoading />;
+    }
 
     const seoTitle = villa.title?.[i18n.language] || villa.title?.ru;
     const seoDesc = villa.about?.[i18n.language] || villa.about?.ru;

@@ -3,27 +3,19 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { MapPin, Building2, Ruler, BedDouble, Bath, SlidersHorizontal, X, Trash2 } from "lucide-react";
+import { MapPin, Ruler, BedDouble, Bath, SlidersHorizontal, X, Trash2 } from "lucide-react";
+import FloorIcon from "./FloorIcon";
+import { formatFloor } from "../utils/floor";
 
 import { MyContext } from "../Context";
 import { localizedPath } from "../utils/lang";
 import { useCurrency } from "../context/CurrencyContext";
-import { formatPriceIn } from "../utils/currency";
+import { formatPriceIn, priceInCurrency, usdToCurrency } from "../utils/currency";
 import { fuzzyScore, highlightSegments } from "../utils/search";
 import { aiSearchCatalog } from "../utils/aiSearch";
 import FavoriteButton from "./FavoriteButton";
 import { SkeletonGrid } from "./SkeletonCard";
 import s from "./Catalog.module.css";
-
-
-const parsePriceValue = (price) => {
-
-    if (!price) return null;
-
-    const digits = String(price).replace(/[^\d]/g, "");
-
-    return digits ? Number(digits) : null;
-};
 
 
 const parseFirstNumber = (str) => {
@@ -92,7 +84,7 @@ const Catalog = () => {
 
     };
 
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
     const lang = i18n.language;
 
     const [loading, setLoading] = useState(true);
@@ -145,12 +137,12 @@ const Catalog = () => {
             description: item.description?.[lang] || item.description?.ru || "",
             image: item.image,
             price: item.price,
-            priceValue: parsePriceValue(item.price),
             typeLabel: item.type?.[lang] || item.type?.ru || "",
             isRent: item.is_rent === true,
             bedroomsLabel: item.bedrooms?.[lang] || item.bedrooms?.ru || "",
             bedroomsValue: parseFirstNumber(item.bedrooms?.ru),
             bathroomsLabel: item.bathrooms?.[lang] || item.bathrooms?.ru || "",
+            floorLabel: formatFloor(item.floor, item.totalFloors, lang),
             link: localizedPath(`/property/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
             raw: item
@@ -163,7 +155,6 @@ const Catalog = () => {
             description: item.description?.[lang] || item.description?.ru || "",
             image: item.image,
             price: item.price,
-            priceValue: parsePriceValue(item.price),
             typeLabel:
                 item.class?.[lang] || item.class?.ru
                 || t("catalog.commercial"),
@@ -235,7 +226,11 @@ const Catalog = () => {
                     ])
                     : 1;
 
-                return { ...item, searchScore: score };
+                // Цена в валюте отображения — именно в ней человек вводит границы
+                // и видит цены на карточках. null — сравнить нельзя (нет цены или
+                // нет курса для перевода): такие объявления при фильтре по цене
+                // скрываются, а в сортировке идут в конец.
+                return { ...item, searchScore: score, priceValue: priceInCurrency(item.price, currency, rate) };
             })
             .filter((item) => {
 
@@ -280,7 +275,7 @@ const Catalog = () => {
 
         return result;
 
-    }, [items, category, type, dealType, minPrice, maxPrice, bedrooms, debouncedSearch, sort]);
+    }, [items, category, type, dealType, minPrice, maxPrice, bedrooms, debouncedSearch, sort, currency, rate]);
 
 
     const suggestions = useMemo(() => {
@@ -364,8 +359,13 @@ const Catalog = () => {
             if (f.category) setCategory(f.category);
             if (f.type) setType(f.type);
             if (f.dealType) setDealType(f.dealType);
-            if (f.minPrice != null) setMinPrice(String(f.minPrice));
-            if (f.maxPrice != null) setMaxPrice(String(f.maxPrice));
+            // ИИ-поиск возвращает цены в долларах, а поля фильтра — в валюте
+            // отображения. Без курса переводить в сумы нечем — тогда ценовой
+            // фильтр не применяем, чтобы не показать заведомо неверную выборку.
+            const aiMin = usdToCurrency(f.minPrice, currency, rate);
+            const aiMax = usdToCurrency(f.maxPrice, currency, rate);
+            if (aiMin != null) setMinPrice(String(aiMin));
+            if (aiMax != null) setMaxPrice(String(aiMax));
             if (f.minBedrooms != null) {
                 const clamped = Math.min(Math.max(Math.round(f.minBedrooms), 1), 5);
                 setBedrooms(String(clamped));
@@ -528,7 +528,7 @@ const Catalog = () => {
                     </div>
 
                     <div className={s.field}>
-                        <label>{t("catalog.priceFrom")}</label>
+                        <label>{t("catalog.priceFrom")}, {currency}</label>
                         <input
                             type="number"
                             min="0"
@@ -539,7 +539,7 @@ const Catalog = () => {
                     </div>
 
                     <div className={s.field}>
-                        <label>{t("catalog.priceTo")}</label>
+                        <label>{t("catalog.priceTo")}, {currency}</label>
                         <input
                             type="number"
                             min="0"
@@ -706,7 +706,12 @@ const Catalog = () => {
                                                 </span>
                                             )}
 
-                                            {item.bathroomsLabel && (
+                                            {item.floorLabel ? (
+                                                <span>
+                                                    <FloorIcon size={15} />
+                                                    {item.floorLabel}
+                                                </span>
+                                            ) : item.bathroomsLabel && (
                                                 <span>
                                                     <Bath size={15} />
                                                     {item.bathroomsLabel}
@@ -732,7 +737,7 @@ const Catalog = () => {
 
                                             {item.floor && (
                                                 <span>
-                                                    <Building2 size={15} />
+                                                    <FloorIcon size={15} />
                                                     {item.floor}
                                                 </span>
                                             )}
@@ -749,7 +754,7 @@ const Catalog = () => {
 
                                     <div className={s.bottom}>
 
-                                        <span className={s.price}>{formatPriceIn(item.price, currency)}</span>
+                                        <span className={s.price}>{formatPriceIn(item.price, currency, rate)}</span>
 
                                         <Link to={item.link} className={s.link}>
                                             {t("viewProperty")}

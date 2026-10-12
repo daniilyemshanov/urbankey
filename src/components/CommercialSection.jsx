@@ -13,12 +13,12 @@ import {
 } from "swiper/modules";
 
 import {
-    Building2,
     Ruler,
     ArrowUp,
     Star,
     Tag
 } from "lucide-react";
+import FloorIcon from "./FloorIcon";
 
 
 import { motion } from "framer-motion";
@@ -44,7 +44,7 @@ const CommercialSection = () => {
 
 
     const { i18n, t } = useTranslation();
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
 
 
@@ -159,7 +159,7 @@ const CommercialSection = () => {
 
                             const meta = [
                                 {
-                                    icon: <Building2 size={15} />,
+                                    icon: <FloorIcon size={15} />,
                                     label: `${item.floor} ${i18n.language === "ru" ? "этаж" : i18n.language === "uz" ? "qavat" : "floor"}`
                                 },
                                 {
@@ -209,7 +209,7 @@ const CommercialSection = () => {
                                             item.description?.en ||
                                             item.description?.ru
                                         }
-                                        price={formatPriceIn(item.price, currency)}
+                                        price={formatPriceIn(item.price, currency, rate)}
                                         detailsLink={localizedPath(`/commercial/${item.id}`, i18n.language)}
                                         detailsLabel={t("viewDetails")}
                                         isAdmin={isAdmin}

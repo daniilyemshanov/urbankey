@@ -12,6 +12,8 @@ import Footer from "../components/Footer";
 import Connect from "../components/Connect_one";
 import Seo from "../components/Seo";
 import { useTranslation } from "react-i18next";
+import Error from "./Error";
+import DetailLoading from "../components/DetailLoading";
 import { buildCommercialJsonLd, buildBreadcrumbJsonLd } from "../utils/structuredData";
 
 
@@ -23,9 +25,9 @@ const CommercialPage = () => {
 
 
     const {
-        getCommercialPage,
         getCommercialById,
-        commercialPage
+        commercialPage,
+        commercialStatus
     } = useContext(MyContext);
 
 
@@ -38,7 +40,15 @@ const CommercialPage = () => {
     }, [id]);
 
 
-    if (!commercialPage) return null;
+    if (commercialStatus === "notfound" || commercialStatus === "error") return <Error />;
+
+    if (
+        commercialStatus !== "ready" ||
+        !commercialPage ||
+        String(commercialPage.commercial_id) !== String(id)
+    ) {
+        return <DetailLoading />;
+    }
 
     const seoTitle = commercialPage.title?.[i18n.language] || commercialPage.title?.ru;
     const seoDesc = commercialPage.about?.[i18n.language] || commercialPage.about?.ru;

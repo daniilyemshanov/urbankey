@@ -33,7 +33,7 @@ const CommercialProperty = ({ data }) => {
         t
     } = useTranslation();
 
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
 
 
@@ -333,7 +333,7 @@ const CommercialProperty = ({ data }) => {
 
                                 <h3>
 
-                                    {formatPriceIn(data.price, currency) || "—"}
+                                    {formatPriceIn(data.price, currency, rate) || "—"}
 
                                 </h3>
 

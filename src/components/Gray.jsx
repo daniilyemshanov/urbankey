@@ -1,6 +1,8 @@
 import s from './Gray.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
+import { useCurrency } from '../context/CurrencyContext'
+import { getRateNoteParams } from '../utils/currency'
 import {
     RiInstagramFill,
     RiTelegram2Fill,
@@ -9,6 +11,11 @@ import {
 const Gray = () => {
 
     const { t } = useTranslation()
+
+    // Официальный курс ЦБ РУз и дата, на которую он установлен. Нет сохранённого
+    // курса — подпись не показывается (никаких подставных цифр).
+    const { rate, rateDate } = useCurrency() ?? {}
+    const rateNote = getRateNoteParams({ rate, date: rateDate })
 
     return (
         <motion.footer
@@ -122,6 +129,10 @@ const Gray = () => {
                 </motion.div>
 
             </div>
+
+            {rateNote && (
+                <p className={s.rateNote}>{t("exchangeRateNote", rateNote)}</p>
+            )}
 
         </motion.footer>
     )

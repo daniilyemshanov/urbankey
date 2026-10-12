@@ -12,7 +12,7 @@ const Villa = ({ data }) => {
 
 
     const { i18n, t } = useTranslation();
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
 
 
@@ -205,7 +205,7 @@ const Villa = ({ data }) => {
 
 
 
-                            {formatPriceIn(data.price, currency)}
+                            {formatPriceIn(data.price, currency, rate)}
 
 
 

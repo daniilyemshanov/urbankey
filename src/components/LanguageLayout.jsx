@@ -3,9 +3,10 @@
 // чтобы у RU/EN/UZ версий страниц были разные индексируемые URL (нужно для hreflang).
 
 import { useEffect } from "react";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Outlet, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { DEFAULT_LANG, isSupportedLang } from "../utils/lang";
+import { isSupportedLang } from "../utils/lang";
+import NotFound from "../pages/Error";
 
 const LanguageLayout = () => {
     const { lang } = useParams();
@@ -23,8 +24,9 @@ const LanguageLayout = () => {
     }, [lang, valid, i18n]);
 
     if (!valid) {
-        // Неизвестный/некорректный языковой сегмент — уводим на язык по умолчанию.
-        return <Navigate to={`/${DEFAULT_LANG}`} replace />;
+        // Неизвестный первый сегмент (/мусор) — это несуществующая страница,
+        // а не повод редиректить на /ru: показываем 404 (сервер тоже отдаёт 404).
+        return <NotFound />;
     }
 
     return <Outlet />;

@@ -1,47 +1,34 @@
-// /api/sitemap — динамический sitemap.xml.
+// /api/sitemap — динамический sitemap.xml (отдаётся по адресу /sitemap.xml,
+// см. rewrites в vercel.json). Статического public/sitemap.xml больше нет:
+// Vercel отдаёт файлы из public РАНЬШЕ rewrites, поэтому статический файл
+// молча перекрывал эту функцию и в индекс попадали только 5 устаревших URL.
 //
-// ПОЧЕМУ ДИНАМИЧЕСКИ, А НЕ BUILD-TIME:
-// UrbanKey — сайт объявлений недвижимости, где объекты добавляются,
-// снимаются с продажи и удаляются гораздо чаще, чем происходят деплои.
-// Sitemap, сгенерированный во время `npm run build`, был бы актуален
-// только на момент последнего деплоя и быстро расходился бы с реальным
-// состоянием каталога (новые объекты не попадали бы в sitemap, проданные —
-// не удалялись бы из него), что для поисковиков хуже, чем сам факт
-// динамической генерации. Serverless-функция всегда отдаёт данные из
-// Supabase на момент запроса, а Cache-Control (см. ниже) не даёт дёргать
-// базу на каждый чих поискового бота.
+// Что попадает в sitemap:
+//   • публичные страницы: главная, /Properties, /AboutUs, /Services, /ContactUs
+//     (для каждого языка ru/en/uz, с hreflang-альтернативами);
+//   • жильё  /property/:id   — карточка есть в cardss_public И у неё есть
+//                              страница (строка в villas);
+//   • коммерция /commercial/:id — объект есть в commercials_public И у него
+//                              есть страница (строка в commercial_pages).
+// Флаг is_draft не учитывается: объявления из Telegram публикуются сразу,
+// и их страницы (бот создаёт их вместе с карточкой) попадают в sitemap.
+// Не попадают: объекты без detail-страницы, страницы фильтров,
+// служебные разделы (admin/login/profile/...).
 //
-// Использует ТОЛЬКО anon-ключ (тот же, что и клиентское приложение) —
-// sitemap не должен и не может показывать ничего, что недоступно
-// анонимному посетителю каталога. Ни service_role, ни другие секреты
-// сюда не попадают.
-//
-// Требуемые переменные окружения (уже настроены в проекте для фронтенда):
-//   VITE_SUPABASE_URL
-//   VITE_SUPABASE_KEY
+// Используется только anon-ключ (то, что и так видит любой посетитель).
+// Env: VITE_SUPABASE_URL / VITE_SUPABASE_KEY (или SUPABASE_URL / SUPABASE_ANON_KEY).
 
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase, noRetry, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 
-const SITE_ORIGIN = "https://urbankey.uz";
-const LANGS = ["ru", "en", "uz"];
-const DEFAULT_LANG = "ru";
-
-// Публичные, индексируемые статические страницы (без языкового префикса —
-// он добавляется ниже для каждого языка).
 const STATIC_PATHS = [
     { path: "", priority: "1.0", changefreq: "daily" },
-    { path: "/AboutUs", priority: "0.5", changefreq: "monthly" },
     { path: "/Properties", priority: "0.9", changefreq: "daily" },
+    { path: "/AboutUs", priority: "0.5", changefreq: "monthly" },
     { path: "/Services", priority: "0.5", changefreq: "monthly" },
     { path: "/ContactUs", priority: "0.5", changefreq: "monthly" },
 ];
 
-function getSupabase() {
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key = process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
-    if (!url || !key) return null;
-    return createClient(url, key);
-}
+const PAGE_SIZE = 1000; // лимит PostgREST по умолчанию
 
 function xmlEscape(value) {
     return String(value)
@@ -52,121 +39,132 @@ function xmlEscape(value) {
         .replace(/'/g, "&apos;");
 }
 
-function toIsoDate(value) {
-    if (!value) return null;
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString().slice(0, 10);
-}
-
-/**
- * Один <url> блок со всеми hreflang-альтернативами (по одному <url> на
- * language-версию страницы, как того требует sitemap-протокол — каждая
- * версия перечисляется отдельно, с одинаковым набором xhtml:link).
- */
-function buildUrlBlock(loc, lastmod, alternates, priority, changefreq) {
-    let block = `  <url>\n    <loc>${xmlEscape(loc)}</loc>\n`;
-    if (lastmod) block += `    <lastmod>${lastmod}</lastmod>\n`;
-    if (changefreq) block += `    <changefreq>${changefreq}</changefreq>\n`;
-    if (priority) block += `    <priority>${priority}</priority>\n`;
-    for (const alt of alternates) {
-        block += `    <xhtml:link rel="alternate" hreflang="${alt.lang}" href="${xmlEscape(alt.href)}" />\n`;
-    }
-    block += `  </url>\n`;
-    return block;
-}
-
 function buildAlternates(basePath) {
     const alternates = LANGS.map((lang) => ({
         lang,
         href: `${SITE_ORIGIN}/${lang}${basePath}`,
     }));
-    alternates.push({
-        lang: "x-default",
-        href: `${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`,
-    });
+    alternates.push({ lang: "x-default", href: `${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}` });
     return alternates;
 }
 
-async function fetchListingIds(supabase, publicView, fallbackTable) {
-    let { data, error } = await supabase.from(publicView).select("*");
+// По <url> на каждую языковую версию, у всех одинаковый набор xhtml:link.
+function buildUrlBlocks(basePath, priority, changefreq) {
+    const alternates = buildAlternates(basePath);
+    return LANGS.map((lang) => {
+        let block = `  <url>\n    <loc>${xmlEscape(`${SITE_ORIGIN}/${lang}${basePath}`)}</loc>\n`;
+        block += `    <changefreq>${changefreq}</changefreq>\n`;
+        block += `    <priority>${priority}</priority>\n`;
+        for (const alt of alternates) {
+            block += `    <xhtml:link rel="alternate" hreflang="${alt.lang}" href="${xmlEscape(alt.href)}" />\n`;
+        }
+        return block + `  </url>\n`;
+    });
+}
 
-    if (error) {
-        // view ещё не создана / миграция не применена — тот же путь,
-        // что уже используется в остальном приложении (см. Context.jsx).
-        ({ data, error } = await supabase.from(fallbackTable).select("id, updated_at, created_at"));
+// Читает таблицу/view целиком, постранично (иначе — молчаливый обрез на 1000).
+async function fetchAll(supabase, table, columns, orderColumn) {
+    const rows = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await noRetry(
+            supabase
+                .from(table)
+                .select(columns)
+                .order(orderColumn, { ascending: true })
+                .range(from, from + PAGE_SIZE - 1)
+        );
+
+        if (error) throw new Error(`${table}: ${error.message}`);
+        rows.push(...data);
+        if (data.length < PAGE_SIZE) break;
     }
+    return rows;
+}
 
-    if (error) {
-        console.error(`sitemap: failed to read ${publicView}/${fallbackTable}:`, error.message);
-        return [];
+// id жилья, у которых есть опубликованная detail-страница.
+async function publishedPropertyIds(supabase) {
+    const [cards, villas] = await Promise.all([
+        fetchAll(supabase, "cardss_public", "id", "id"),
+        fetchAll(supabase, "villas", "id, card_id", "id"),
+    ]);
+
+    const visibleCards = new Set(cards.map((c) => c.id));
+
+    // Несколько строк villas на одну карточку дают один URL.
+    const ids = new Set();
+    for (const villa of villas) {
+        if (villa.card_id != null && visibleCards.has(villa.card_id)) ids.add(villa.card_id);
     }
+    return [...ids].sort((a, b) => a - b);
+}
 
-    return Array.isArray(data) ? data : [];
+// id коммерции, у которых есть опубликованная detail-страница.
+async function publishedCommercialIds(supabase) {
+    const [commercials, pages] = await Promise.all([
+        fetchAll(supabase, "commercials_public", "id", "id"),
+        fetchAll(supabase, "commercial_pages", "id, commercial_id", "id"),
+    ]);
+
+    const visible = new Set(commercials.map((c) => c.id));
+    const ids = new Set();
+
+    for (const page of pages) {
+        if (page.commercial_id != null && visible.has(page.commercial_id)) {
+            ids.add(page.commercial_id);
+        }
+    }
+    return [...ids].sort((a, b) => a - b);
 }
 
 export default async function handler(req, res) {
-    const urls = [];
+    // 6 с на запрос: укладываемся в 10 с лимит Vercel и отвечаем 503 сами.
+    const supabase = getSupabase({ timeoutMs: 6000 });
 
-    for (const { path, priority, changefreq } of STATIC_PATHS) {
-        const alternates = buildAlternates(path);
-        for (const lang of LANGS) {
-            urls.push(
-                buildUrlBlock(`${SITE_ORIGIN}/${lang}${path}`, null, alternates, priority, changefreq)
-            );
-        }
+    if (!supabase) {
+        console.error("sitemap: Supabase env vars not configured");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Retry-After", "300");
+        res.status(503).send("Sitemap temporarily unavailable");
+        return;
     }
 
-    const supabase = getSupabase();
+    let propertyIds;
+    let commercialIds;
 
-    if (supabase) {
-        try {
-            const cards = await fetchListingIds(supabase, "cardss_public", "cardss");
-            for (const item of cards) {
-                if (!item?.id) continue;
-                const basePath = `/property/${item.id}`;
-                const alternates = buildAlternates(basePath);
-                const lastmod = toIsoDate(item.updated_at || item.created_at);
-                for (const lang of LANGS) {
-                    urls.push(
-                        buildUrlBlock(`${SITE_ORIGIN}/${lang}${basePath}`, lastmod, alternates, "0.8", "weekly")
-                    );
-                }
-            }
-        } catch (err) {
-            console.error("sitemap: properties block failed", err);
-        }
+    try {
+        [propertyIds, commercialIds] = await Promise.all([
+            publishedPropertyIds(supabase),
+            publishedCommercialIds(supabase),
+        ]);
+    } catch (err) {
+        // Не кэшируем и не отдаём урезанный sitemap с 200: поисковик
+        // решил бы, что объекты исчезли.
+        console.error("sitemap: failed to read listings:", err.message);
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Retry-After", "300");
+        res.status(503).send("Sitemap temporarily unavailable");
+        return;
+    }
 
-        try {
-            const commercials = await fetchListingIds(supabase, "commercials_public", "commercials");
-            for (const item of commercials) {
-                if (!item?.id) continue;
-                const basePath = `/commercial/${item.id}`;
-                const alternates = buildAlternates(basePath);
-                const lastmod = toIsoDate(item.updated_at || item.created_at);
-                for (const lang of LANGS) {
-                    urls.push(
-                        buildUrlBlock(`${SITE_ORIGIN}/${lang}${basePath}`, lastmod, alternates, "0.8", "weekly")
-                    );
-                }
-            }
-        } catch (err) {
-            console.error("sitemap: commercial block failed", err);
-        }
-    } else {
-        console.error("sitemap: Supabase env vars not configured, serving static pages only");
+    const blocks = [];
+
+    for (const { path, priority, changefreq } of STATIC_PATHS) {
+        blocks.push(...buildUrlBlocks(path, priority, changefreq));
+    }
+    for (const id of propertyIds) {
+        blocks.push(...buildUrlBlocks(`/property/${id}`, "0.8", "weekly"));
+    }
+    for (const id of commercialIds) {
+        blocks.push(...buildUrlBlocks(`/commercial/${id}`, "0.8", "weekly"));
     }
 
     const xml =
         `<?xml version="1.0" encoding="UTF-8"?>\n` +
         `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
-        urls.join("") +
-        `</urlset>`;
+        blocks.join("") +
+        `</urlset>\n`;
 
     res.setHeader("Content-Type", "application/xml; charset=utf-8");
-    // Кэш на edge на 1 час, отдача устаревшей копии ещё сутки, пока фоново
-    // не обновится — sitemap не должен грузить базу на каждый заход бота,
-    // но и не должен быть более чем на ~час устаревшим.
     res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
     res.status(200).send(xml);
 }

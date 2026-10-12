@@ -14,10 +14,16 @@ import { createClient } from "@supabase/supabase-js";
 
 import {
     getParsedListing,
-    fillMissingTranslations,
-    priceToNumber,
-    slugify
+    fillMissingTranslations
 } from "../api/listingParser.js";
+import {
+    insertCardRow,
+    buildCardRow,
+    savePage,
+    residentialCardFields,
+    checkCardDisplay,
+    omitEmpty,
+} from "../api/_listingDb.js";
 
 
 const bot = new TelegramBot(
@@ -186,91 +192,7 @@ async function uploadPhoto(fileId) {
 
 
 async function createDraftPage(table, linkIdField, cardId, parsed, images, videoUrl) {
-
-    try {
-
-        const slug = `${slugify(parsed.title_en || parsed.title_ru)}-${cardId}`;
-
-        const basePayload = {
-            [linkIdField]: cardId,
-            slug,
-            title_ru: parsed.title_ru,
-            title_en: parsed.title_en,
-            title_uz: parsed.title_uz,
-            description_ru: parsed.description_ru,
-            description_en: parsed.description_en,
-            description_uz: parsed.description_uz,
-            about_ru: "",
-            about_en: "",
-            about_uz: "",
-            price: parsed.priceNumber != null ? parsed.priceNumber : priceToNumber(parsed.price),
-            images: images || [],
-            video: videoUrl || "",
-            amenities: parsed.amenities || [],
-            is_rent: Boolean(parsed.isRent),
-            is_draft: true
-        };
-
-        let payload;
-
-        if (table === "commercial_pages") {
-
-            payload = {
-                ...basePayload,
-                location_ru: parsed.commercialFields.district_ru || parsed.locationLine,
-                location_en: "",
-                location_uz: "",
-                // Категория/тип коммерции (Помещение/Здание/Офис и т.п.) — не
-                // используем словарь типов жилья (Квартира/Вилла/Дом), он тут
-                // не подходит по смыслу. class_* — поле "Категория" на сайте
-                // (см. CommercialHero.jsx text("class")) — по прямому
-                // запросу ставим фиксированное "Коммерция", а не пусто.
-                type_ru: "",
-                type_en: "",
-                type_uz: "",
-                class_ru: "Коммерция",
-                class_en: "Commercial",
-                class_uz: "Tijorat",
-                purpose_ru: "",
-                purpose_en: "",
-                purpose_uz: "",
-                area: Number(parsed.commercialFields.area) || null,
-                ceiling_height: Number(parsed.commercialFields.ceiling) || null,
-                floor: Number(parsed.commercialFields.floor) || null
-            };
-
-        } else {
-
-            payload = {
-                ...basePayload,
-                location_ru: parsed.locationLine,
-                location_en: "",
-                location_uz: "",
-                type_ru: parsed.type.ru,
-                type_en: parsed.type.en,
-                type_uz: parsed.type.uz,
-                bedrooms: Number(parsed.bedrooms) || null,
-                year: null,
-                square: Number(parsed.area) || null
-            };
-        }
-
-        await fillMissingTranslations(payload, ["location"]);
-
-        const { error } = await supabase.from(table).insert(payload);
-
-        if (error) {
-            console.log(`❌ DRAFT PAGE (${table}) ERROR:`, error);
-            return false;
-        }
-
-        return true;
-
-    } catch (e) {
-
-        console.log("DRAFT PAGE EXCEPTION:", e);
-        return false;
-    }
+    return savePage(supabase, table, linkIdField, cardId, parsed, images, videoUrl);
 }
 
 
@@ -346,7 +268,7 @@ async function processPost(mainMsg, allMsgs) {
             return;
         }
 
-        await fillMissingTranslations(parsed, ["title", "description"]);
+        await fillMissingTranslations(parsed, ["title", "description", "about"]);
 
         if (parsed.isCommercial) {
             await fillMissingTranslations(parsed.commercialFields, ["district", "address", "landmark"]);
@@ -383,51 +305,19 @@ async function processPost(mainMsg, allMsgs) {
 
         if (!image && !hasVideo) parsed.missing.push("фото");
 
-        const baseFields = {
-            title_ru: parsed.title_ru,
-            title_en: parsed.title_en,
-            title_uz: parsed.title_uz,
-            description_ru: parsed.description_ru,
-            description_en: parsed.description_en,
-            description_uz: parsed.description_uz,
+        const { table, row: insertData } = buildCardRow(parsed, {
             image,
-            video: videoUrl || "",
-            price: parsed.price,
-            is_rent: Boolean(parsed.isRent),
-            tg_chat_id: mainMsg.chat.id,
-            tg_message_id: mainMsg.message_id
-        };
+            videoUrl,
+            tgChatId: mainMsg.chat.id,
+            tgMessageId: mainMsg.message_id
+        });
 
-        const insertData = parsed.isCommercial
-            ? {
-                ...baseFields,
-                ...parsed.commercialFields,
-                // Тот же хардкод "Коммерция", что и в createDraftPage
-                // (для альбомов) — тут отдельная, более простая ветка
-                // для постов с ОДНИМ фото, которая эти поля раньше не
-                // трогала вообще (оставались NULL/пустыми — отсюда была
-                // пустая "Категория" на сайте для таких постов).
-                class_ru: "Коммерция",
-                class_en: "Commercial",
-                class_uz: "Tijorat"
-            }
-            : {
-                ...baseFields,
-                bedrooms_ru: parsed.bedrooms ? `${parsed.bedrooms} спальни` : "",
-                bedrooms_en: parsed.bedrooms ? `${parsed.bedrooms} bedrooms` : "",
-                bedrooms_uz: parsed.bedrooms ? `${parsed.bedrooms} yotoqxona` : "",
-                bathrooms_ru: parsed.bathrooms ? `${parsed.bathrooms} ванные` : "",
-                bathrooms_en: parsed.bathrooms ? `${parsed.bathrooms} bathrooms` : "",
-                bathrooms_uz: parsed.bathrooms ? `${parsed.bathrooms} hammom` : "",
-                type_ru: parsed.type.ru,
-                type_en: parsed.type.en,
-                type_uz: parsed.type.uz
-            };
+        checkCardDisplay(parsed);
 
-        const table = parsed.isCommercial ? "commercials" : "cardss";
-
-        const { data, error } =
-            await supabase.from(table).insert(insertData).select("id").single();
+    const { data, error } = await insertCardRow(supabase, table, insertData, {
+        tgChatId: insertData.tg_chat_id,
+        tgMessageId: insertData.tg_message_id
+    });
 
         if (error) {
             console.log("❌ DB ERROR:", error);
@@ -518,12 +408,7 @@ bot.on("edited_channel_post", async (msg) => {
                 description_ru: parsed.description_ru, description_en: parsed.description_en, description_uz: parsed.description_uz,
                 price: parsed.price,
                 is_rent: Boolean(parsed.isRent),
-                bedrooms_ru: parsed.bedrooms ? `${parsed.bedrooms} спальни` : "",
-                bedrooms_en: parsed.bedrooms ? `${parsed.bedrooms} bedrooms` : "",
-                bedrooms_uz: parsed.bedrooms ? `${parsed.bedrooms} yotoqxona` : "",
-                bathrooms_ru: parsed.bathrooms ? `${parsed.bathrooms} ванные` : "",
-                bathrooms_en: parsed.bathrooms ? `${parsed.bathrooms} bathrooms` : "",
-                bathrooms_uz: parsed.bathrooms ? `${parsed.bathrooms} hammom` : "",
+                ...residentialCardFields(parsed),
                 type_ru: parsed.type.ru, type_en: parsed.type.en, type_uz: parsed.type.uz
             };
 
@@ -532,7 +417,7 @@ bot.on("edited_channel_post", async (msg) => {
         }
 
         const { error } =
-            await supabase.from(known.table).update(updateData).eq("id", known.id);
+            await supabase.from(known.table).update(omitEmpty(updateData)).eq("id", known.id);
 
         if (error) {
             console.log("❌ UPDATE ERROR:", error);

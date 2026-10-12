@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom'
+import { Bath } from "lucide-react";
+import FloorIcon from "./FloorIcon";
+import { residentialFloorSlot } from "../utils/floor";
 import s from './Featured.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
@@ -28,7 +31,7 @@ const Feautured = () => {
     }, []);
 
     const { t, i18n } = useTranslation();
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
     const isAdmin = profile?.role === "admin";
     return (
         <section
@@ -168,26 +171,11 @@ const Feautured = () => {
                                 </span>
 
                                 <span>
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                        width="22"
-                                        height="22"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="#FFFFFF"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="M4 22h16" />
-                                        <path d="M7 22V4h10v18" />
-                                        <path d="M10 8h1" />
-                                        <path d="M13 8h1" />
-                                        <path d="M10 12h1" />
-                                        <path d="M13 12h1" />
-                                        <path d="M10 16h1" />
-                                        <path d="M13 16h1" />
-                                    </svg>
+                                    {residentialFloorSlot(item, i18n.language).kind === "bath"
+                                        ? <Bath size={22} stroke="#FFFFFF" strokeWidth={2} />
+                                        : <FloorIcon size={22} stroke="#FFFFFF" />}
 
-                                    {item.bathrooms?.[i18n.language] || "—"}
+                                    {residentialFloorSlot(item, i18n.language).label}
 
                                 </span>
 
@@ -213,7 +201,7 @@ const Feautured = () => {
                                     </p>
 
                                     <h3>
-                                        {formatPriceIn(item.price, currency)}
+                                        {formatPriceIn(item.price, currency, rate)}
                                     </h3>
 
                                 </div>

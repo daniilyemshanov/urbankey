@@ -35,7 +35,7 @@ const Property = ({ data }) => {
         t
     } = useTranslation();
 
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
 
 
@@ -343,7 +343,7 @@ const Property = ({ data }) => {
 
                                 <h3>
 
-                                    {formatPriceIn(data.price, currency)}
+                                    {formatPriceIn(data.price, currency, rate)}
 
                                 </h3>
 

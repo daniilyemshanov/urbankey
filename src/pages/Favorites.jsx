@@ -19,7 +19,7 @@ const Favorites = () => {
     } = useContext(MyContext);
 
     const { t, i18n } = useTranslation();
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
     useEffect(() => {
         if (user) {
@@ -91,7 +91,7 @@ const Favorites = () => {
 
                             <div className={s.info}>
                                 <h3>{fav.title}</h3>
-                                <p className={s.price}>{formatPriceIn(fav.price, currency)}</p>
+                                <p className={s.price}>{formatPriceIn(fav.price, currency, rate)}</p>
 
                                 <Link to={fav.link} className={s.link}>
                                     {t("viewProperty") || "Открыть объект"}

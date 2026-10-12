@@ -156,9 +156,15 @@ ALLOWED_ORIGINS=                  # опционально, список раз�
 PARSER_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 FINALIZE_SECRET=                   # секрет для api/finalize-albums.js
+ANTHROPIC_API_KEY=                   # опционально: Claude Haiku — первый в цепочке ИИ
+ANTHROPIC_MODEL=claude-haiku-5-5     # опционально, название модели
 GEMINI_API_KEY=                      # опционально, рекомендуется
 GEMINI_MODEL=gemini-3.6-flash        # опционально
 OPENAI_API_KEY=                       # опционально, запасной вариант
+
+# Курс USD/UZS (api/update-exchange-rate.js, Vercel Cron раз в сутки)
+CRON_SECRET=                         # обязателен: без него endpoint закрыт (503)
+FX_MAX_CHANGE_PCT=20                 # опционально, защита от скачка курса, %
 ```
 
 ⚠️ `SUPABASE_SERVICE_KEY` даёт полный доступ к базе в обход RLS — задавайте

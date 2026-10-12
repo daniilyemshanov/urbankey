@@ -271,6 +271,7 @@
   "getTitle": "Get in Touch with Urban Key",
   "getDescription": "Contact our team for help with buying, selling, or investing in real estate. We are ready to guide you through every step.",
   "rights": "©2026 Urban Key. All Rights Reserved.",
+  "exchangeRateNote": "CBU rate: 1 USD = {{rate}} UZS as of {{date}}",
   "terms": "Terms & Conditions",
   "happenTitle": "Let's Make It Happen",
   "happenDescription": "Start your real estate journey today. Share your goals and our specialists will help you find the right property.",

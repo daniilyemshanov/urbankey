@@ -14,7 +14,7 @@ const CommercialHero = ({ data }) => {
         t
     } = useTranslation();
 
-    const { currency } = useCurrency();
+    const { currency, rate } = useCurrency();
 
 
 
@@ -175,7 +175,7 @@ const CommercialHero = ({ data }) => {
 
 
 
-                            {formatPriceIn(data.price, currency)}
+                            {formatPriceIn(data.price, currency, rate)}
 
 
                         </h3>

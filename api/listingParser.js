@@ -1,903 +1,987 @@
 // Чистая логика разбора поста и перевода — без Telegram/Supabase.
-// Используется и в server/bot.js (long-polling, для запуска на своём
-// сервере/VPS), и в api/telegram-webhook.js (serverless на Vercel).
-// Логика в одном месте, чтобы не расходилась между двумя способами
-// запуска бота.
+// ЕДИНСТВЕННЫЙ источник правды: используется в server/bot.js (long-polling),
+// api/telegram-webhook.js и api/finalize-albums.js (serverless на Vercel).
+// Раньше webhook и finalize-albums содержали собственные устаревшие копии
+// этого кода (со старым словарём типов "Вилла/Коттедж/…" и без исправлений
+// регулярных выражений) — копии удалены, все три потребителя импортируют
+// отсюда.
+//
+// Как устроен разбор (getParsedListing):
+//   1. parseListing(text) — регулярный разбор. Выполняется ВСЕГДА (дёшево):
+//      это и запасной вариант, и источник для проверки ответа ИИ.
+//   2. parseWithAI(text) — цепочка провайдеров (api/aiProviders.js). Ответ
+//      модели проходит validateAiListing ДО принятия (типы, диапазоны, язык,
+//      пустота); при невалидном ответе цепочка повторяет запрос ограниченное
+//      число раз и идёт к следующему провайдеру.
+//   3. Принятый ответ ИИ сливается с регулярным разбором (buildParsedFromAi):
+//      числа, которых нет в исходном тексте, отбрасываются; то, что ИИ не
+//      нашёл, но нашла регулярка, подставляется; описание/преимущества
+//      строятся только из подтверждённых фактов.
+//   4. Если ИИ не помог — возвращается результат parseListing: объявление не
+//      теряется. Исходный текст (за вычетом контактов и мусора) сохраняется в
+//      описании.
+// Результат всегда содержит `diagnostics` (что извлечено, что отброшено и
+// почему, сколько было попыток) — он же пишется в лог одной строкой.
 
-import { runListingAiChain } from "./aiProviders.js";
+import { runListingAiChain, configuredProviders } from "./aiProviders.js";
+import { ErrorClass, logEvent } from "./_aiLog.js";
+import {
+    NB, NA,
+    detectType,
+    extractAmenities,
+    extractRooms,
+    extractBathrooms,
+    extractArea,
+    extractFloorInfo,
+    extractLocationLine,
+    extractPrice,
+    extractPriceInfo,
+    priceToNumber,
+    priceNumberForPage,
+    isCommercialPost,
+    detectIsRent,
+    detectIsSold,
+    hasDealMarker,
+    hasPositiveMention,
+    isContactLine,
+    cleanTitle,
+    buildFactsParagraph,
+    buildNarrativeFromSource,
+    isNumberSupported,
+    extractNumberValues,
+    scriptShare,
+    toNumber,
+    numToString,
+} from "./_listingFacts.js";
 
-
-// ---------------------------------------------------------------------
-// Словарь типов жилья.
-// ---------------------------------------------------------------------
-const TYPE_DICT = [
-    // Вилла/Коттедж/Резиденция/Пентхаус убраны по прямому запросу — в
-    // Ташкенте этого типа жилья по факту нет, оставлять в словаре не
-    // нужно. Если строка текста всё же содержит одно из этих слов, она
-    // просто попадёт в дефолт "Квартира" (см. return в конце функции).
-    // "Новостройка" ПЕРЕД "Дом" — иначе пост вроде "новостройка, частный
-    // дом" определился бы как обычный "Дом", хотя явно указано, что это
-    // новостройка (более узкий, приоритетный признак).
-    { test: /новостройк|yangi\s*qurilgan|new\s*building|off[\s-]?plan/i, ru: "Новостройка", en: "New building", uz: "Yangi qurilish" },
-    { test: /\bдом\b|\bhouse\b|\buy\b/i, ru: "Дом", en: "House", uz: "Uy" }
-];
-
-export function detectType(text) {
-
-    // явное слово "квартира" в русском тексте — самый надёжный сигнал.
-    // Проверяем его ДО словаря ниже: иначе название ЖК вроде "Dream
-    // House" или "Sunny Villas" по ошибке определяло тип как "Дом"/
-    // "Вилла", хотя в тексте прямым текстом написано "квартира".
-    if (/квартир|kvartira|apartment/i.test(text)) {
-        return { ru: "Квартира", en: "Apartment", uz: "Kvartira" };
-    }
-
-    for (const t of TYPE_DICT) {
-        if (t.test.test(text)) {
-            return { ru: t.ru, en: t.en, uz: t.uz };
-        }
-    }
-
-    return { ru: "Квартира", en: "Apartment", uz: "Kvartira" };
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Удобства/оснащение — по ключевым словам в тексте поста. Без ИИ, чисто
-// по словарю: находим упоминание — добавляем готовый пункт сразу на
-// трёх языках (перевод тут не нужен, т.к. формулировки фиксированные).
-// Список не претендует на полноту — расширяйте по мере встречающихся
-// в постах формулировок.
-// ---------------------------------------------------------------------
-const AMENITY_DICT = [
-    { test: /парковк|паркинг/i, ru: "Парковка", en: "Parking", uz: "Parking" },
-    { test: /мебел/i, ru: "Мебель", en: "Furniture", uz: "Mebel" },
-    { test: /техник/i, ru: "Бытовая техника", en: "Appliances", uz: "Maishiy texnika" },
-    { test: /кондиционер/i, ru: "Кондиционер", en: "Air conditioning", uz: "Konditsioner" },
-    { test: /лифт/i, ru: "Лифт", en: "Elevator", uz: "Lift" },
-    { test: /детск\w*\s+площад/i, ru: "Детская площадка", en: "Playground", uz: "Bolalar maydonchasi" },
-    { test: /тихий двор|зелен\w*\s+двор|зелён\w*\s+двор|ухожен\w*\s+двор/i, ru: "Тихий двор", en: "Quiet courtyard", uz: "Tinch hovli" },
-    { test: /гардеробн/i, ru: "Гардеробная", en: "Walk-in closet", uz: "Kiyim xonasi" },
-    { test: /раздельн\w*\s+санузел/i, ru: "Раздельный санузел", en: "Separate bathroom", uz: "Alohida hammom" },
-    { test: /панорамн\w*\s+(вид|окна)/i, ru: "Панорамный вид", en: "Panoramic view", uz: "Panorama manzara" },
-    { test: /вид на город|вид на море/i, ru: "Вид на город", en: "City view", uz: "Shahar manzarasi" },
-    { test: /\bохран/i, ru: "Охрана", en: "Security", uz: "Xavfsizlik" },
-    { test: /консьерж/i, ru: "Консьерж", en: "Concierge", uz: "Konsyerj" },
-    { test: /бассейн/i, ru: "Бассейн", en: "Pool", uz: "Basseyn" },
-    { test: /террас/i, ru: "Терраса", en: "Terrace", uz: "Terrasa" },
-    { test: /балкон/i, ru: "Балкон", en: "Balcony", uz: "Balkon" },
-    { test: /стиральн\w*\s+машин/i, ru: "Стиральная машина", en: "Washing machine", uz: "Kir yuvish mashinasi" },
-    { test: /холодильник/i, ru: "Холодильник", en: "Refrigerator", uz: "Muzlatgich" },
-    { test: /телевизор/i, ru: "Телевизор", en: "TV", uz: "Televizor" },
-    { test: /дизайнерск\w*\s+ремонт|евро.?ремонт|качественн\w*\s+ремонт|нов\w*\s+ремонт/i, ru: "Свежий ремонт", en: "Fresh renovation", uz: "Yangi ta'mir" },
-    { test: /новостройк/i, ru: "Новостройка", en: "New building", uz: "Yangi qurilgan" },
-    { test: /панорамн\w*\s+окна|четыре окна|больш\w*\s+окна/i, ru: "Панорамные окна", en: "Panoramic windows", uz: "Panorama derazalar" },
-    { test: /пожарн\w*\s+безопасн|вентиляц/i, ru: "Система вентиляции и пожарной безопасности", en: "Ventilation & fire safety system", uz: "Ventilyatsiya va yong'in xavfsizligi tizimi" }
-];
-
-export function extractAmenities(text) {
-
-    const found = [];
-
-    for (const item of AMENITY_DICT) {
-        if (item.test.test(text)) {
-            found.push({ ru: item.ru, en: item.en, uz: item.uz });
-        }
-    }
-
-    return found;
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Комнатность: "2-комнатная", "3х комнатная", "двухкомнатная".
-// ---------------------------------------------------------------------
-const ROOM_WORDS = {
-    "одно": 1, "одна": 1,
-    "двух": 2, "две": 2,
-    "трёх": 3, "трех": 3, "три": 3,
-    "четырёх": 4, "четырех": 4, "четыре": 4,
-    "пяти": 5, "пять": 5,
-    "шести": 6, "шесть": 6
+// Реэкспорт: потребители и тесты импортируют эти имена отсюда.
+export {
+    detectType,
+    extractAmenities,
+    extractRooms,
+    extractBathrooms,
+    extractArea,
+    extractFloorInfo,
+    extractLocationLine,
+    extractPrice,
+    extractPriceInfo,
+    priceToNumber,
+    priceNumberForPage,
+    isCommercialPost,
+    detectIsRent,
 };
 
-export function extractRooms(text) {
-
-    let m = text.match(/(\d+)[-\s]?(?:х|x)?[-\s]?комнат/i);
-    if (m) return m[1];
-
-    m = text.match(/(одно|одна|двух|две|трёх|трех|три|четырёх|четырех|четыре|пяти|пять|шести|шесть)[-\s]?комнат/i);
-    if (m) return String(ROOM_WORDS[m[1].toLowerCase()] || "");
-
-    // формат "Комнат - 2" / "Комнат: 2" — метка перед числом, встречается
-    // в постах, оформленных списком характеристик
-    m = text.match(/комнат\w*\s*[-:—]\s*(\d+)/i);
-    if (m) return m[1];
-
-    return "";
-}
-
-
-
+const reU = (source, flags = "iu") => new RegExp(source, flags);
 
 // ---------------------------------------------------------------------
-// Площадь: работает без слова "площадь" рядом, с "м2" вместо "м²",
-// с запятой в дробной части. Без \b на конце — JS \w не видит кириллицу
-// без флага /u, поэтому граница слова после "м²" ненадёжна.
+// Бесплатный перевод (Google, без ключа)
 // ---------------------------------------------------------------------
-export function extractArea(text) {
+// Раньше запрос не имел таймаута (мог подвесить весь обработчик) и при
+// сбое молча возвращал исходный русский текст в поле en/uz. Теперь:
+// таймаут 6 с, один повтор; при окончательном сбое возвращается исходный
+// текст (объявление не теряется), а сбой попадает в лог.
+const TRANSLATE_TIMEOUT_MS = 6000;
 
-    let m = text.match(/площадь\D{0,20}?(\d+(?:[.,]\d+)?)\s*(?:м²|м2|кв\.?\s*м)/i);
-    if (m) return m[1].replace(",", ".");
+export async function translateText(text, target) {
+    if (!text) return "";
 
-    m = text.match(/(\d+(?:[.,]\d+)?)\s*(?:м²|м2|кв\.?\s*м)/i);
-    if (m) return m[1].replace(",", ".");
+    let lastError = "";
 
-    // формат "Общая площадь, кв.м. -49.31" — единица идёт ПЕРЕД числом;
-    // берём просто ближайшее число после слова "площадь", без требования
-    // единицы измерения сразу рядом
-    m = text.match(/площадь\D{0,35}?(\d+(?:[.,]\d+)?)/i);
-    if (m) return m[1].replace(",", ".");
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=" +
+                target + "&dt=t&q=" + encodeURIComponent(text);
 
-    return "";
-}
+            const res = await fetch(url, { signal: AbortSignal.timeout(TRANSLATE_TIMEOUT_MS) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-
-
-
-// ---------------------------------------------------------------------
-// Этаж/этажность: "5 этаж из 9", "Этаж: 12"+"Этажность: 14" отдельно,
-// "1 этаж 4-этажного дома".
-// ---------------------------------------------------------------------
-export function extractFloorInfo(text) {
-
-    let m = text.match(/(\d+)\s*этаж\w*\s*из\s*(\d+)/i);
-    if (m) return { floor: m[1], totalFloors: m[2] };
-
-    m = text.match(/(\d+)\s*этаж\w*\s+(\d+)-этажн/i);
-    if (m) return { floor: m[1], totalFloors: m[2] };
-
-    const floorM = text.match(/Этаж(?!ность)\s*[-:—]\s*(\d+)/i);
-    const totalM = text.match(/Этажность\s*[-:—]\s*(\d+)/i);
-
-    if (floorM || totalM) {
-        return { floor: floorM?.[1] || "", totalFloors: totalM?.[1] || "" };
+            const data = await res.json();
+            const out = (data?.[0] || []).map((part) => part?.[0] || "").join("");
+            if (out.trim()) return out;
+            throw new Error("пустой перевод");
+        } catch (e) {
+            lastError = e?.name === "TimeoutError" ? "таймаут" : String(e?.message || e).slice(0, 120);
+        }
     }
 
-    m = text.match(/(\d+)\s*этаж\b/i);
-    if (m) return { floor: m[1], totalFloors: "" };
-
-    return { floor: "", totalFloors: "" };
+    logEvent("TRANSLATE_FAILED", { class: ErrorClass.MODEL, target, reason: lastError });
+    return text;
 }
 
-
-
-
-// ---------------------------------------------------------------------
-// Строка адреса/района/ориентира — идёт после 📍.
-// ---------------------------------------------------------------------
-export function extractLocationLine(text) {
-
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-    const line = lines.find(l => l.includes("📍"));
-
-    if (!line) return "";
-
-    return line
-        .replace(/📍/g, "")
-        .replace(/^Адрес\s*:\s*/i, "")
-        .trim();
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Цена. Любой разделитель после метки ("Цена:", "Стоимость;", "Цена —"),
-// актуальная цена вместо зачёркнутой старой.
-//
-// Отдельная сложность: посты часто дают цену в сумах с курсом и итогом
-// в $ на отдельной строке ("8 659 000 000 сум/12000=722.000$"), а рядом
-// может быть "Цена при 100% оплате" — где "100" это процент, а не цена.
-// Поэтому сначала ищем явную сумму в $ где угодно в тексте (это почти
-// всегда и есть актуальная цена), и только если её нет — ищем по метке,
-// предварительно вырезав упоминания процентов.
-// ---------------------------------------------------------------------
-export function extractPrice(text) {
-
-    if (/~~/.test(text)) {
-        const m = text.match(/Новая[^\d\n]*([\d][\d\s.,]*\$?)/i);
-        if (m) return m[1].trim();
-    }
-
-    const dollarMatches = [...text.matchAll(/([\d][\d\s.,]*)\s*\$/g)];
-    if (dollarMatches.length) {
-        return dollarMatches[dollarMatches.length - 1][1].trim() + "$";
-    }
-
-    const textNoPercent = text.replace(/\d+(?:[.,]\d+)?\s*%/g, "");
-
-    const m = textNoPercent.match(/(?:Цена|Стоимость|Price|Narxi)[^\d\n]*([\d][\d\s.,]*\$?)/i);
-    if (m) return m[1].trim();
-
-    return "";
-}
-
-
-// Числовая версия цены для полей villas/commercial_pages (там price —
-// number). Понимает "83.000" (точка как разделитель тысяч), "99 500 $",
-// "1400$ за 1м²" (берёт ведущее число).
-export function priceToNumber(raw) {
-
-    if (!raw) return null;
-
-    const leading = raw.match(/^[\d\s.,]+/);
-    if (!leading) return null;
-
-    let s = leading[0].replace(/\s+/g, "");
-
-    let prev;
-    do {
-        prev = s;
-        s = s.replace(/[.,](\d{3})(?!\d)/g, "$1");
-    } while (s !== prev);
-
-    const num = parseFloat(s.replace(",", "."));
-    return Number.isFinite(num) ? num : null;
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Коммерция или жильё.
-// ---------------------------------------------------------------------
-const COMMERCIAL_KEYWORDS =
-    /коммерц|коммерч|помещени|склад\b|витрин|арендатор|фудкорт|бизнес|цоколь/i;
-
-export function isCommercialPost(text) {
-    return COMMERCIAL_KEYWORDS.test(text);
-}
-
-
-// ---------------------------------------------------------------------
-// Аренда или продажа.
-//
-// "арендатор" (уже входит в COMMERCIAL_KEYWORDS выше — это про
-// СУЩЕСТВУЮЩЕГО арендатора в помещении, признак коммерции с доходом, а
-// не признак того, что САМ пост — предложение аренды) сюда специально
-// не включаем, чтобы не путать с "сдам"/"сдаётся". Проверяем аренду
-// ПЕРВОЙ (она обычно однозначнее по формулировкам "сдам"/"сдаётся"/
-// "в аренду"), продажу — по остаточному принципу через отдельный список
-// маркеров; если не нашлось ни одного явного маркера ни в одну, ни в
-// другую сторону — считаем продажей (это исторически подавляющее
-// большинство постов в канале).
-const RENT_KEYWORDS =
-    /сдам\b|сдаётся|сдается|сдаю\b|в\s*аренду|аренда\s+(?:на|от|помещени|квартир)|долгосрочн(?:ую|ая)\s+аренд|посуточно|ижарага|ijaraga|for\s*rent|rent(?:al)?\b/i;
-
-const SALE_KEYWORDS =
-    /продам\b|продаётся|продается|продажа|на\s*продажу|sotiladi|sotuvda|for\s*sale/i;
-
-export function detectIsRent(text) {
-    if (RENT_KEYWORDS.test(text)) return true;
-    if (SALE_KEYWORDS.test(text)) return false;
-    return false;
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Автоперевод. Бесплатный публичный эндпоинт Google Translate — тот же,
-// что уже используется в /api/translate на сайте. Без ключа, без ИИ.
-// ---------------------------------------------------------------------
-export async function translateText(text, source, target) {
-
-    if (!text || !text.trim()) return "";
-    if (source === target) return text;
-
-    try {
-
-        const url =
-            "https://translate.googleapis.com/translate_a/single" +
-            `?client=gtx&sl=${source}&tl=${target}&dt=t&q=${encodeURIComponent(text)}`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`translate upstream status ${res.status}`);
-
-        const data = await res.json();
-
-        const translated = Array.isArray(data?.[0])
-            ? data[0].map((chunk) => chunk?.[0] || "").join("")
-            : "";
-
-        return translated || text;
-
-    } catch (e) {
-
-        console.log("TRANSLATE ERROR:", source, "->", target, e.message);
-        return text;
-    }
-}
-
-
-// fieldsObj: объект с полями `${base}_ru` / `${base}_en` / `${base}_uz`.
-// Переводит на en/uz только то, что ещё не заполнено.
+// Дозаполняет только ПУСТЫЕ поля переводом с русского (то, что модель уже
+// дала на en/uz, не трогаем — не тратим лимит бесплатного API).
 export async function fillMissingTranslations(fieldsObj, bases) {
-
-    const jobs = [];
+    const tasks = [];
 
     for (const base of bases) {
-
         const ru = fieldsObj[`${base}_ru`];
         if (!ru) continue;
 
-        if (!fieldsObj[`${base}_en`]) {
-            jobs.push(
-                translateText(ru, "ru", "en").then((v) => { fieldsObj[`${base}_en`] = v; })
-            );
-        }
+        for (const lang of ["en", "uz"]) {
+            const key = `${base}_${lang}`;
+            if (fieldsObj[key]) continue;
 
-        if (!fieldsObj[`${base}_uz`]) {
-            jobs.push(
-                translateText(ru, "ru", "uz").then((v) => { fieldsObj[`${base}_uz`] = v; })
+            tasks.push(
+                translateText(ru, lang).then((t) => {
+                    fieldsObj[key] = t;
+                })
             );
         }
     }
 
-    await Promise.all(jobs);
+    await Promise.all(tasks);
 }
 
-
-
-
-// ---------------------------------------------------------------------
-// Транслитерация + slug.
-// ---------------------------------------------------------------------
-const CYR_TO_LAT = {
-    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
-    и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
-    с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh",
-    щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya"
-};
-
-function transliterate(str) {
-    return str
+export function slugify(value) {
+    return String(value || "")
         .toLowerCase()
-        .split("")
-        .map((ch) => CYR_TO_LAT[ch] ?? ch)
-        .join("");
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 60) || "listing";
 }
 
-export function slugify(str) {
-    return (
-        transliterate(str || "listing")
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 60)
-    ) || "listing";
+// ---------------------------------------------------------------------
+// Разбор регулярными выражениями — запасной вариант и источник проверки
+// ---------------------------------------------------------------------
+
+const isServiceLine = (line) =>
+    /^#/.test(line) ||
+    /^(EN|UZ|RU_DESC|EN_DESC|UZ_DESC)\s*:/i.test(line) ||
+    /^(Цена|Стоимость|Price|Narxi|Ориентир|Landmark|Mo'ljal|Высота потолков|Площадь|Этаж|Новая)\s*:?/i.test(line) ||
+    line.includes("📍");
+
+// Заголовок из фактов, если в посте нет подходящей строки
+function titleFromFacts({ rooms, type, isCommercial, location }) {
+    const base = isCommercial
+        ? "Коммерческое помещение"
+        : (rooms ? `${rooms}-комнатная ${type.ru.toLowerCase()}` : type.ru);
+    const place = String(location || "").split(",")[0].trim();
+    return place && place.length <= 40 ? `${base}, ${place}` : base;
 }
 
-
-
-
-// ---------------------------------------------------------------------
-// Описание по умолчанию — когда в посте нет ручных маркеров RU_DESC:/
-// EN_DESC:/UZ_DESC:. Раньше без маркеров description_ru всегда оставался
-// пустым, хотя в самом посте есть нормальный связный текст — просто
-// берём все содержательные строки (кроме заголовка и служебных строк
-// вроде "Цена:"/"Этаж:") и убираем строки-контакты (телефон/имя).
-// ---------------------------------------------------------------------
-function isPhoneLine(line) {
-    const digits = line.replace(/\D/g, "");
-    return digits.length >= 7 && /\+?\d[\d\s\-()]{5,}\d/.test(line);
+function buildAbout(description, factsParagraph, priceNote) {
+    const parts = [];
+    if (description) parts.push(description);
+    // факты не дублируем, если описание уже собрано из них
+    if (factsParagraph && factsParagraph !== description) parts.push(factsParagraph);
+    if (priceNote) parts.push(`Цена: ${priceNote}.`);
+    return parts.join("\n\n").trim();
 }
 
-function buildDescriptionFallback(text, titleLine, isServiceLine) {
+// Подпись количества: "1 спальня", "2 спальни", "5 спален" — было "1 спальни".
+export function countLabelsFor(kind, n) {
+    const num = Number(n);
+    if (!Number.isInteger(num) || num <= 0) return { ru: "", en: "", uz: "" };
 
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const mod10 = num % 10;
+    const mod100 = num % 100;
+    const form = mod10 === 1 && mod100 !== 11 ? 0 : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 1 : 2);
 
-    const contentLines = lines.filter(line =>
-        line !== titleLine &&
-        !isServiceLine(line) &&
-        !isPhoneLine(line)
-    );
-
-    return contentLines.join("\n").trim();
-}
-
-
-
-
-// ---------------------------------------------------------------------
-// Разбор текста поста в поля карточки/коммерции.
-// ---------------------------------------------------------------------
-export function parseListing(text) {
-
-    const lines =
-        text
-            .split("\n")
-            .map(x => x.trim())
-            .filter(Boolean);
-
-
-    const isServiceLine = (line) =>
-        /^#/.test(line) ||
-        /^(EN|UZ|RU_DESC|EN_DESC|UZ_DESC)\s*:/i.test(line) ||
-        /^(Цена|Стоимость|Price|Narxi|Ориентир|Landmark|Mo'ljal|Высота потолков|Площадь|Этаж|Этажность|Новая)\s*:?/i.test(line) ||
-        line.includes("📍");
-
-
-    const title_ru =
-        lines.find(line => !isServiceLine(line)) || "Квартира";
-
-
-    const title_en =
-        text.match(/EN:\s*(.*)/)?.[1]?.trim() || "";
-
-    const title_uz =
-        text.match(/UZ:\s*(.*)/)?.[1]?.trim() || "";
-
-
-    const description_ru =
-        text.match(/RU_DESC:\s*([\s\S]*?)EN_DESC:/)?.[1]?.trim() ||
-        buildDescriptionFallback(text, title_ru, isServiceLine);
-
-    const description_en =
-        text.match(/EN_DESC:\s*([\s\S]*?)UZ_DESC:/)?.[1]?.trim() || "";
-
-    const description_uz =
-        text.match(/UZ_DESC:\s*([\s\S]*)/)?.[1]?.trim() || "";
-
-
-    const price = extractPrice(text);
-
-    const bedrooms = extractRooms(text);
-
-    const bathrooms =
-        text.match(/(\d+)\s*(?:санузл\w*|ванн\w*|bathroom\w*|hammom\w*)/i)?.[1] || "";
-
-    const area = extractArea(text);
-
-    const { floor, totalFloors } = extractFloorInfo(text);
-
-    const locationLine = extractLocationLine(text);
-
-    const isCommercial = isCommercialPost(text);
-
-    const isSold = /продан[оаы]|снят[оаы]? с продажи/i.test(text);
-
-    const isRent = detectIsRent(text);
-
-    const type = detectType(text);
-
-
-    const commercialFields = {
-
-        district_ru:
-            text.match(/([А-Яа-яёЁ\-]+\s+район\w*)/i)?.[1]
-            || text.match(/Ориентир:\s*(.*)/i)?.[1]
-            || locationLine
-            || "",
-
-        district_en: "",
-        district_uz: "",
-
-        address_ru:
-            text.match(/район\w*,\s*(.*?)\./i)?.[1] || locationLine || "",
-
-        address_en: "",
-        address_uz: "",
-
-        landmark_ru:
-            text.match(/Ориентир:\s*(.*)/i)?.[1] || "",
-
-        landmark_en: "",
-        landmark_uz: "",
-
-        floor,
-        ceiling:
-            text.match(/Высота потолков\s*:?\s*([\d.,]+)/i)?.[1]?.replace(",", ".") || "",
-
-        area
+    if (kind === "bedrooms") {
+        return {
+            ru: `${num} ${["спальня", "спальни", "спален"][form]}`,
+            en: `${num} ${num === 1 ? "bedroom" : "bedrooms"}`,
+            uz: `${num} yotoqxona`,
+        };
+    }
+    return {
+        ru: `${num} ${["ванная", "ванные", "ванных"][form]}`,
+        en: `${num} ${num === 1 ? "bathroom" : "bathrooms"}`,
+        uz: `${num} hammom`,
     };
+}
 
+export function parseListing(text) {
+    const source = String(text || "");
+    const lines = source.split("\n").map((l) => l.trim()).filter(Boolean);
+
+    const type = detectType(source);
+    const rooms = extractRooms(source);
+    const bathrooms = extractBathrooms(source);
+    const area = extractArea(source);
+    const { floor, totalFloors } = extractFloorInfo(source);
+    const priceInfo = extractPriceInfo(source);
+    const amenities = extractAmenities(source);
+    const locationLine = extractLocationLine(source);
+    const isCommercial = isCommercialPost(source);
+    const isRent = detectIsRent(source);
+    const dealMarker = hasDealMarker(source);
+    const isSold = detectIsSold(source);
+
+    // Заголовок: первая содержательная строка (не служебная, не контакты)
+    const titleCandidate = lines.find((l) => !isServiceLine(l) && !isContactLine(l) && /\p{L}{3}/u.test(l));
+    let title = cleanTitle(titleCandidate);
+    const titleFromText = Boolean(title);
+    if (!title) title = titleFromFacts({ rooms, type, isCommercial, location: locationLine });
+
+    const ruDescMarker = source.match(/RU_DESC\s*:\s*(.+)/i)?.[1]?.trim();
+    const factsParagraph = buildFactsParagraph({
+        type, rooms, area, floor, totalFloors, location: locationLine,
+        isCommercial, amenities, dealMarker, isRent,
+    });
+
+    // Исходный текст не теряется: содержательные строки поста (без заголовка,
+    // служебных строк и контактов) идут в описание как есть.
+    const narrative = buildNarrativeFromSource(source, titleCandidate, isServiceLine);
+    const description = ruDescMarker || narrative || factsParagraph;
 
     const missing = [];
+    if (!titleFromText || (title === type.ru && !/квартир/i.test(source))) missing.push("название");
+    if (!priceInfo.raw) missing.push("цена");
+    if (!rooms && !area) missing.push("комнаты/площадь");
 
-    if (title_ru === "Квартира" && !/квартир/i.test(text)) missing.push("название");
-    if (!price) missing.push("цена");
+    const parsed = {
+        title_ru: title,
+        title_en: source.match(/^EN\s*:\s*(.+)/im)?.[1]?.trim() || "",
+        title_uz: source.match(/^UZ\s*:\s*(.+)/im)?.[1]?.trim() || "",
+        description_ru: description,
+        description_en: source.match(/EN_DESC\s*:\s*(.+)/i)?.[1]?.trim() || "",
+        description_uz: source.match(/UZ_DESC\s*:\s*(.+)/i)?.[1]?.trim() || "",
+        about_ru: buildAbout(description, factsParagraph, priceInfo.perSqmRaw),
+        about_en: "",
+        about_uz: "",
+        price: priceInfo.raw,
+        priceNumber: priceNumberForPage(priceInfo),
+        currency: priceInfo.currency,
+        pricePerSqm: priceInfo.perSqmRaw,
+        bedrooms: rooms,
+        bathrooms,
+        area,
+        floor,
+        totalFloors,
+        type,
+        locationLine,
+        amenities,
+        isCommercial,
+        isRent,
+        isSold,
+        commercialFields: {
+            area,
+            floor,
+            ceiling: source.match(/Высота потолков\s*:\s*([\d.,]+)/i)?.[1]?.replace(",", ".") || "",
+            district_ru: source.match(/([А-Яа-яёЁ-]+\s+район\p{L}*)/iu)?.[1]?.trim() || "",
+            district_en: "",
+            district_uz: "",
+            address_ru: locationLine,
+            address_en: "",
+            address_uz: "",
+            landmark_ru: source.match(/Ориентир\s*:\s*(.+)/i)?.[1]?.trim() || "",
+            landmark_en: source.match(/Landmark\s*:\s*(.+)/i)?.[1]?.trim() || "",
+            landmark_uz: source.match(/Mo'ljal\s*:\s*(.+)/i)?.[1]?.trim() || "",
+            class_ru: "",
+            class_en: "",
+            class_uz: "",
+        },
+        missing,
+    };
 
-    if (isCommercial) {
-        if (!commercialFields.area) missing.push("площадь");
-    } else {
-        if (!bedrooms) missing.push("кол-во комнат");
+    parsed.diagnostics = {
+        source: "regex",
+        provider: null,
+        attempts: [],
+        extracted: summarizeExtracted(parsed),
+        filledFromRegex: [],
+        rejected: [],
+        warnings: priceInfo.perSqm ? ["price_only_per_sqm"] : [],
+        errors: [],
+    };
+
+    return parsed;
+}
+
+function summarizeExtracted(parsed) {
+    return {
+        title: Boolean(parsed.title_ru),
+        description: Boolean(parsed.description_ru),
+        price: Boolean(parsed.price),
+        rooms: Boolean(parsed.bedrooms),
+        bathrooms: Boolean(parsed.bathrooms),
+        area: Boolean(parsed.area),
+        floor: Boolean(parsed.floor),
+        totalFloors: Boolean(parsed.totalFloors),
+        location: Boolean(parsed.commercialFields?.address_ru || parsed.commercialFields?.district_ru),
+        amenities: (parsed.amenities || []).length,
+    };
+}
+
+// ---------------------------------------------------------------------
+// Разбор через ИИ
+// ---------------------------------------------------------------------
+
+const SCHEMA_STR = { type: "string" };
+const SCHEMA_STR_NULL = { type: ["string", "null"] };
+const SCHEMA_INT_NULL = { type: ["integer", "null"] };
+const SCHEMA_NUM_NULL = { type: ["number", "null"] };
+
+const AI_JSON_SCHEMA = {
+    type: "object",
+    properties: {
+        title_ru: SCHEMA_STR,
+        title_en: SCHEMA_STR,
+        title_uz: SCHEMA_STR,
+        description_ru: SCHEMA_STR,
+        description_en: SCHEMA_STR,
+        description_uz: SCHEMA_STR,
+        price_raw: SCHEMA_STR_NULL,
+        price_number: SCHEMA_NUM_NULL,
+        bedrooms: SCHEMA_INT_NULL,
+        bathrooms: SCHEMA_INT_NULL,
+        area: SCHEMA_NUM_NULL,
+        floor: SCHEMA_INT_NULL,
+        total_floors: SCHEMA_INT_NULL,
+        ceiling_height: SCHEMA_NUM_NULL,
+        type_ru: SCHEMA_STR,
+        district: SCHEMA_STR_NULL,
+        address: SCHEMA_STR_NULL,
+        landmark: SCHEMA_STR_NULL,
+        is_commercial: { type: "boolean" },
+        is_rent: { type: "boolean" },
+        is_sold: { type: "boolean" },
+        amenities: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: { ru: SCHEMA_STR, en: SCHEMA_STR, uz: SCHEMA_STR },
+                required: ["ru", "en", "uz"],
+            },
+        },
+    },
+    required: [
+        "title_ru", "title_en", "title_uz",
+        "description_ru", "description_en", "description_uz",
+        "price_raw", "price_number", "bedrooms", "bathrooms", "area",
+        "floor", "total_floors", "ceiling_height",
+        "type_ru", "district", "address", "landmark",
+        "is_commercial", "is_rent", "is_sold", "amenities",
+    ],
+};
+
+// Та же схема в формате Gemini (UPPERCASE-типы, nullable вместо type:[...,"null"])
+const GEMINI_RESPONSE_SCHEMA = (() => {
+    const g = (t, nullable = false) => (nullable ? { type: t, nullable: true } : { type: t });
+    return {
+        type: "OBJECT",
+        properties: {
+            title_ru: g("STRING"), title_en: g("STRING"), title_uz: g("STRING"),
+            description_ru: g("STRING"), description_en: g("STRING"), description_uz: g("STRING"),
+            price_raw: g("STRING", true), price_number: g("NUMBER", true),
+            bedrooms: g("INTEGER", true), bathrooms: g("INTEGER", true),
+            area: g("NUMBER", true), floor: g("INTEGER", true), total_floors: g("INTEGER", true),
+            ceiling_height: g("NUMBER", true),
+            type_ru: g("STRING"),
+            district: g("STRING", true), address: g("STRING", true), landmark: g("STRING", true),
+            is_commercial: g("BOOLEAN"), is_rent: g("BOOLEAN"), is_sold: g("BOOLEAN"),
+            amenities: {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: { ru: g("STRING"), en: g("STRING"), uz: g("STRING") },
+                    required: ["ru", "en", "uz"],
+                },
+            },
+        },
+        required: AI_JSON_SCHEMA.required,
+    };
+})();
+
+const AI_SYSTEM_PROMPT = `Ты помощник агентства недвижимости UrbanKey (Ташкент). Тебе дают текст поста с объявлением (чаще всего на русском; бывают узбекский и английский, а также смесь). Извлеки данные и верни ТОЛЬКО валидный JSON-объект по заданной структуре.
+
+ГЛАВНОЕ ПРАВИЛО: используй ТОЛЬКО то, что явно написано в тексте. Ничего не выдумывай и не достраивай. Если характеристики в тексте нет — ставь null (для чисел и строк-необязательных) или пустую строку. Лучше пустое значение, чем догадка.
+
+Правила:
+1. title_ru — короткий заголовок (до 80 символов): тип и главные факты из текста (например "2-комнатная квартира в ЖК Dream House"). Без эмодзи, без цены, без телефона. Только факты из поста.
+2. title_en, title_uz — точный перевод заголовка на английский и на узбекский (латиница).
+3. description_ru — связный абзац из 2–5 предложений, ТОЛЬКО на основе фактов поста: тип объекта, комнаты, площадь, этаж/этажность, расположение, состояние, ремонт, мебель, техника, удобства и любые другие характеристики, которые явно указаны. Если в посте есть условия сделки (залог, предоплата, коммунальные платежи, срок аренды, рассрочка, ипотека, торг, «собственник», «без комиссии») — перескажи их одним предложением, как написано. Если фактов мало — одно-два коротких нейтральных предложения. Не оставляй описание пустым, если в посте есть что пересказать. НЕ включай саму цену объекта, телефоны, имена, ссылки.
+4. НЕЛЬЗЯ добавлять оценки и характеристики, которых нет в тексте: "уютная", "светлая", "просторная", "тихий район", "престижный", "отличный вариант", "рядом инфраструктура" и т.п. Если слово есть в посте — можно использовать, если нет — нельзя. Не придумывай расстояния, годы постройки, материалы, виды из окон.
+5. description_en, description_uz — точный перевод description_ru (узбекский — латиницей). Не добавляй ничего нового.
+6. price_raw — цена объекта так, как написана, с валютой ($, USD, у.е., сум). Для аренды это цена за период, указанный в посте (обычно за месяц), а не залог. Если указаны две валюты (например, «85 000$ или 1 080 млн сум») — берёшь долларовую; если только в сумах — в сумах. Никогда не пересчитывай одну валюту в другую и не выдумывай курс. Если цена указана за 1 м² — это НЕ итоговая цена: price_raw = null. Залог, предоплата и коммунальные — НЕ цена объекта. price_number — число из price_raw в ТОЙ ЖЕ валюте, без конвертации ("85 000$" → 85000, "1,2 млн $" → 1200000, "850 млн сум" → 850000000). Нет цены — null.
+7. bedrooms — число КОМНАТ из текста: "2-комнатная", "двухкомнатная", "3 комнаты", "2к" → 2; если указаны именно спальни — их число. "Студия" без числа → null. Нет данных — null.
+8. bathrooms — число санузлов/ванных ("2 санузла" → 2). "Раздельный санузел" без числа → null.
+9. area — общая площадь в м² числом ("68 м²" → 68, "68,5 кв.м" → 68.5). Площадь кухни/жилая — НЕ общая. Нет данных — null.
+10. floor и total_floors: "5/9 этаж", "5 из 9", "этаж 5, этажность 9" → floor=5, total_floors=9. "9-этажный дом" без этажа квартиры → floor=null, total_floors=9. Только числа из текста.
+11. ceiling_height — высота потолков в метрах, если указана, иначе null.
+12. type_ru: "Квартира", "Дом" или "Новостройка". Это поле ТИП ЖИЛЬЯ. Вилла/коттедж/резиденция/пентхаус — НЕ отдельные типы, ставь "Квартира" (или "Дом", если это явно частный дом). Название ЖК ("Dream House") не определяет тип.
+13. district — район города, address — улица/адрес, landmark — ориентир. Только если указаны в тексте, иначе null.
+14. is_commercial = true только для коммерческой недвижимости (офис, магазин, склад, помещение под бизнес). Обычная квартира — false.
+15. is_rent = true, если объект сдаётся в аренду ("сдам", "аренда", "ижара"); если продаётся — false.
+16. is_sold = true только если в тексте прямо сказано, что объект уже продан/сдан/снят с продажи.
+17. amenities — список преимуществ ТОЛЬКО из подтверждённых фактов поста (мебель, техника, балкон, парковка, ремонт, лифт, охрана, вид и т.п.). Не добавляй то, о чём в тексте нет ни слова. Фразы вроде "без мебели" означают, что мебели НЕТ — такой пункт не включай. Для каждого пункта дай ru, en, uz (узбекский латиницей), коротко: 1–3 слова.
+18. Узбекский текст — латиницей. Русский — на русском языке.`;
+
+// ---- очистка текстовых полей ответа ИИ ----
+
+// Модели иногда присылают списки/markdown/служебные кавычки. Для карточек
+// нужен чистый текст в одну строку.
+function sanitizeAiText(value, maxLength = 1500) {
+    if (value == null) return "";
+    if (typeof value !== "string") {
+        if (typeof value === "number") return String(value);
+        return "";
     }
 
+    return value
+        .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "")
+        .replace(/\*\*(.+?)\*\*/g, "$1")
+        .replace(/(^|\s)[*_`#]+(?=\S)/g, "$1")
+        .replace(/\r/g, "")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim()
+        .slice(0, maxLength);
+}
 
-    const amenities = extractAmenities(text);
+// ---- проверка ответа модели (до записи куда-либо) ----
 
+const TEXT_FIELDS = [
+    "title_ru", "title_en", "title_uz",
+    "description_ru", "description_en", "description_uz",
+    "price_raw", "type_ru", "district", "address", "landmark",
+];
 
-    return {
-        isCommercial,
-        isSold,
-        isRent,
-        missing,
+const LIMITS = {
+    bedrooms: [1, 15],
+    bathrooms: [1, 10],
+    area: [5, 100000],
+    floor: [1, 200],
+    total_floors: [1, 200],
+    ceiling_height: [1.8, 12],
+};
+
+function toBoolean(value) {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value === 1;
+    if (typeof value === "string") return /^(true|да|yes|1)$/i.test(value.trim());
+    return false;
+}
+
+// Приводит значение модели к числу в допустимом диапазоне. null — "нет данных".
+// Возвращает { value, issue }: issue — почему значение отброшено.
+function coerceNumeric(field, raw) {
+    if (raw == null || raw === "") return { value: null, issue: null };
+
+    let value = raw;
+
+    if (typeof value === "string") {
+        // "5/9" в поле floor — разбираем в вызывающем коде; здесь берём первое число
+        const m = value.replace(/\s+/g, "").match(/^(\d+(?:[.,]\d+)?)/);
+        value = m ? toNumber(m[1]) : NaN;
+    }
+
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return { value: null, issue: `${field}: не число (${typeof raw})` };
+    }
+
+    const [min, max] = LIMITS[field];
+    if (value < min || value > max) {
+        return { value: null, issue: `${field}: ${value} вне диапазона ${min}..${max}` };
+    }
+
+    if (["bedrooms", "bathrooms", "floor", "total_floors"].includes(field)) {
+        if (!Number.isInteger(value)) return { value: null, issue: `${field}: не целое (${value})` };
+    }
+
+    return { value, issue: null };
+}
+
+// Проверяет и нормализует сырой ответ модели.
+//   -> { ok: true, value, issues }   value — приведённый к схеме объект
+//   -> { ok: false, reason }         повод повторить запрос / идти к следующему провайдеру
+//
+// `regexFacts` (результат parseListing) нужен, чтобы отличить честное
+// "в тексте нет данных" от пустого ответа модели при явных фактах в посте.
+export function validateAiListing(raw, sourceText = "", regexFacts = null) {
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+        return { ok: false, reason: "ответ не является JSON-объектом" };
+    }
+
+    const issues = [];
+    const value = {};
+
+    for (const key of TEXT_FIELDS) {
+        const v = raw[key];
+        if (v == null) value[key] = "";
+        else if (typeof v === "string") value[key] = sanitizeAiText(v);
+        else if (typeof v === "number") value[key] = String(v);
+        else {
+            value[key] = "";
+            issues.push(`${key}: ожидалась строка, получен ${Array.isArray(v) ? "массив" : typeof v}`);
+        }
+    }
+
+    // Числа. floor вида "5/9" допустим: разбираем оба значения.
+    const rawFloor = raw.floor;
+    let floorFromSlash = null;
+    if (typeof rawFloor === "string" && /^\s*\d+\s*[/\\]\s*\d+\s*$/.test(rawFloor)) {
+        const [f, t] = rawFloor.split(/[/\\]/).map((x) => Number(x.trim()));
+        floorFromSlash = { floor: f, total: t };
+    }
+
+    for (const field of Object.keys(LIMITS)) {
+        const input = field === "floor" && floorFromSlash ? floorFromSlash.floor
+            : field === "total_floors" && floorFromSlash && raw.total_floors == null ? floorFromSlash.total
+            : raw[field];
+
+        const { value: n, issue } = coerceNumeric(field, input);
+        value[field] = n;
+        if (issue) issues.push(issue);
+    }
+
+    // price_number: число > 0
+    if (raw.price_number == null || raw.price_number === "") {
+        value.price_number = null;
+    } else {
+        const n = typeof raw.price_number === "number" ? raw.price_number : toNumber(raw.price_number);
+        if (Number.isFinite(n) && n > 0) value.price_number = n;
+        else {
+            value.price_number = null;
+            issues.push("price_number: не положительное число");
+        }
+    }
+
+    value.is_commercial = toBoolean(raw.is_commercial);
+    value.is_rent = toBoolean(raw.is_rent);
+    value.is_sold = toBoolean(raw.is_sold);
+    value._has_is_commercial = raw.is_commercial != null;
+
+    // Преимущества: массив объектов {ru,en,uz} или строк
+    value.amenities = [];
+    if (raw.amenities != null && !Array.isArray(raw.amenities)) {
+        issues.push("amenities: ожидался массив");
+    } else {
+        for (const item of raw.amenities || []) {
+            if (typeof item === "string" && item.trim()) {
+                value.amenities.push({ ru: sanitizeAiText(item, 60), en: "", uz: "" });
+            } else if (item && typeof item === "object") {
+                const ru = sanitizeAiText(item.ru, 60);
+                const en = sanitizeAiText(item.en, 60);
+                const uz = sanitizeAiText(item.uz, 60);
+                if (ru || en) value.amenities.push({ ru, en, uz });
+            }
+        }
+    }
+
+    // ---- содержательные проверки ----
+
+    const hasAnything =
+        value.title_ru || value.description_ru || value.price_raw ||
+        value.bedrooms != null || value.area != null || value.floor != null ||
+        value.total_floors != null || value.district || value.address || value.amenities.length > 0;
+
+    if (!hasAnything) {
+        return { ok: false, reason: "модель вернула пустую структуру (ни названия, ни описания, ни характеристик)" };
+    }
+
+    const source = String(sourceText || "");
+    const sourceScript = scriptShare(source);
+
+    // Русские поля должны быть на русском, если пост русский
+    if (sourceScript.cyrShare > 0.5) {
+        const ruText = `${value.title_ru} ${value.description_ru}`;
+        const share = scriptShare(ruText);
+        if (share.total >= 12 && share.cyrShare < 0.3) {
+            return { ok: false, reason: "title_ru/description_ru написаны не на русском языке" };
+        }
+    }
+
+    if (regexFacts) {
+        const regexHard = [regexFacts.price, regexFacts.bedrooms, regexFacts.area, regexFacts.floor].filter(Boolean).length;
+        const modelHard = [value.price_raw, value.bedrooms, value.area, value.floor].filter((x) => x != null && x !== "").length;
+        if (regexHard >= 2 && modelHard === 0) {
+            return { ok: false, reason: "модель не извлекла характеристики, явно указанные в тексте (цена/комнаты/площадь/этаж)" };
+        }
+    }
+
+    if (!value.title_ru && !value.description_ru && sourceScript.total >= 30) {
+        return { ok: false, reason: "пустые title_ru и description_ru при непустом тексте объявления" };
+    }
+
+    return { ok: true, value, issues };
+}
+
+// ---- слияние ответа ИИ с регулярным разбором ----
+
+const TYPE_BY_RU = {
+    "Квартира": { ru: "Квартира", en: "Apartment", uz: "Kvartira" },
+    "Дом": { ru: "Дом", en: "House", uz: "Uy" },
+    "Новостройка": { ru: "Новостройка", en: "New building", uz: "Yangi qurilish" },
+};
+
+// Подтверждён ли пункт преимуществ исходным текстом (по основе слова) и не
+// отрицается ли он ("без мебели").
+function isAmenitySupported(item, source) {
+    const words = (item.ru || item.en || "").toLowerCase().match(/\p{L}{4,}/gu) || [];
+    if (!words.length) return false;
+
+    return words.some((w) => {
+        const stem = w.length > 6 ? w.slice(0, w.length - 2) : w.slice(0, Math.max(4, w.length - 1));
+        return hasPositiveMention(source, new RegExp(stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "iu"));
+    });
+}
+
+// Есть ли в описании числа, которых нет в исходнике (выдуманные факты).
+function descriptionHasUnsupportedNumbers(description, source, derived = []) {
+    const allowed = extractNumberValues(source);
+    for (const v of derived) if (v != null) allowed.add(Number(v));
+
+    for (const m of String(description).matchAll(/\d[\d\s.,]*\d|\d/g)) {
+        const n = toNumber(m[0].replace(/\s+/g, ""));
+        if (Number.isFinite(n) && !allowed.has(n)) return true;
+    }
+    return false;
+}
+
+function dedupeAmenities(list) {
+    const seen = new Set();
+    const out = [];
+    for (const a of list) {
+        const key = (a.ru || a.en || "").toLowerCase().trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(a);
+    }
+    return out.slice(0, 12);
+}
+
+// validated — результат validateAiListing(...).value
+// regex     — результат parseListing(source)
+export function buildParsedFromAi(validated, regex, sourceText) {
+    const source = String(sourceText || "");
+    const diag = {
+        source: "ai",
+        provider: null,
+        attempts: [],
+        extracted: {},
+        filledFromRegex: [],
+        rejected: [],
+        warnings: [],
+        errors: [],
+    };
+
+    const reject = (field, reason, value) => diag.rejected.push({ field, reason, value: value ?? null });
+    const fill = (field) => diag.filledFromRegex.push(field);
+
+    // --- количества: комнаты, санузлы, этаж, этажность ---
+    // Явные форматы ("5/9 этаж", "2-комнатная") разбирает детерминированная
+    // регулярка — при расхождении с моделью верим ей. Число модели принимаем,
+    // только если оно есть в тексте (цифрой или словом: "двухкомнатная").
+    const pickCount = (field, aiValue, regexValue) => {
+        if (aiValue != null) {
+            if (!isNumberSupported(source, aiValue, "count")) {
+                reject(field, "число_отсутствует_в_тексте", aiValue);
+            } else if (regexValue && String(aiValue) !== String(regexValue)) {
+                diag.warnings.push(`conflict:${field} ai=${aiValue} regex=${regexValue} -> regex`);
+                return String(regexValue);
+            } else {
+                return String(aiValue);
+            }
+        }
+        if (regexValue) {
+            fill(field);
+            return String(regexValue);
+        }
+        return "";
+    };
+
+    const bedrooms = pickCount("bedrooms", validated.bedrooms, regex.bedrooms);
+    const bathrooms = pickCount("bathrooms", validated.bathrooms, regex.bathrooms);
+    let floor = pickCount("floor", validated.floor, regex.floor);
+    let totalFloors = pickCount("total_floors", validated.total_floors, regex.totalFloors);
+    if (floor && totalFloors && Number(floor) > Number(totalFloors)) {
+        diag.warnings.push(`floor_gt_total:${floor}/${totalFloors}`);
+        totalFloors = "";
+    }
+
+    // --- измеримые величины ---
+    const pickMeasure = (field, aiValue, regexValue) => {
+        if (aiValue != null) {
+            if (isNumberSupported(source, aiValue, "measure")) return numToString(aiValue);
+            reject(field, "число_отсутствует_в_тексте", aiValue);
+        }
+        if (regexValue) {
+            fill(field);
+            return String(regexValue);
+        }
+        return "";
+    };
+
+    const area = pickMeasure("area", validated.area, regex.area);
+    const ceiling = pickMeasure("ceiling_height", validated.ceiling_height, regex.commercialFields.ceiling);
+
+    // --- цена и валюта ---
+    const aiPrice = validated.price_raw ? extractPriceInfo(validated.price_raw) : null;
+    let priceInfo = extractPriceInfo("");
+
+    if (aiPrice && aiPrice.raw) {
+        if (aiPrice.amount != null && isNumberSupported(source, aiPrice.amount, "amount")) {
+            priceInfo = aiPrice;
+        } else {
+            reject("price", "число_отсутствует_в_тексте", validated.price_raw);
+        }
+    } else if (aiPrice && aiPrice.perSqm) {
+        priceInfo = { ...priceInfo, perSqm: true, perSqmRaw: aiPrice.perSqmRaw };
+    }
+
+    if (!priceInfo.raw) {
+        const regexInfo = extractPriceInfo(source);
+        if (regexInfo.raw) {
+            priceInfo = regexInfo;
+            fill("price");
+        } else if (regexInfo.perSqm && !priceInfo.perSqm) {
+            priceInfo = { ...priceInfo, perSqm: true, perSqmRaw: regexInfo.perSqmRaw };
+        }
+    }
+    if (priceInfo.perSqm && !priceInfo.raw) diag.warnings.push("price_only_per_sqm");
+
+    // --- тип, коммерция, аренда, продано ---
+    const typeFromAi = TYPE_BY_RU[validated.type_ru];
+    const type = typeFromAi || regex.type;
+    if (!typeFromAi && validated.type_ru) reject("type", "неизвестный_тип", validated.type_ru);
+
+    const isCommercial = validated._has_is_commercial ? validated.is_commercial : regex.isCommercial;
+
+    // Явные слова "сдам/продам" в тексте надёжнее оценки модели.
+    const isRent = hasDealMarker(source) ? detectIsRent(source) : Boolean(validated.is_rent);
+
+    // "Продано" блокирует публикацию — поэтому оценке модели одной недостаточно:
+    // нужно подтверждение словами в тексте.
+    const isSold = detectIsSold(source) ||
+        (validated.is_sold && reU(`${NB}сдан(?:о|а)?${NA}|снят(?:о|а)?\\s+с\\s+(?:аренды|публикации)`).test(source));
+    if (validated.is_sold && !isSold) reject("is_sold", "нет_подтверждения_в_тексте", true);
+
+    // --- расположение ---
+    const locationFallback = regex.commercialFields.address_ru;
+    const district = validated.district || regex.commercialFields.district_ru || "";
+    const address = validated.address || locationFallback || "";
+    if (!validated.district && regex.commercialFields.district_ru) fill("district");
+    if (!validated.address && locationFallback) fill("address");
+
+    // --- преимущества: только подтверждённые фактами текста ---
+    const aiAmenities = [];
+    for (const item of validated.amenities) {
+        if (isAmenitySupported(item, source)) aiAmenities.push(item);
+        else reject("amenity", "нет_подтверждения_в_тексте", item.ru || item.en);
+    }
+    const amenities = dedupeAmenities([...aiAmenities, ...regex.amenities]);
+    for (const a of regex.amenities) if (!aiAmenities.some((x) => (x.ru || "").toLowerCase() === a.ru.toLowerCase())) fill(`amenity:${a.ru}`);
+
+    // --- заголовок ---
+    const titleRuOk = validated.title_ru && scriptShare(validated.title_ru).cyrShare >= 0.3;
+    const title_ru = titleRuOk ? validated.title_ru : regex.title_ru;
+    if (validated.title_ru && !titleRuOk) reject("title_ru", "не_на_русском", validated.title_ru);
+    if (!validated.title_ru) fill("title_ru");
+
+    // --- описание: только факты. Невалидное -> описание из исходного текста/фактов ---
+    const factsParagraph = buildFactsParagraph({
+        type, rooms: bedrooms, area, floor, totalFloors, location: address || district,
+        isCommercial, amenities, dealMarker: hasDealMarker(source), isRent,
+    });
+
+    let description_ru = validated.description_ru;
+    const descProblems = [];
+
+    if (!description_ru) descProblems.push("пусто");
+    else {
+        if (scriptShare(description_ru).cyrShare < 0.5 && scriptShare(source).cyrShare > 0.5) descProblems.push("не_на_русском");
+        if (descriptionHasUnsupportedNumbers(description_ru, source, [bedrooms, bathrooms, floor, totalFloors, area])) descProblems.push("числа_нет_в_тексте");
+    }
+
+    if (descProblems.length) {
+        description_ru = regex.description_ru || factsParagraph;
+        diag.warnings.push(`description_replaced:${descProblems.join("+")}`);
+    }
+
+    const cleanLang = (text, lang, ruText) => {
+        if (!text) return "";
+        const share = scriptShare(text);
+        if (lang === "en" || lang === "uz") {
+            if (share.cyrShare > 0.3) return "";        // русский текст в en/uz — сбой модели; переведём заново
+            if (ruText && text.trim() === ruText.trim()) return "";
+        }
+        return text;
+    };
+
+    // Перевод описания, подготовленный моделью, годится, только если описание не заменялось
+    const description_en = descProblems.length ? "" : cleanLang(validated.description_en, "en", description_ru);
+    const description_uz = descProblems.length ? "" : cleanLang(validated.description_uz, "uz", description_ru);
+    const title_en = titleRuOk ? cleanLang(validated.title_en, "en", title_ru) : "";
+    const title_uz = titleRuOk ? cleanLang(validated.title_uz, "uz", title_ru) : "";
+
+    const priceNote = priceInfo.perSqmRaw || "";
+
+    // "Юнусабад, ул. Навои 12"; район не дублируем, если он уже есть в адресе
+    const locationLine = district && address && !address.toLowerCase().includes(district.toLowerCase())
+        ? `${district}, ${address}`
+        : (address || district);
+
+    const parsed = {
         title_ru,
         title_en,
         title_uz,
         description_ru,
         description_en,
         description_uz,
-        price,
-        priceNumber: null,
+        about_ru: buildAbout(description_ru, factsParagraph, priceNote),
+        about_en: "",
+        about_uz: "",
+        price: priceInfo.raw,
+        priceNumber: priceNumberForPage(priceInfo),
+        currency: priceInfo.currency,
+        pricePerSqm: priceInfo.perSqmRaw,
         bedrooms,
         bathrooms,
         area,
         floor,
         totalFloors,
-        locationLine,
         type,
+        locationLine,
         amenities,
-        commercialFields
-    };
-}
-
-
-
-
-// =======================================================================
-// РАЗБОР ЧЕРЕЗ ИИ (опционально, если задан хотя бы один ключ провайдера)
-//
-// Один запрос на пост, строгий JSON-ответ по схеме. Модель обязана
-// извлекать ТОЛЬКО то, что реально есть в тексте — никаких выдуманных
-// удобств, дополненных описаний или "правдоподобных" цифр. Если запрос
-// падает по любой причине — возвращаем null, вызывающий код сам
-// откатывается на regex-парсер (parseListing выше).
-// =======================================================================
-
-const AI_SYSTEM_PROMPT = `Ты — парсер объявлений о недвижимости. Тебе присылают сырой текст поста из Telegram-канала о продаже/аренде недвижимости в Узбекистане (обычно на русском, иногда со вставками на узбекском/английском). Извлеки структурированные данные СТРОГО по правилам ниже и верни JSON по заданной схеме.
-
-КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА:
-1. Извлекай ТОЛЬКО то, что явно написано в тексте. Никогда не выдумывай, не додумывай и не предполагай информацию, которой нет в исходном тексте.
-2. Если какого-то поля нет в тексте — верни null (для чисел/строк) или пустой массив (для списков). НЕ заполняй поле "правдоподобным" значением, даже если оно кажется типичным для такого объекта.
-3. "amenities" (удобства) — ТОЛЬКО пункты, явно упомянутые в тексте, но категория ШИРЕ, чем просто "features": сюда входят и характеристики вроде качества ремонта или статуса новостройки. Примеры категорий (добавляй только то, что реально упомянуто, список не исчерпывающий — похожие по смыслу пункты тоже подходят): парковка, мебель, бытовая техника, кондиционер, лифт, детская площадка, тихий/зелёный двор, гардеробная, раздельный санузел, панорамный вид/окна, вид на город, охрана, консьерж, бассейн, терраса, балкон, стиральная машина, холодильник, телевизор, качество ремонта (дизайнерский/евроремонт/свежий ремонт), новостройка, система вентиляции и пожарной безопасности. НИКОГДА не добавляй "стандартные" удобства, которых нет в тексте.
-4. "title_ru" — короткий привлекательный заголовок объявления на основе типа объекта и его реальных характеристик из текста (район/ЖК, ключевая особенность и т.п.). Разрешены лёгкие маркетинговые слова и обороты для благозвучности ("уютная", "просторная", "с продуманной планировкой" и т.п.), даже если их не было в посте буквально — НО нельзя добавлять конкретные факты, которых нет в тексте (нельзя выдумывать площадь, кол-во комнат, ремонт, вид из окна и т.п., если это не упомянуто).
-5. "description_ru" — пересказ ОСТАЛЬНОГО текста поста (без заголовка, без цены/этажа/площади, которые уже вынесены в отдельные поля, без телефона и имени агента) в приятном, продающем стиле. Разрешены общие маркетинговые обороты и оценочные слова ("уютный", "продуманная планировка", "светлый", "тихий район" и т.п.), даже если их не было в посте дословно — стиль подачи можно улучшать. НО граница та же, что и для amenities выше: нельзя добавлять конкретные факты (удобства, точные характеристики, детали инфраструктуры), которых нет в исходном тексте — украшать можно только форму, не содержание. ВАЖНО: любой содержательный факт из текста, который не попал ни в одно отдельное поле (title/price/floor/area/district/address/landmark) и не подошёл под amenities, всё равно НЕ должен пропадать — включай его в description. Пустую строку возвращай только если буквально ничего не остаётся, кроме приветствия, контактов (телефон/имя агента/ссылки) и призыва к действию ("звоните", "пишите в директ" и т.п.) — если же в тексте есть хоть один содержательный факт (например, про ремонт, инфраструктуру, состояние объекта), он обязан попасть либо в amenities, либо в description, но не потеряться.
-6. "description_en" и "description_uz" — переводы description_ru в том же продающем стиле (не дословный подстрочник, но и не более приукрашенные, чем сам description_ru — новых фактов добавлять нельзя).
-7. "title_en" и "title_uz" — переводы title_ru тем же тоном.
-8. Если пост вообще не про объект недвижимости — можешь оставить большинство полей null/пустыми.
-9. "is_sold" = true ТОЛЬКО если в тексте явно сказано, что объект уже продан/сдан/снят с продажи.
-9a. "is_rent" = true, если объект сдаётся В АРЕНДУ (сдам/сдаётся/долгосрочная или посуточная аренда), false — если объект ПРОДАЁТСЯ. Если в тексте нет явного маркера ни в одну, ни в другую сторону — считай false (продажа), это подавляющее большинство постов в канале.
-10. "price_raw" — цена ровно как в тексте. "price_number" — то же самое, но как число в долларах, если валюта явно $ или это очевидно итоговая цена продажи. Упоминание процента оплаты (например "при 100% оплате") — это НЕ цена. Если цена дана в сумах с курсом и отдельно указан итог в $ — используй именно итог в $.
-11. "is_commercial" = true, если это коммерческая недвижимость, false — если жильё.
-12. "type_ru"/"type_en"/"type_uz" — категория ЖИЛЬЯ — используй ТОЛЬКО одно из трёх: Квартира/Apartment/Kvartira, Дом/House/Uy, Новостройка/New building/Yangi qurilish (последнее — если явно указано, что это новостройка/сдаваемый застройщиком объект, а не конкретный тип планировки; в остальных случаях по умолчанию Квартира). Другие слова вроде "вилла"/"коттедж"/"резиденция"/"пентхаус" НЕ используй как отдельную категорию — такого жилья на рынке недвижимости, с которым работает агентство, нет, приравнивай к Квартире. Категория — только если это жильё. Название ЖК может само содержать слово вроде "House" или "Villas" — ориентируйся на реальный смысл текста. Если is_commercial=true, оставь эти поля null.
-13. Никогда не копируй в description номер телефона, имя агента или ссылки на инстаграм/телеграм.
-14. Формат текста строгий, единый для ЛЮБОЙ модели: title — одна строка без markdown (без **, #, эмодзи, кавычек-обёрток), не длиннее ~90 символов. description — связный абзац из 2–5 предложений обычным текстом, БЕЗ markdown, списков и эмодзи (если их не было в исходном посте).`;
-
-const AI_JSON_SCHEMA = {
-    name: "real_estate_listing",
-    strict: true,
-    schema: {
-        type: "object",
-        properties: {
-            title_ru: { type: "string" },
-            title_en: { type: "string" },
-            title_uz: { type: "string" },
-            description_ru: { type: "string" },
-            description_en: { type: "string" },
-            description_uz: { type: "string" },
-            is_commercial: { type: "boolean" },
-            is_sold: { type: "boolean" },
-            is_rent: { type: "boolean" },
-            type_ru: { type: ["string", "null"] },
-            type_en: { type: ["string", "null"] },
-            type_uz: { type: ["string", "null"] },
-            price_raw: { type: ["string", "null"] },
-            price_number: { type: ["number", "null"] },
-            bedrooms: { type: ["integer", "null"] },
-            bathrooms: { type: ["integer", "null"] },
-            area: { type: ["number", "null"] },
-            floor: { type: ["integer", "null"] },
-            total_floors: { type: ["integer", "null"] },
-            ceiling_height: { type: ["number", "null"] },
-            district: { type: ["string", "null"] },
-            address: { type: ["string", "null"] },
-            landmark: { type: ["string", "null"] },
-            amenities: {
-                type: "array",
-                items: {
-                    type: "object",
-                    properties: {
-                        ru: { type: "string" },
-                        en: { type: "string" },
-                        uz: { type: "string" }
-                    },
-                    required: ["ru", "en", "uz"],
-                    additionalProperties: false
-                }
-            }
+        isCommercial,
+        isRent,
+        isSold,
+        commercialFields: {
+            area,
+            floor,
+            ceiling,
+            district_ru: district,
+            district_en: "",
+            district_uz: "",
+            address_ru: address,
+            address_en: "",
+            address_uz: "",
+            landmark_ru: validated.landmark || regex.commercialFields.landmark_ru || "",
+            landmark_en: regex.commercialFields.landmark_en || "",
+            landmark_uz: regex.commercialFields.landmark_uz || "",
+            class_ru: "",
+            class_en: "",
+            class_uz: "",
         },
-        required: [
-            "title_ru", "title_en", "title_uz",
-            "description_ru", "description_en", "description_uz",
-            "is_commercial", "is_sold", "is_rent",
-            "type_ru", "type_en", "type_uz",
-            "price_raw", "price_number",
-            "bedrooms", "bathrooms", "area", "floor", "total_floors", "ceiling_height",
-            "district", "address", "landmark", "amenities"
-        ],
-        additionalProperties: false
-    }
-};
-
-// Тот же список полей, что и AI_JSON_SCHEMA выше, но в диалекте Gemini
-// (responseSchema): типы ЗАГЛАВНЫМИ ("STRING"/"OBJECT"/...), null-допустимые
-// поля — через "nullable": true рядом с обычным type (Gemini не понимает
-// type: ["string","null"], как у OpenAI), "additionalProperties" не
-// поддерживается — просто убран. Смысл и набор полей — один в один с
-// AI_JSON_SCHEMA, эту схему НЕ придумывали заново, только перевели формат.
-const GEMINI_RESPONSE_SCHEMA = {
-    type: "OBJECT",
-    properties: {
-        title_ru: { type: "STRING" },
-        title_en: { type: "STRING" },
-        title_uz: { type: "STRING" },
-        description_ru: { type: "STRING" },
-        description_en: { type: "STRING" },
-        description_uz: { type: "STRING" },
-        is_commercial: { type: "BOOLEAN" },
-        is_sold: { type: "BOOLEAN" },
-        is_rent: { type: "BOOLEAN" },
-        type_ru: { type: "STRING", nullable: true },
-        type_en: { type: "STRING", nullable: true },
-        type_uz: { type: "STRING", nullable: true },
-        price_raw: { type: "STRING", nullable: true },
-        price_number: { type: "NUMBER", nullable: true },
-        bedrooms: { type: "INTEGER", nullable: true },
-        bathrooms: { type: "INTEGER", nullable: true },
-        area: { type: "NUMBER", nullable: true },
-        floor: { type: "INTEGER", nullable: true },
-        total_floors: { type: "INTEGER", nullable: true },
-        ceiling_height: { type: "NUMBER", nullable: true },
-        district: { type: "STRING", nullable: true },
-        address: { type: "STRING", nullable: true },
-        landmark: { type: "STRING", nullable: true },
-        amenities: {
-            type: "ARRAY",
-            items: {
-                type: "OBJECT",
-                properties: {
-                    ru: { type: "STRING" },
-                    en: { type: "STRING" },
-                    uz: { type: "STRING" }
-                },
-                required: ["ru", "en", "uz"]
-            }
-        }
-    },
-    required: [
-        "title_ru", "title_en", "title_uz",
-        "description_ru", "description_en", "description_uz",
-        "is_commercial", "is_sold", "is_rent",
-        "type_ru", "type_en", "type_uz",
-        "price_raw", "price_number",
-        "bedrooms", "bathrooms", "area", "floor", "total_floors", "ceiling_height",
-        "district", "address", "landmark", "amenities"
-    ]
-};
-
-// Санитайзер текста для title/description/amenities — гарантирует
-// ОДИНАКОВЫЙ формат независимо от того, какой из 6 провайдеров в
-// цепочке сработал. Промпт просит "без markdown", но модели послабее
-// (Groq/SambaNova/Cloudflare/OpenRouter, без строгой JSON-схемы) иногда
-// всё равно добавляют **жирный**, # заголовки, списки через "- " или
-// многоточия из emoji — здесь эти артефакты снимаются кодом, а не
-// просьбой в промпте, так что результат гарантированно одинаковый вне
-// зависимости от модели.
-function sanitizeAiText(text, maxLength) {
-
-    if (!text) return "";
-
-    let clean = String(text)
-        // **жирный**/__жирный__ -> жирный, *курсив*/_курсив_ -> курсив
-        .replace(/(\*\*|__)(.*?)\1/g, "$2")
-        .replace(/(\*|_)(.*?)\1/g, "$2")
-        // markdown-заголовки "# ", "## " и т.п. в начале строки
-        .replace(/^#{1,6}\s+/gm, "")
-        // маркеры списка "- "/"* "/"• " в начале строки
-        .replace(/^[\s]*[-*•]\s+/gm, "")
-        // переносы строк — в title их вообще не должно быть, в
-        // description сводим к пробелу (единый абзац, как просит промпт)
-        .replace(/\r?\n+/g, " ")
-        // несколько пробелов подряд -> один
-        .replace(/[ \t]{2,}/g, " ")
-        .trim();
-
-    if (maxLength && clean.length > maxLength) {
-        clean = clean.slice(0, maxLength).replace(/\s+\S*$/, "").trim() + "…";
-    }
-
-    return clean;
-}
-
-// Нормализуем amenities: у Gemini строгая JSON-схема (responseSchema)
-// гарантирует форму {ru,en,uz} для каждого пункта, а у остальных
-// провайдеров в цепочке (Groq/OpenRouter/Mistral/SambaNova/Cloudflare)
-// строгой схемы нет — только текстовое описание в промпте, и слабые/
-// бесплатные модели иногда возвращают пункт просто строкой или под
-// другими ключами. Без этой нормализации на сайте такой пункт
-// показывался бы прочерком ("—"), как будто удобство есть, а текста
-// у него нет.
-function normalizeAmenities(rawAmenities) {
-
-    if (!Array.isArray(rawAmenities)) return [];
-
-    return rawAmenities
-        .map((item) => {
-
-            if (typeof item === "string") {
-                const text = sanitizeAiText(item, 60);
-                return text ? { ru: text, en: text, uz: text } : null;
-            }
-
-            if (item && typeof item === "object") {
-                const ru = sanitizeAiText(item.ru || item.text || item.name, 60);
-                const en = sanitizeAiText(item.en, 60);
-                const uz = sanitizeAiText(item.uz, 60);
-                if (!ru && !en && !uz) return null;
-                return {
-                    ru: ru || en || uz,
-                    en: en || ru || uz,
-                    uz: uz || ru || en
-                };
-            }
-
-            return null;
-        })
-        .filter(Boolean);
-}
-
-// price_number от ИИ доверяем только если он в целом согласуется с
-// тем, что можно детерминированно вытащить регэкспом из price_raw (той
-// же priceToNumber, что использует regex-парсер выше). У провайдеров
-// без строгой JSON-схемы (см. normalizeAmenities выше) изредка
-// случается, что price_raw текст верный, а price_number — нет
-// (сминаются с чем-то ещё цифры из поста). Если расхождение больше чем
-// на порядок в любую сторону — считаем, что это как раз такой случай,
-// и берём число из текста, а не то, что "досочинила" модель.
-function reconcilePriceNumber(priceRaw, aiPriceNumber) {
-
-    const fromText = priceToNumber(priceRaw);
-
-    if (aiPriceNumber == null) return fromText;
-    if (fromText == null || fromText === 0) return aiPriceNumber;
-
-    const ratio = aiPriceNumber / fromText;
-    if (ratio > 10 || ratio < 0.1) return fromText;
-
-    return aiPriceNumber;
-}
-
-// Числовые факты (этаж, этажность, площадь, спальни, санузлы) — та же
-// логика защиты, что и у reconcilePriceNumber для цены: если ИИ вернул
-// число, которого физически нет нигде в исходном тексте поста, это
-// почти наверняка галлюцинация (даже несмотря на явный запрет в
-// промпте — у моделей без строгой схемы такое всё равно изредка
-// проскакивает). В этом случае поле обнуляется — на сайте лучше "—",
-// чем выдуманная цифра.
-function verifyNumberInText(rawText, value) {
-
-    if (value == null) return null;
-
-    const num = String(value).trim();
-    if (!num || !/^\d+([.,]\d+)?$/.test(num)) return value;
-
-    const escaped = num.replace(".", "[.,]");
-    const re = new RegExp(`(?<!\\d)${escaped}(?!\\d)`);
-
-    return re.test(rawText) ? value : null;
-}
-
-function mapAiResultToParsed(ai, sourceText) {
-
-    const isCommercial = Boolean(ai.is_commercial);
-
-    const type = {
-        ru: ai.type_ru || "Квартира",
-        en: ai.type_en || "Apartment",
-        uz: ai.type_uz || "Kvartira"
+        missing: [],
     };
 
-    // Проверяем числовые факты на реальное наличие в исходном тексте
-    // ДО того, как раскладывать их по полям — если sourceText не
-    // передан (на всякий случай, чтобы не уронить старые вызовы) —
-    // verifyNumberInText просто ничего не отбрасывает.
-    const verify = (value) => (sourceText ? verifyNumberInText(sourceText, value) : value);
+    if (!parsed.title_ru || (parsed.title_ru === type.ru && !/квартир/i.test(source))) parsed.missing.push("название");
+    if (!parsed.price) parsed.missing.push("цена");
+    if (!parsed.bedrooms && !parsed.area) parsed.missing.push("комнаты/площадь");
 
-    const vFloor = verify(ai.floor);
-    const vCeiling = verify(ai.ceiling_height);
-    const vArea = verify(ai.area);
-    const vBedrooms = verify(ai.bedrooms);
-    const vBathrooms = verify(ai.bathrooms);
-    const vTotalFloors = verify(ai.total_floors);
+    diag.extracted = summarizeExtracted(parsed);
+    parsed.diagnostics = diag;
 
-    const commercialFields = {
-        district_ru: ai.district || "",
-        district_en: "",
-        district_uz: "",
-        address_ru: ai.address || "",
-        address_en: "",
-        address_uz: "",
-        landmark_ru: ai.landmark || "",
-        landmark_en: "",
-        landmark_uz: "",
-        floor: vFloor != null ? String(vFloor) : "",
-        ceiling: vCeiling != null ? String(vCeiling) : "",
-        area: vArea != null ? String(vArea) : ""
-    };
+    return parsed;
+}
 
-    const missing = [];
-    if (!ai.title_ru) missing.push("название");
-    if (!ai.price_raw) missing.push("цена");
-    if (isCommercial) {
-        if (vArea == null) missing.push("площадь");
-    } else {
-        if (vBedrooms == null) missing.push("кол-во комнат");
+// ---- вызов цепочки ----
+
+async function parseWithAI(text, regexParsed) {
+    const source = String(text || "");
+
+    const validate = (raw) => validateAiListing(raw, source, regexParsed);
+
+    let chain;
+    try {
+        chain = await runListingAiChain({
+            systemPrompt: AI_SYSTEM_PROMPT,
+            jsonSchema: AI_JSON_SCHEMA,
+            geminiResponseSchema: GEMINI_RESPONSE_SCHEMA,
+            userText: source,
+            validate,
+        });
+    } catch (e) {
+        // Цепочка не должна бросать, но если бросила — это не повод терять объявление.
+        logEvent("AI_CHAIN_CRASH", { class: ErrorClass.MODEL, reason: String(e?.message || e).slice(0, 200) });
+        return { parsed: null, attempts: [], error: { class: ErrorClass.MODEL, reason: "crash" } };
     }
+
+    if (!chain.ok) return { parsed: null, attempts: chain.attempts, error: { class: ErrorClass.MODEL, reason: "all_providers_failed_or_invalid" } };
+
+    try {
+        const parsed = buildParsedFromAi(chain.data, regexParsed, source);
+        parsed.diagnostics.provider = chain.provider;
+        parsed.diagnostics.attempts = chain.attempts.map((a) => ({
+            provider: a.provider, attempt: a.attempt, outcome: a.outcome, class: a.class || null, reason: a.reason || null,
+        }));
+        return { parsed, attempts: chain.attempts, error: null };
+    } catch (e) {
+        logEvent("AI_MERGE_FAILED", { class: ErrorClass.PARSE, reason: String(e?.message || e).slice(0, 200) });
+        return { parsed: null, attempts: chain.attempts, error: { class: ErrorClass.PARSE, reason: "merge_failed" } };
+    }
+}
+
+// Одна строка лога на каждое объявление: что извлечено, что отброшено, откуда.
+// Тексты объявления (телефоны, имена) в лог не попадают — только флаги и причины.
+export function logParseSummary(diag, extra = {}) {
+    logEvent("LISTING_PARSE", {
+        source: diag.source,
+        provider: diag.provider,
+        attempts: (diag.attempts || []).length,
+        extracted: diag.extracted,
+        filledFromRegex: diag.filledFromRegex,
+        rejected: (diag.rejected || []).map((r) => `${r.field}:${r.reason}`),
+        warnings: diag.warnings,
+        errors: diag.errors,
+        ...extra,
+    });
+}
+
+// Главная точка входа: ИИ с проверкой и слиянием, иначе регулярный разбор.
+// Результат всегда одной формы и не бросает исключений.
+export async function getParsedListing(text) {
+    let regexParsed;
+
+    try {
+        regexParsed = parseListing(text);
+    } catch (e) {
+        // parseListing — чистые регулярки; если он упал, сохраняем хотя бы исходный текст
+        logEvent("REGEX_PARSE_CRASH", { class: ErrorClass.PARSE, reason: String(e?.message || e).slice(0, 200) });
+        regexParsed = emergencyParsed(text);
+    }
+
+    const configured = configuredProviders().length > 0;
+
+    if (!configured) {
+        regexParsed.diagnostics.warnings.push("ai_not_configured");
+        logParseSummary(regexParsed.diagnostics);
+        return regexParsed;
+    }
+
+    const { parsed, attempts, error } = await parseWithAI(text, regexParsed);
+
+    if (parsed) {
+        // ИИ не вернул ничего, что регулярка не смогла бы — помечаем явно
+        if (parsed.diagnostics.filledFromRegex.length) parsed.diagnostics.source = "ai+regex";
+        logParseSummary(parsed.diagnostics);
+        return parsed;
+    }
+
+    regexParsed.diagnostics.attempts = (attempts || []).map((a) => ({
+        provider: a.provider, attempt: a.attempt, outcome: a.outcome, class: a.class || null, reason: a.reason || null,
+    }));
+    regexParsed.diagnostics.errors.push(error);
+    regexParsed.diagnostics.warnings.push("fallback_to_regex");
+    logParseSummary(regexParsed.diagnostics);
+    return regexParsed;
+}
+
+// Минимальный результат на случай неожиданного сбоя регулярного разбора:
+// исходный текст сохраняется в описании, остальное пусто.
+function emergencyParsed(text) {
+    const source = String(text || "");
+    const lines = source.split("\n").map((l) => l.trim()).filter(Boolean);
+    const body = lines.filter((l) => !isContactLine(l)).join("\n");
 
     return {
-        isCommercial,
-        isSold: Boolean(ai.is_sold),
-        isRent: Boolean(ai.is_rent),
-        missing,
-        title_ru: sanitizeAiText(ai.title_ru, 90) || "Квартира",
-        title_en: sanitizeAiText(ai.title_en, 90),
-        title_uz: sanitizeAiText(ai.title_uz, 90),
-        description_ru: sanitizeAiText(ai.description_ru, 900),
-        description_en: sanitizeAiText(ai.description_en, 900),
-        description_uz: sanitizeAiText(ai.description_uz, 900),
-        price: ai.price_raw || "",
-        priceNumber: reconcilePriceNumber(ai.price_raw, ai.price_number),
-        bedrooms: vBedrooms != null ? String(vBedrooms) : "",
-        bathrooms: vBathrooms != null ? String(vBathrooms) : "",
-        area: vArea != null ? String(vArea) : "",
-        floor: vFloor != null ? String(vFloor) : "",
-        totalFloors: vTotalFloors != null ? String(vTotalFloors) : "",
-        locationLine: ai.district || ai.address || "",
-        type,
-        amenities: normalizeAmenities(ai.amenities),
-        commercialFields
+        title_ru: cleanTitle(lines[0]) || "Квартира", title_en: "", title_uz: "",
+        description_ru: body, description_en: "", description_uz: "",
+        about_ru: body, about_en: "", about_uz: "",
+        price: "", priceNumber: null, currency: null, pricePerSqm: "",
+        bedrooms: "", bathrooms: "", area: "", floor: "", totalFloors: "",
+        type: { ru: "Квартира", en: "Apartment", uz: "Kvartira" }, locationLine: "",
+        amenities: [], isCommercial: false, isRent: false, isSold: false,
+        commercialFields: {
+            area: "", floor: "", ceiling: "",
+            district_ru: "", district_en: "", district_uz: "",
+            address_ru: "", address_en: "", address_uz: "",
+            landmark_ru: "", landmark_en: "", landmark_uz: "",
+            class_ru: "", class_en: "", class_uz: "",
+        },
+        missing: ["цена", "комнаты/площадь"],
+        diagnostics: { source: "regex", provider: null, attempts: [], extracted: {}, filledFromRegex: [], rejected: [], warnings: ["emergency_fallback"], errors: [] },
     };
-}
-
-// Цепочка ИИ-провайдеров (Gemini → Groq → OpenRouter → Mistral → SambaNova → Cloudflare)
-// вынесена в общий модуль api/aiProviders.js — используется
-// отсюда, из api/finalize-albums.js и из api/telegram-webhook.js, чтобы
-// список провайдеров и порядок фоллбэка не расходились по трём файлам.
-export async function parseWithAI(text) {
-
-    const result = await runListingAiChain({
-        systemPrompt: AI_SYSTEM_PROMPT,
-        jsonSchema: AI_JSON_SCHEMA,
-        geminiResponseSchema: GEMINI_RESPONSE_SCHEMA,
-        userText: text
-    });
-
-    if (!result.ok) return null;
-
-    console.log(`AI PARSE: сработал провайдер "${result.provider}"`);
-
-    return mapAiResultToParsed(result.data, text);
-}
-
-
-// Пробуем ИИ, при любой неудаче — старый regex-парсер. Оба возвращают
-// объект одинаковой формы.
-export async function getParsedListing(text) {
-    return (await parseWithAI(text)) || parseListing(text);
 }

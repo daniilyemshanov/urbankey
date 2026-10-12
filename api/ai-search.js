@@ -168,7 +168,10 @@ export default async function handler(req, res) {
             systemPrompt: buildSystemPrompt(LANG_NAME[safeLang]),
             jsonSchema: JSON_SCHEMA,
             geminiResponseSchema: GEMINI_SCHEMA,
-            userText: safeQuery
+            userText: safeQuery,
+            // Публичный эндпоинт: платный Haiku здесь не используем (расход
+            // кредитов зависел бы от посетителей), только бесплатные провайдеры.
+            skipProviders: ["anthropic"]
         });
 
         if (!result.ok) {
