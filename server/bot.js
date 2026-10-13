@@ -23,6 +23,7 @@ import {
     residentialCardFields,
     checkCardDisplay,
     omitEmpty,
+    buildListingUrl,
 } from "../api/_listingDb.js";
 
 
@@ -345,6 +346,8 @@ async function processPost(mainMsg, allMsgs) {
             ? "\n📝 Черновик страницы объекта создан — откройте её в админке и дозаполните описание/удобства при необходимости."
             : "\n⚠️ Карточка создана, но черновик страницы объекта создать не удалось — заведите её вручную.";
 
+        statusLine += `\n🔗 ${buildListingUrl(parsed.isCommercial, data.id)}`;
+
         await replyToChannel(mainMsg, statusLine);
 
     } catch (e) {
@@ -425,7 +428,10 @@ bot.on("edited_channel_post", async (msg) => {
             return;
         }
 
-        await replyToChannel(msg, `✏️ Объект «${parsed.title_ru}» обновлён на сайте`);
+        await replyToChannel(
+            msg,
+            `✏️ Объект «${parsed.title_ru}» обновлён на сайте\n🔗 ${buildListingUrl(known.table === "commercials", known.id)}`
+        );
 
     } catch (e) {
         console.log("EDIT HANDLER EXCEPTION:", e);

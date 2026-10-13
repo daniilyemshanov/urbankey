@@ -47,6 +47,7 @@ import {
     buildCardRow,
     savePage,
     checkCardDisplay,
+    buildListingUrl,
 } from "./_listingDb.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -240,6 +241,8 @@ async function processPost(mainMsg, images, videoUrl, photoReport) {
     if (photoReport && photoReport.okCount < photoReport.total) {
         statusLine += `\n⚠️ Загружено фото: ${photoReport.okCount} из ${photoReport.total}. Недостающие добавьте вручную в админке (причины — в логах функции).`;
     }
+
+    statusLine += `\n🔗 ${buildListingUrl(parsed.isCommercial, data.id)}`;
 
     await replyToChannel(mainMsg, statusLine);
 }

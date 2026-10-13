@@ -79,6 +79,7 @@ import {
     residentialCardFields,
     checkCardDisplay,
     omitEmpty,
+    buildListingUrl,
 } from "./_listingDb.js";
 
 // Разбор поста (регулярки + ИИ + проверка + перевод) вынесен в
@@ -294,6 +295,8 @@ async function processPost(mainMsg, images, videoUrl) {
         ? "\n📝 Черновик страницы объекта создан — откройте её в админке и дозаполните описание/удобства при необходимости."
         : "\n⚠️ Карточка создана, но черновик страницы объекта создать не удалось — заведите её вручную.";
 
+    statusLine += `\n🔗 ${buildListingUrl(parsed.isCommercial, data.id)}`;
+
     await replyToChannel(mainMsg, statusLine);
 }
 
@@ -364,7 +367,10 @@ async function processEditedPost(msg) {
         return;
     }
 
-    await replyToChannel(msg, `✏️ Объект «${parsed.title_ru}» обновлён на сайте`);
+    await replyToChannel(
+        msg,
+        `✏️ Объект «${parsed.title_ru}» обновлён на сайте\n🔗 ${buildListingUrl(table === "commercials", id)}`
+    );
 }
 
 

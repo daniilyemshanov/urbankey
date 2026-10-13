@@ -25,6 +25,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // ---------------------------------------------------------------------
 // Подписи комнат и санузлов для карточки жилья (со склонением)
 // ---------------------------------------------------------------------
+// Публичная ссылка на объявление на сайте (для ответа бота в канале).
+// Маршруты сайта: /:lang/property/:id (жильё) и /:lang/commercial/:id (коммерция),
+// где id — id карточки (cardss / commercials).
+export const SITE_ORIGIN = "https://urbankey.uz";
+
+export function buildListingUrl(isCommercial, id, lang = "ru") {
+    return `${SITE_ORIGIN}/${lang}/${isCommercial ? "commercial" : "property"}/${id}`;
+}
+
 export function residentialCardFields(parsed) {
     const bedrooms = countLabelsFor("bedrooms", parsed.bedrooms);
     const bathrooms = countLabelsFor("bathrooms", parsed.bathrooms);

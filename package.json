@@ -14,7 +14,8 @@
     "test:listing": "node --test tests/listing.facts.test.mjs tests/listing.ai.test.mjs tests/listing.persist.test.mjs",
     "test:anthropic": "node --test tests/listing.anthropic.test.mjs",
     "test:fx": "node --test tests/exchange-rate.test.mjs tests/currency.display.test.mjs",
-    "test:all": "node --test tests/api.test.mjs tests/listing.facts.test.mjs tests/listing.ai.test.mjs tests/listing.persist.test.mjs tests/listing.anthropic.test.mjs tests/exchange-rate.test.mjs tests/currency.display.test.mjs"
+    "test:all": "node --test tests/api.test.mjs tests/listing.facts.test.mjs tests/listing.ai.test.mjs tests/listing.persist.test.mjs tests/listing.anthropic.test.mjs tests/exchange-rate.test.mjs tests/currency.display.test.mjs",
+    "reparse": "node --env-file=.env scripts/reparse-telegram.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
