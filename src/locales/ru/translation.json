@@ -926,6 +926,8 @@
     "residential": "Жильё",
     "commercial": "Коммерция",
     "allTypes": "Любой тип",
+    "district": "Район",
+    "allDistricts": "Все районы",
     "priceFrom": "Цена от",
     "priceTo": "до",
     "bedroomsAny": "Любое кол-во комнат",

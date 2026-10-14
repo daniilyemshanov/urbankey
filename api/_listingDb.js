@@ -22,9 +22,6 @@ import { parsePrice } from "../src/utils/currency.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// ---------------------------------------------------------------------
-// Подписи комнат и санузлов для карточки жилья (со склонением)
-// ---------------------------------------------------------------------
 // Публичная ссылка на объявление на сайте (для ответа бота в канале).
 // Маршруты сайта: /:lang/property/:id (жильё) и /:lang/commercial/:id (коммерция),
 // где id — id карточки (cardss / commercials).
@@ -34,6 +31,9 @@ export function buildListingUrl(isCommercial, id, lang = "ru") {
     return `${SITE_ORIGIN}/${lang}/${isCommercial ? "commercial" : "property"}/${id}`;
 }
 
+// ---------------------------------------------------------------------
+// Подписи комнат и санузлов для карточки жилья (со склонением)
+// ---------------------------------------------------------------------
 export function residentialCardFields(parsed) {
     const bedrooms = countLabelsFor("bedrooms", parsed.bedrooms);
     const bathrooms = countLabelsFor("bathrooms", parsed.bathrooms);
@@ -368,4 +368,120 @@ export function omitEmpty(obj) {
         out[key] = value;
     }
     return out;
+}
+
+
+// ---------------------------------------------------------------------
+// «ПРОДАНО»: заморозка объявления ответом на пост в канале
+// ---------------------------------------------------------------------
+// Админ канала отвечает (reply) на пост словом ПРОДАНО — у карточки
+// ставится is_sold = true. Сайт читает cardss_public / commercials_public,
+// где проданные строки отфильтрованы (см. sql/add_sold_flag.sql), поэтому
+// объявление пропадает с сайта, а сама строка остаётся в базе.
+
+// Слова, которыми помечают завершённую сделку (после нормализации).
+// «сдано/сдан» и «berildi» — для аренды.
+const SOLD_WORDS = new Set([
+    "продано", "продан", "продана", "проданы",
+    "сдано", "сдан", "сдана", "сданы",
+    "sold", "rented", "sotildi", "sotilgan", "berildi",
+]);
+const NEGATION_WORDS = new Set(["не", "нет", "not", "no", "emas", "yoq"]);
+
+// true, если текст — короткая отметка вида «ПРОДАНО», «✅ Продано!»,
+// «sold out», «продано за 50000». Длинные тексты и отрицания («не продано»)
+// не считаются — иначе обычный пост/комментарий мог бы заморозить объект.
+export function isSoldKeyword(text) {
+    const tokens = String(text || "")
+        .toLowerCase()
+        .replace(/ё/g, "е")
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter(Boolean);
+
+    if (tokens.length === 0 || tokens.length > 3) return false;
+    if (tokens.some((t) => NEGATION_WORDS.has(t))) return false;
+
+    return tokens.some((t) => SOLD_WORDS.has(t));
+}
+
+const COLUMN_MISSING = "42703"; // Postgres: undefined_column
+
+// Карточка по посту Telegram: { table, id, title, isRent, isSold } или null.
+// Если колонки is_sold ещё нет (SQL не выполнен) — читаем без неё.
+export async function findListingByTelegramMessage(supabase, chatId, messageId) {
+    for (const table of ["cardss", "commercials"]) {
+        const query = (columns) => supabase
+            .from(table)
+            .select(columns)
+            .eq("tg_chat_id", chatId)
+            .eq("tg_message_id", messageId)
+            .maybeSingle();
+
+        let { data, error } = await query("id, title_ru, is_rent, is_sold");
+        if (error && error.code === COLUMN_MISSING) {
+            ({ data, error } = await query("id, title_ru, is_rent"));
+        }
+        if (error) {
+            console.error(`findListingByTelegramMessage(${table}) failed:`, error.message);
+            continue;
+        }
+        if (data) {
+            return {
+                table,
+                id: data.id,
+                title: data.title_ru || "",
+                isRent: data.is_rent === true,
+                isSold: data.is_sold === true,
+            };
+        }
+    }
+    return null;
+}
+
+// Карточка, на пост которой ответили. У альбома отвечать могут на любое
+// из фото, а в карточке записан id одного сообщения (с подписью) — его
+// находим через bot_pending_albums по media_group_id.
+export async function findListingForReply(supabase, chatId, repliedMsg) {
+    if (!repliedMsg) return null;
+
+    const direct = await findListingByTelegramMessage(supabase, chatId, repliedMsg.message_id);
+    if (direct) return direct;
+
+    if (repliedMsg.media_group_id) {
+        const { data: album } = await supabase
+            .from("bot_pending_albums")
+            .select("chat_id, message_id")
+            .eq("media_group_id", String(repliedMsg.media_group_id))
+            .maybeSingle();
+
+        if (album?.message_id != null) {
+            return findListingByTelegramMessage(supabase, album.chat_id ?? chatId, album.message_id);
+        }
+    }
+    return null;
+}
+
+// Замораживает объявление. { ok: true } или { ok: false, missingColumn, error }.
+export async function markListingSold(supabase, table, id) {
+    const { error } = await supabase
+        .from(table)
+        .update({ is_sold: true, sold_at: new Date().toISOString() })
+        .eq("id", id);
+
+    if (error) {
+        return { ok: false, missingColumn: error.code === COLUMN_MISSING, error };
+    }
+    return { ok: true };
+}
+
+// Текст ответа в канал после попытки пометить объявление проданным.
+export function soldReplyText(listing, result) {
+    const word = listing.isRent ? "сдан" : "продан";
+
+    if (!result.ok) {
+        return result.missingColumn
+            ? "⚠️ В базе нет колонки is_sold — выполните sql/add_sold_flag.sql в Supabase и повторите."
+            : `❌ Не удалось пометить объект: ${result.error.message}`;
+    }
+    return `🔒 Объект «${listing.title}» отмечен как ${word}: убран с сайта и заморожен.`;
 }

@@ -65,7 +65,25 @@ export async function propertyExists(supabase, id) {
         console.error("propertyExists failed:", error.message);
         return null;
     }
-    return Boolean(data);
+    if (!data) return false;
+
+    // Проданное объявление (is_sold) отфильтровано во view cardss_public —
+    // его страница больше не существует и должна отдавать 404, а не 200.
+    const { data: card, error: cardError } = await noRetry(
+        supabase
+            .from("cardss_public")
+            .select("id")
+            .eq("id", id)
+            .maybeSingle()
+    );
+
+    if (cardError) {
+        // view ещё нет — проверить нечем, не прячем живую страницу
+        if (cardError.code === "42P01") return true;
+        console.error("propertyExists(card) failed:", cardError.message);
+        return null;
+    }
+    return Boolean(card);
 }
 
 // Страница коммерции — зеркало Context.getCommercialById:
@@ -85,8 +103,9 @@ export async function commercialExists(supabase, id) {
         console.error("commercialExists(page) failed:", error.message);
         return null;
     }
-    if (page) return true;
-
+    // Проданное (is_sold) отфильтровано во view commercials_public, поэтому
+    // даже при наличии строки commercial_pages страница считается
+    // существующей, только если объект есть во view.
     const { data: base, error: baseError } = await noRetry(
         supabase
             .from("commercials_public")
@@ -99,5 +118,6 @@ export async function commercialExists(supabase, id) {
         console.error("commercialExists(base) failed:", baseError.message);
         return null;
     }
+    if (page && !base) return false;
     return Boolean(base);
 }

@@ -926,6 +926,8 @@
     "residential": "Residential",
     "commercial": "Commercial",
     "allTypes": "Any type",
+    "district": "District",
+    "allDistricts": "All districts",
     "priceFrom": "Price from",
     "priceTo": "to",
     "bedroomsAny": "Any bedrooms",

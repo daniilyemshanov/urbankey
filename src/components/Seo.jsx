@@ -8,7 +8,7 @@ import { useLocation } from "react-router-dom";
 import { DEFAULT_LANG, SUPPORTED_LANGS, stripLangPrefix } from "../utils/lang";
 
 const SITE_NAME = "UrbanKey";
-const FALLBACK_IMAGE = "/image (16).webp";
+const FALLBACK_IMAGE = "/image%20(16).webp"; // пробел в URL кодируем: og:image должен быть валидным URL
 const SITE_ORIGIN = "https://urbankey.uz";
 
 const OG_LOCALES = { ru: "ru_RU", en: "en_US", uz: "uz_UZ" };
@@ -34,7 +34,7 @@ const DEFAULT_DESCRIPTION = {
  */
 const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
     const { i18n } = useTranslation();
-    const { pathname, search } = useLocation();
+    const { pathname } = useLocation();
     const lang = SUPPORTED_LANGS.includes(i18n.language) ? i18n.language : DEFAULT_LANG;
 
     const fullTitle = title ? `${title} — ${SITE_NAME}` : DEFAULT_TITLE[lang];
@@ -66,13 +66,13 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
                     key={code}
                     rel="alternate"
                     hrefLang={code}
-                    href={`${SITE_ORIGIN}/${code}${basePath}${search}`}
+                    href={`${SITE_ORIGIN}/${code}${basePath}`}
                 />
             ))}
             <link
                 rel="alternate"
                 hrefLang="x-default"
-                href={`${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}${search}`}
+                href={`${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`}
             />
 
             <meta property="og:type" content="website" />

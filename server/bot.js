@@ -24,6 +24,11 @@ import {
     checkCardDisplay,
     omitEmpty,
     buildListingUrl,
+    isSoldKeyword,
+    findListingByTelegramMessage,
+    findListingForReply,
+    markListingSold,
+    soldReplyText,
 } from "../api/_listingDb.js";
 
 
@@ -226,6 +231,12 @@ const pendingGroups = new Map();
 
 function handleIncomingPost(msg) {
 
+    // Ответ словом ПРОДАНО на пост с объявлением — не новое объявление.
+    if (msg.reply_to_message && isSoldKeyword(msg.caption || msg.text || "")) {
+        processSoldReply(msg);
+        return;
+    }
+
     if (!msg.media_group_id) {
         processPost(msg, [msg]);
         return;
@@ -371,9 +382,48 @@ async function replyToChannel(msg, text) {
 
 
 
+// Ответ «ПРОДАНО» на пост: объявление убирается с сайта и замораживается.
+async function processSoldReply(msg) {
+
+    try {
+
+        const listing = await findListingForReply(supabase, msg.chat.id, msg.reply_to_message);
+
+        if (!listing) {
+            await replyToChannel(
+                msg,
+                "⚠️ Не нашёл объявление на сайте для этого поста — отвечайте словом ПРОДАНО прямо на сам пост с объявлением."
+            );
+            return;
+        }
+
+        if (listing.isSold) {
+            await replyToChannel(msg, `🔒 Объект «${listing.title}» уже помечен как проданный.`);
+            return;
+        }
+
+        const result = await markListingSold(supabase, listing.table, listing.id);
+        await replyToChannel(msg, soldReplyText(listing, result));
+
+    } catch (e) {
+        console.log("SOLD HANDLER EXCEPTION:", e);
+    }
+}
+
+
 bot.on("edited_channel_post", async (msg) => {
 
     try {
+
+        // Правка самого сообщения «ПРОДАНО» — это не объявление.
+        if (msg.reply_to_message && isSoldKeyword(msg.caption || msg.text || "")) return;
+
+        // Проданный объект заморожен: правки поста на сайт больше не попадают.
+        const existing = await findListingByTelegramMessage(supabase, msg.chat.id, msg.message_id);
+        if (existing?.isSold) {
+            await replyToChannel(msg, `🔒 Объект «${existing.title}» продан и заморожен — изменения на сайт не применены.`);
+            return;
+        }
 
         const key = `${msg.chat.id}:${msg.message_id}`;
         const known = recentPosts.get(key);

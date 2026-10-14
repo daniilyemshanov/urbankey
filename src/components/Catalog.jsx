@@ -14,6 +14,7 @@ import { useCurrency } from "../context/CurrencyContext";
 import { formatPriceIn, priceInCurrency, usdToCurrency } from "../utils/currency";
 import { fuzzyScore, highlightSegments } from "../utils/search";
 import { aiSearchCatalog } from "../utils/aiSearch";
+import { TASHKENT_DISTRICTS, detectDistrict, districtLabel } from "../utils/districts";
 import FavoriteButton from "./FavoriteButton";
 import { SkeletonGrid } from "./SkeletonCard";
 import s from "./Catalog.module.css";
@@ -106,6 +107,7 @@ const Catalog = () => {
     const [category, setCategory] = useState("all");
     const [type, setType] = useState("all");
     const [dealType, setDealType] = useState("all");
+    const [district, setDistrict] = useState("all");
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
     const [bedrooms, setBedrooms] = useState("all");
@@ -145,6 +147,12 @@ const Catalog = () => {
             floorLabel: residentialFloorLabel(item, lang),
             link: localizedPath(`/property/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
+            // у жилья отдельной колонки "район" нет — определяем по тексту
+            districtKey: detectDistrict([
+                item.district?.ru, item.district?.en, item.district?.uz,
+                item.title?.ru, item.title?.en, item.title?.uz,
+                item.description?.ru, item.description?.en, item.description?.uz
+            ]),
             raw: item
         }));
 
@@ -164,10 +172,20 @@ const Catalog = () => {
             floor: item.floor || "",
             link: localizedPath(`/commercial/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
+            districtKey: detectDistrict([
+                item.district?.ru, item.district?.en, item.district?.uz,
+                item.address?.ru, item.address?.en, item.address?.uz,
+                item.title?.ru, item.title?.en, item.title?.uz,
+                item.description?.ru, item.description?.en, item.description?.uz
+            ]),
             raw: item
         }));
 
-        return [...residential, ...commercial];
+        // название района на текущем языке — чтобы искался и текстовым поиском
+        return [...residential, ...commercial].map((item) => ({
+            ...item,
+            districtName: item.districtKey ? districtLabel(item.districtKey, lang) : ""
+        }));
 
     }, [properties, commercials, lang, t]);
 
@@ -198,6 +216,33 @@ const Catalog = () => {
     }, [items, category, lang]);
 
 
+    // Районы, в которых реально есть объявления выбранной категории, со
+    // счётчиками — чтобы не предлагать районы, где ничего нет.
+    const availableDistricts = useMemo(() => {
+
+        const scoped =
+            category === "all"
+                ? items
+                : items.filter((i) => i.category === category);
+
+        const counts = new Map();
+        for (const i of scoped) {
+            if (i.districtKey) counts.set(i.districtKey, (counts.get(i.districtKey) || 0) + 1);
+        }
+
+        return TASHKENT_DISTRICTS
+            .filter((d) => counts.has(d.key))
+            .map((d) => ({ key: d.key, label: d[lang] || d.ru, count: counts.get(d.key) }));
+
+    }, [items, category, lang]);
+
+    // Выбранный район сбрасывается сам, если в новой категории его нет
+    const activeDistrict =
+        district !== "all" && !availableDistricts.some((d) => d.key === district)
+            ? "all"
+            : district;
+
+
     useEffect(() => {
         if (type !== "all" && !availableTypes.includes(type)) {
             setType("all");
@@ -222,6 +267,7 @@ const Catalog = () => {
                         item.typeLabel,
                         item.description,
                         item.district,
+                        item.districtName,
                         item.bedroomsLabel
                     ])
                     : 1;
@@ -239,6 +285,8 @@ const Catalog = () => {
                 if (type !== "all" && item.typeLabel !== type) return false;
 
                 if (dealType !== "all" && (item.isRent ? "rent" : "sale") !== dealType) return false;
+
+                if (activeDistrict !== "all" && item.districtKey !== activeDistrict) return false;
 
                 if (min !== null && (item.priceValue === null || item.priceValue < min)) return false;
                 if (max !== null && (item.priceValue === null || item.priceValue > max)) return false;
@@ -275,7 +323,7 @@ const Catalog = () => {
 
         return result;
 
-    }, [items, category, type, dealType, minPrice, maxPrice, bedrooms, debouncedSearch, sort, currency, rate]);
+    }, [items, category, type, dealType, activeDistrict, minPrice, maxPrice, bedrooms, debouncedSearch, sort, currency, rate]);
 
 
     const suggestions = useMemo(() => {
@@ -291,6 +339,7 @@ const Catalog = () => {
                     item.typeLabel,
                     item.description,
                     item.district,
+                    item.districtName,
                     item.bedroomsLabel
                 ])
             }))
@@ -304,11 +353,11 @@ const Catalog = () => {
 
     useEffect(() => {
         setVisibleCount(PAGE_SIZE);
-    }, [category, type, dealType, minPrice, maxPrice, bedrooms, debouncedSearch, sort]);
+    }, [category, type, dealType, activeDistrict, minPrice, maxPrice, bedrooms, debouncedSearch, sort]);
 
 
     const hasActiveFilters =
-        category !== "all" || type !== "all" || dealType !== "all" || minPrice || maxPrice ||
+        category !== "all" || type !== "all" || dealType !== "all" || activeDistrict !== "all" || minPrice || maxPrice ||
         bedrooms !== "all" || search;
 
 
@@ -316,6 +365,7 @@ const Catalog = () => {
         setCategory("all");
         setType("all");
         setDealType("all");
+        setDistrict("all");
         setMinPrice("");
         setMaxPrice("");
         setBedrooms("all");
@@ -524,6 +574,16 @@ const Catalog = () => {
                             <option value="all">{t("dealType.all")}</option>
                             <option value="sale">{t("dealType.sale")}</option>
                             <option value="rent">{t("dealType.rent")}</option>
+                        </select>
+                    </div>
+
+                    <div className={s.field}>
+                        <label>{t("catalog.district")}</label>
+                        <select value={activeDistrict} onChange={(e) => setDistrict(e.target.value)}>
+                            <option value="all">{t("catalog.allDistricts")}</option>
+                            {availableDistricts.map((d) => (
+                                <option key={d.key} value={d.key}>{d.label} ({d.count})</option>
+                            ))}
                         </select>
                     </div>
 

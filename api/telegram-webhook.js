@@ -80,6 +80,11 @@ import {
     checkCardDisplay,
     omitEmpty,
     buildListingUrl,
+    isSoldKeyword,
+    findListingByTelegramMessage,
+    findListingForReply,
+    markListingSold,
+    soldReplyText,
 } from "./_listingDb.js";
 
 // Разбор поста (регулярки + ИИ + проверка + перевод) вынесен в
@@ -301,9 +306,43 @@ async function processPost(mainMsg, images, videoUrl) {
 }
 
 
+// Ответ «ПРОДАНО» на пост: объявление убирается с сайта и замораживается.
+async function processSoldReply(msg) {
+
+    const listing = await findListingForReply(supabase, msg.chat.id, msg.reply_to_message);
+
+    if (!listing) {
+        await replyToChannel(
+            msg,
+            "⚠️ Не нашёл объявление на сайте для этого поста — отвечайте словом ПРОДАНО прямо на сам пост с объявлением."
+        );
+        return;
+    }
+
+    if (listing.isSold) {
+        await replyToChannel(msg, `🔒 Объект «${listing.title}» уже помечен как проданный.`);
+        return;
+    }
+
+    const result = await markListingSold(supabase, listing.table, listing.id);
+    await replyToChannel(msg, soldReplyText(listing, result));
+}
+
+
 async function processEditedPost(msg) {
 
     const text = msg.caption || msg.text || "";
+
+    // Правка самого сообщения «ПРОДАНО» — это не объявление, ничего не делаем.
+    if (msg.reply_to_message && isSoldKeyword(text)) return;
+
+    // Проданный объект заморожен: правки поста на сайт больше не попадают.
+    const existing = await findListingByTelegramMessage(supabase, msg.chat.id, msg.message_id);
+    if (existing?.isSold) {
+        await replyToChannel(msg, `🔒 Объект «${existing.title}» продан и заморожен — изменения на сайт не применены.`);
+        return;
+    }
+
     const parsed = await getParsedListing(text);
 
     await fillMissingTranslations(parsed, ["title", "description"]);
@@ -565,6 +604,13 @@ export default async function handler(req, res) {
         if (!msg) return res.status(200).json({ ok: true });
 
         const text = msg.caption || msg.text || "";
+
+        // Ответ словом ПРОДАНО на пост с объявлением — не новое объявление.
+        if (msg.reply_to_message && isSoldKeyword(text)) {
+            await processSoldReply(msg);
+            return res.status(200).json({ ok: true });
+        }
+
         const videoInfo = getVideoInfo(msg);
 
         if (!text.trim() && !getBestImageFileId(msg) && !videoInfo) {

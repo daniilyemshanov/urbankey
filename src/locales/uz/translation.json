@@ -1000,6 +1000,8 @@
     "residential": "Turar-joy",
     "commercial": "Tijorat",
     "allTypes": "Har qanday turi",
+    "district": "Tuman",
+    "allDistricts": "Barcha tumanlar",
     "priceFrom": "Narx dan",
     "priceTo": "gacha",
     "bedroomsAny": "Xonalar soni muhim emas",

@@ -14,9 +14,16 @@ const Journey = () => {
 
         const fetchCount = async () => {
 
+            // view не содержат проданных; если view недоступна — читаем таблицы
+            const countOf = async (view, table) => {
+                const res = await supabase.from(view).select("id", { count: "exact", head: true })
+                if (!res.error) return res
+                return supabase.from(table).select("id", { count: "exact", head: true })
+            }
+
             const [cards, commercials] = await Promise.all([
-                supabase.from("cardss").select("id", { count: "exact", head: true }),
-                supabase.from("commercials").select("id", { count: "exact", head: true }),
+                countOf("cardss_public", "cardss"),
+                countOf("commercials_public", "commercials"),
             ])
 
             const total = (cards.count || 0) + (commercials.count || 0)

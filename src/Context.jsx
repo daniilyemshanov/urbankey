@@ -29,6 +29,24 @@ const COMMERCIAL_PUBLIC_COLUMNS =
 
 // true, если ошибка supabase означает "такой таблицы/view не существует"
 // (PostgREST/Postgres 42P01) — то есть SQL-миграция ещё не накатана
+// Объект виден на сайте, если он есть в публичном view (проданные —
+// is_sold — в view не попадают, см. sql/add_sold_flag.sql). Страницы
+// villas / commercial_pages читаются напрямую, поэтому без этой проверки
+// проданный объект остался бы доступен по прямой ссылке. Если проверить
+// не удалось (ошибка/нет view) — страницу не прячем.
+const isListingVisible = async (view, id) => {
+
+    const { data, error } = await supabase
+        .from(view)
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+
+    if (error) return true;
+
+    return Boolean(data);
+};
+
 const isMissingRelation = (error) =>
     !!error && (
         error.code === "42P01" ||
@@ -952,6 +970,13 @@ export const MyProvider = ({ children }) => {
             return;
         }
 
+        if (!(await isListingVisible("commercials_public", commercialId))) {
+            if (requestId === commercialRequest.current) setCommercialStatus("notfound");
+            return;
+        }
+
+        if (requestId !== commercialRequest.current) return;
+
         setCommercialPage({
 
             id: data.id,
@@ -1849,6 +1874,16 @@ export const MyProvider = ({ children }) => {
                 return;
 
             }
+
+            if (!(await isListingVisible("cardss_public", cardId))) {
+
+                if (requestId === villaRequest.current) setVillaStatus("notfound");
+
+                return;
+
+            }
+
+            if (requestId !== villaRequest.current) return;
 
 
             setVilla({
