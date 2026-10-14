@@ -113,9 +113,9 @@ const Connect = () => {
                     className={s.logo}
                 />
 
-                <h1>
+                <h2>
                     {t("connect2Title")}
-                </h1>
+                </h2>
 
                 <p>
                     {t("connectDescription")}
@@ -144,7 +144,7 @@ const Connect = () => {
                         custom={1}
                     >
 
-                        <h1>{t("firstName")}</h1>
+                        <p className={s.fieldLabel}>{t("firstName")}</p>
 
                         <input
                             className={s.inp}
@@ -172,7 +172,7 @@ const Connect = () => {
                         custom={2}
                     >
 
-                        <h1>{t("lastName")}</h1>
+                        <p className={s.fieldLabel}>{t("lastName")}</p>
 
                         <input
                             className={s.inp}
@@ -200,7 +200,7 @@ const Connect = () => {
                         custom={3}
                     >
 
-                        <h1>{t("email")}</h1>
+                        <p className={s.fieldLabel}>{t("email")}</p>
 
                         <input
                             className={s.inp}
@@ -229,7 +229,7 @@ const Connect = () => {
                         custom={4}
                     >
 
-                        <h1>{t("phone")}</h1>
+                        <p className={s.fieldLabel}>{t("phone")}</p>
 
                         <input
                             className={s.inp}
@@ -257,7 +257,7 @@ const Connect = () => {
                         custom={5}
                     >
 
-                        <h1>{t("inquiryType")}</h1>
+                        <p className={s.fieldLabel}>{t("inquiryType")}</p>
 
                         <select
                             className={s.select}
@@ -304,7 +304,7 @@ const Connect = () => {
                         custom={6}
                     >
 
-                        <h1>{t("hearAboutUs")}</h1>
+                        <p className={s.fieldLabel}>{t("hearAboutUs")}</p>
 
                         <select
                             className={s.select}
@@ -341,7 +341,7 @@ const Connect = () => {
                     custom={7}
                 >
 
-                    <h1>{t("message")}</h1>
+                    <p className={s.fieldLabel}>{t("message")}</p>
 
                     <textarea
                         className={s.inp}

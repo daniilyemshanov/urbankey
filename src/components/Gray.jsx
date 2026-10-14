@@ -66,21 +66,23 @@ const Gray = () => {
                     }}
                 >
 
-                    <motion.h1
+                    <motion.p
+                        className={s.legalLink}
                         whileHover={{
                             y: -2
                         }}
                     >
                         {t("rights")}
-                    </motion.h1>
+                    </motion.p>
 
-                    <motion.h1
+                    <motion.p
+                        className={s.legalLink}
                         whileHover={{
                             y: -2
                         }}
                     >
                         {t("terms")}
-                    </motion.h1>
+                    </motion.p>
 
                 </motion.div>
 

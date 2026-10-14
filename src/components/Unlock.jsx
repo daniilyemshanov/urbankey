@@ -174,7 +174,7 @@ const Unlock = () => {
 
                     <div className={s.text}>
 
-                        <motion.h1
+                        <motion.h2
                             initial={{
                                 opacity: 0,
                                 x: -30
@@ -191,7 +191,7 @@ const Unlock = () => {
                             }}
                         >
                             {t("unlock.cardTitle")}
-                        </motion.h1>
+                        </motion.h2>
 
                         <motion.div
                             whileHover={{

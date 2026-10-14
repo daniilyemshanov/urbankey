@@ -27,7 +27,11 @@ import {
     parseListingId,
     propertyExists,
     commercialExists,
+    getListingMeta,
+    LANGS,
+    DEFAULT_LANG,
 } from "./_publicDb.js";
+import { buildListingHead, injectHead } from "./_seoMeta.js";
 
 const SHELL_HEADER = "x-urbankey-shell";
 
@@ -67,8 +71,12 @@ export default async function handler(req, res) {
     const kind = String(req.query.kind || "notfound");
     const id = parseListingId(String(req.query.id || ""));
 
+    const rawLang = String(req.query.lang || DEFAULT_LANG);
+    const lang = LANGS.includes(rawLang) ? rawLang : DEFAULT_LANG;
+
     let status = 404;
     let checkState = "ok";
+    let listingMeta = null;
 
     if (kind === "property" || kind === "commercial") {
         let exists;
@@ -91,6 +99,11 @@ export default async function handler(req, res) {
                         : await commercialExists(supabase, id);
                 } catch (err) {
                     console.error("spa: existence check threw:", err);
+                }
+
+                if (result === true) {
+                    // превью ссылки: свои title/description/og:image объекта
+                    listingMeta = await getListingMeta(supabase, kind, id);
                 }
 
                 if (result === null) {
@@ -116,6 +129,15 @@ export default async function handler(req, res) {
         res.setHeader("Cache-Control", "no-store");
         res.status(503).send("Service temporarily unavailable");
         return;
+    }
+
+    if (status === 200 && checkState === "ok" && listingMeta) {
+        try {
+            html = injectHead(html, buildListingHead({ kind, id, lang, meta: listingMeta }));
+        } catch (err) {
+            // превью не должно ронять страницу — отдаём общую оболочку
+            console.error("spa: head injection failed:", err);
+        }
     }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");

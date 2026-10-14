@@ -121,3 +121,28 @@ export async function commercialExists(supabase, id) {
     if (page && !base) return false;
     return Boolean(base);
 }
+
+// Данные для превью ссылки (название, описание, обложка) из публичных view —
+// тех же, что видит любой посетитель. Возвращает null при любой ошибке:
+// тогда страница просто отдаётся с общими тегами, как раньше.
+export async function getListingMeta(supabase, kind, id) {
+    const view = kind === "property" ? "cardss_public" : "commercials_public";
+    try {
+        const { data, error } = await noRetry(
+            supabase
+                .from(view)
+                .select("title_ru, title_en, title_uz, description_ru, description_en, description_uz, image")
+                .eq("id", id)
+                .maybeSingle()
+        );
+        if (error || !data) return null;
+        return {
+            title: { ru: data.title_ru, en: data.title_en, uz: data.title_uz },
+            description: { ru: data.description_ru, en: data.description_en, uz: data.description_uz },
+            image: data.image,
+        };
+    } catch (err) {
+        console.error("getListingMeta failed:", err);
+        return null;
+    }
+}

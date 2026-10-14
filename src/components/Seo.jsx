@@ -3,6 +3,7 @@
    в любом месте дерева компонентов, в <head> документа — отдельный
    пакет (react-helmet) для этого не нужен. */
 
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { DEFAULT_LANG, SUPPORTED_LANGS, stripLangPrefix } from "../utils/lang";
@@ -49,6 +50,12 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
 
     // Путь без языкового сегмента — нужен, чтобы построить ссылки на остальные языковые версии.
     const basePath = stripLangPrefix(pathname);
+
+    // Серверные теги (api/spa.js, data-ssr-seo) нужны роботам без JS; когда React
+    // нарисовал свои, убираем серверные, чтобы в <head> не было дублей.
+    useEffect(() => {
+        document.querySelectorAll("[data-ssr-seo]").forEach((el) => el.remove());
+    }, []);
 
     const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
