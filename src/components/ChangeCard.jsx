@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import s from "./ChangeCard.module.css";
 import { useParams, Link } from "react-router-dom";
@@ -64,6 +65,8 @@ const ChangeCard = () => {
       setValue("price", cardId.price);
 
       setValue("link", cardId.link);
+
+      setValue("dealType", cardId.is_rent ? "rent" : "sale");
     }
 
   }, [cardId]);
@@ -107,7 +110,9 @@ const ChangeCard = () => {
       },
 
       price: data.price,
-      link: data.link
+      link: data.link,
+
+      is_rent: data.dealType === "rent"
     };
 
     changeCard(updatedCard, id);
@@ -338,6 +343,22 @@ const ChangeCard = () => {
             type="text"
             {...register("typeUz")}
           />
+        </div>
+
+        <div className={s.box}>
+
+          <h2 className={s.title}>
+            Тип сделки
+          </h2>
+
+          <select
+            className={s.inp}
+            {...register("dealType")}
+          >
+            <option value="sale">Продажа</option>
+            <option value="rent">Аренда</option>
+          </select>
+
         </div>
 
         <div className={s.box}>

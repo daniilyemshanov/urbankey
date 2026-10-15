@@ -216,6 +216,12 @@ const ChangeCommercial = () => {
         );
 
 
+        setValue(
+            "dealType",
+            item.is_rent ? "rent" : "sale"
+        );
+
+
     }, [commercials, id]);
 
 
@@ -315,7 +321,10 @@ const ChangeCommercial = () => {
             discount_price: data.discount_price,
 
 
-            image: data.image
+            image: data.image,
+
+
+            is_rent: data.dealType === "rent"
 
 
         };
@@ -422,6 +431,21 @@ const ChangeCommercial = () => {
 
 
 
+
+
+                <label>
+
+                    Тип сделки
+
+                    <select
+                        className={s.input}
+                        {...register("dealType")}
+                    >
+                        <option value="sale">Продажа</option>
+                        <option value="rent">Аренда</option>
+                    </select>
+
+                </label>
 
 
                 <button

@@ -137,13 +137,13 @@ export const MyProvider = ({ children }) => {
         setIsBurger(prev => !prev);
 
 
-    
 
 
-  
 
 
-    
+
+
+
     const logout = async () => {
 
 
@@ -651,7 +651,10 @@ export const MyProvider = ({ children }) => {
             price: data.price,
 
 
-            image: data.image
+            image: data.image,
+
+
+            is_rent: data.is_rent === true
 
 
         });
@@ -706,7 +709,10 @@ export const MyProvider = ({ children }) => {
 
                 delivery_date: data.delivery_date,
 
-                image: data.image
+                image: data.image,
+
+                // Аренда / Продажа (булево). Если поле не передали — не трогаем.
+                ...(typeof data.is_rent === "boolean" ? { is_rent: data.is_rent } : {})
 
             })
             .eq("id", id);
@@ -715,6 +721,23 @@ export const MyProvider = ({ children }) => {
         if (error) {
             toast.error(error.message);
             return;
+        }
+
+
+        // Страница коммерции (commercial_pages) хранит свой is_rent —
+        // держим в синхроне с карточкой.
+        if (typeof data.is_rent === "boolean") {
+
+            const { error: pageRentError } = await supabase
+                .from("commercial_pages")
+                .update({ is_rent: data.is_rent })
+                .eq("commercial_id", id);
+
+            if (pageRentError) {
+                console.error("SYNC COMMERCIAL PAGE is_rent ERROR:", pageRentError);
+                toast.warn("Коммерция обновлена, но страницу объекта синхронизировать не удалось");
+            }
+
         }
 
 
@@ -1181,6 +1204,12 @@ export const MyProvider = ({ children }) => {
         };
 
 
+        // Аренда / Продажа (булево). Если поле не передали — не трогаем.
+        if (typeof data.is_rent === "boolean") {
+            updateData.is_rent = data.is_rent;
+        }
+
+
         const { error } = await supabase
             .from("cardss")
             .update(updateData)
@@ -1192,6 +1221,23 @@ export const MyProvider = ({ children }) => {
             toast.error(error.message);
 
             return;
+
+        }
+
+
+        // Страница объекта (villas) хранит свой is_rent — держим в синхроне
+        // с карточкой, иначе в каталоге будет одно, а на странице другое.
+        if (typeof data.is_rent === "boolean") {
+
+            const { error: villaRentError } = await supabase
+                .from("villas")
+                .update({ is_rent: data.is_rent })
+                .eq("card_id", id);
+
+            if (villaRentError) {
+                console.error("SYNC VILLA is_rent ERROR:", villaRentError);
+                toast.warn("Карточка обновлена, но страницу объекта синхронизировать не удалось");
+            }
 
         }
 
@@ -2841,7 +2887,7 @@ export const MyProvider = ({ children }) => {
             updateVilla,
 
 
-          
+
 
 
             user,
