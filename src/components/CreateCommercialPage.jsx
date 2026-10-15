@@ -114,12 +114,6 @@ const CreateCommercialPage = () => {
                     ))}
                 </select>
 
-                {/* SLUG */}
-                <input
-                    placeholder="Slug"
-                    value={page.slug}
-                    onChange={(e) => handleChange("slug", e.target.value)}
-                />
 
                 {/* TITLE */}
                 <h3>Название</h3>

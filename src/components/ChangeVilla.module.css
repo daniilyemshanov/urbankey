@@ -1,264 +1,178 @@
-.change {
-    min-height: 100vh;
-    background: #111;
-    color: white;
-    padding: 120px 20px;
-}
+/* Единый стиль админки — см. components/admin/admin.module.css */
 
+.change {
+  --a-surface: #141414;
+  --a-surface-2: #1a1a1a;
+  --a-line: rgba(212, 175, 55, 0.18);
+  --a-line-strong: rgba(212, 175, 55, 0.45);
+  --a-gold: #d4af37;
+  --a-gold-2: #b8912c;
+  --a-text: #f5f5f5;
+  --a-muted: #9a9a9a;
+  min-height: 100vh;
+  padding: 120px 20px 90px;
+  background: var(--dark-gray);
+  color: var(--a-text);
+}
 
 .container {
-    max-width: 900px;
-    margin: auto;
-    background: #1b1b1b;
-    padding: 40px;
-    border-radius: 20px;
-    box-shadow: 0 0 40px #000;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 28px;
+  background: var(--a-surface);
+  border: 1px solid var(--a-line);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
-
+.container h1,
 .title {
-    font-size: 40px;
-    margin-bottom: 30px;
-    color: #d9ad45;
+  margin-bottom: 24px;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #fff;
 }
 
-
-
-select,
-input,
-textarea {
-
-    width: 100%;
-    margin-bottom: 15px;
-
-    background: #252525;
-    border: 1px solid #444;
-
-    color: white;
-
-    padding: 14px;
-
-    border-radius: 10px;
-
-    font-size: 16px;
-
+.container select,
+.container input,
+.container textarea {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  border-radius: 12px;
+  font-size: 15px;
+  color: var(--a-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-
-textarea {
-    min-height: 120px;
-    resize: vertical;
+.container select:focus,
+.container input:focus,
+.container textarea:focus {
+  border-color: var(--a-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
 }
 
-
-
-h3 {
-    margin-top: 30px;
-    color: #d9ad45;
+.container textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
 }
 
-
+.container h3 {
+  margin: 26px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--a-gold);
+}
 
 .lang {
-
-    display: grid;
-
-    grid-template-columns: repeat(3, 1fr);
-
-    gap: 15px;
-
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
-
-
 
 .images {
-
-    display: flex;
-
-    gap: 15px;
-
-    flex-wrap: wrap;
-
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
 }
-
-
 
 .imageBox {
-
-    position: relative;
-
+  position: relative;
 }
-
 
 .imageBox img {
-
-    width: 160px;
-    height: 120px;
-
-    object-fit: cover;
-
-    border-radius: 15px;
-
+  width: 160px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 14px;
 }
-
-
 
 .imageBox button {
-
-    position: absolute;
-
-    top: 5px;
-    right: 5px;
-
-    background: crimson;
-    color: white;
-
-    border: none;
-
-    width: 30px;
-    height: 30px;
-
-    border-radius: 50%;
-
-    cursor: pointer;
-
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ff5b5b;
+  color: #fff;
+  cursor: pointer;
 }
-
-
-
-
 
 .amenity {
-
-    background: #222;
-
-    padding: 15px;
-
-    border-radius: 15px;
-
-    margin-bottom: 15px;
-
+  margin-bottom: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--a-line);
+  border-radius: 16px;
 }
-
-
 
 .amenityGrid {
-
-    display: grid;
-
-    grid-template-columns: repeat(3, 1fr);
-
-    gap: 10px;
-
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
-
-
 
 .buttons {
-
-    margin-top: 40px;
-
-    display: flex;
-
-    gap: 20px;
-
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 32px;
 }
 
+.save,
+.delete,
+.add,
+.back {
+  padding: 13px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease, border-color 0.2s ease;
+}
 
+.save:hover,
+.delete:hover,
+.add:hover,
+.back:hover {
+  transform: translateY(-1px);
+}
 
 .save {
-
-    background: #d9ad45;
-
-    border: none;
-
-    padding: 15px 30px;
-
-    border-radius: 12px;
-
-    cursor: pointer;
-
-    font-size: 18px;
-
+  background: linear-gradient(135deg, var(--a-gold), var(--a-gold-2));
+  color: #0a0a0a;
 }
-
-
 
 .delete {
-
-    background: #b32626;
-
-    border: none;
-
-    color: white;
-
-    padding: 15px 30px;
-
-    border-radius: 12px;
-
-    cursor: pointer;
-
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  color: #ff6b6b;
 }
 
-
-
-.add {
-
-    background: #333;
-
-    color: white;
-
-    border: none;
-
-    padding: 12px 20px;
-
-    border-radius: 10px;
-
-    cursor: pointer;
-
-}
-
+.add,
 .back {
-
-    background: #333;
-
-    color: white;
-
-    border: none;
-
-    padding: 15px 30px;
-
-    border-radius: 30px;
-
-    cursor: pointer;
-
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  color: var(--a-text);
 }
 
-
+.add:hover,
 .back:hover {
-
-    background: #555;
-
+  border-color: var(--a-line-strong);
 }
 
-
-
-@media(max-width:700px) {
-
-
-    .lang,
-    .amenityGrid {
-
-        grid-template-columns: 1fr;
-
-    }
-
-
-    .container {
-
-        padding: 20px;
-
-    }
-
-
+@media (max-width: 700px) {
+  .change { padding: 96px 14px 70px; }
+  .lang,
+  .amenityGrid { grid-template-columns: 1fr; }
+  .container { padding: 18px; }
+  .container h1,
+  .title { font-size: 26px; }
 }

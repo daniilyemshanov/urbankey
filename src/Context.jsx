@@ -137,13 +137,13 @@ export const MyProvider = ({ children }) => {
         setIsBurger(prev => !prev);
 
 
+    
 
 
+  
 
 
-
-
-
+    
     const logout = async () => {
 
 
@@ -648,14 +648,42 @@ export const MyProvider = ({ children }) => {
             },
 
 
-            price: data.price,
+            bedrooms: {
+                ru: data.bedrooms_ru,
+                en: data.bedrooms_en,
+                uz: data.bedrooms_uz
+            },
 
+
+            bathrooms: {
+                ru: data.bathrooms_ru,
+                en: data.bathrooms_en,
+                uz: data.bathrooms_uz
+            },
+
+
+            type: {
+                ru: data.type_ru,
+                en: data.type_en,
+                uz: data.type_uz
+            },
+
+
+            price: data.price,
 
             image: data.image,
 
+            link: data.link,
+
+            // Колонки этажа есть не всегда (sql/optional_add_card_floor.sql).
+            // hasFloorColumns — признак, что админке можно их показывать/писать.
+            hasFloorColumns: "floor" in data,
+
+            floor: data.floor ?? "",
+
+            total_floors: data.total_floors ?? "",
 
             is_rent: data.is_rent === true
-
 
         });
 
@@ -693,16 +721,14 @@ export const MyProvider = ({ children }) => {
                 landmark_en: data.landmark.en,
                 landmark_uz: data.landmark.uz,
 
-                status_ru: data.status.ru,
-                status_en: data.status.en,
-                status_uz: data.status.uz,
-
-
+                ...(data.status ? {
+                    status_ru: data.status.ru,
+                    status_en: data.status.en,
+                    status_uz: data.status.uz
+                } : {}),
                 floor: data.floor,
                 ceiling: data.ceiling,
                 area: data.area,
-
-
                 price: data.price,
                 discount_price: data.discount_price,
                 discount: data.discount,
@@ -769,27 +795,20 @@ export const MyProvider = ({ children }) => {
                 bedrooms_ru: data.bedrooms.ru,
                 bedrooms_en: data.bedrooms.en,
                 bedrooms_uz: data.bedrooms.uz,
-
-
+                type_ru: data.type?.ru,
+                type_en: data.type?.en,
+                type_uz: data.type?.uz,
                 price: data.price,
-
-                image: data.image
-
-
+                image: data.image,
+                is_rent: data.is_rent === true
             }]);
 
-
         if (error) {
-
             toast.error(error.message);
-
             return;
-
         }
 
-
         getCards();
-
 
         toast.success(
             "Создано"
@@ -1170,6 +1189,79 @@ export const MyProvider = ({ children }) => {
     };
 
 
+    // ===== АДМИНКА: список объектов вместе с проданными =====
+    // Публичные view (cardss_public / commercials_public) проданные строки
+    // скрывают, поэтому админке нужно читать таблицы напрямую — тем же
+    // безопасным списком колонок + is_sold.
+    const getAdminListings = async (kind) => {
+        const isCommercial = kind === "commercial";
+
+        const { data, error } = await supabase
+            .from(isCommercial ? "commercials" : "cardss")
+            .select(
+                (isCommercial
+                    ? COMMERCIAL_PUBLIC_COLUMNS
+                    : CARD_PUBLIC_COLUMNS) + ", is_sold"
+            )
+            .order("id", { ascending: false });
+
+        if (error) {
+            console.error("ADMIN LISTINGS ERROR:", error);
+            toast.error(error.message);
+            return [];
+        }
+
+        return (data || []).map(item => ({
+            id: item.id,
+            title: {
+                ru: item.title_ru,
+                en: item.title_en,
+                uz: item.title_uz
+            },
+            subtitle: isCommercial
+                ? (item.district_ru || item.address_ru || "")
+                : (item.type_ru || ""),
+            image: item.image,
+            price: item.price,
+            is_rent: item.is_rent === true,
+            is_sold: item.is_sold === true
+        }));
+    };
+
+
+    // Продано / вернуть на сайт. Возвращает true при успехе.
+    const setListingSold = async (kind, id, isSold) => {
+        const { error } = await supabase
+            .from(kind === "commercial" ? "commercials" : "cardss")
+            .update({
+                is_sold: isSold,
+                sold_at: isSold ? new Date().toISOString() : null
+            })
+            .eq("id", id);
+
+        if (error) {
+            console.error("SET SOLD ERROR:", error);
+            toast.error(error.message);
+            return false;
+        }
+
+        toast.success(
+            isSold
+                ? "Объект отмечен как проданный и скрыт с сайта"
+                : "Объект возвращён на сайт"
+        );
+
+        // обновляем публичные списки, чтобы они сразу отразили изменение
+        if (kind === "commercial") {
+            getCommercials();
+        } else {
+            getCards();
+        }
+
+        return true;
+    };
+
+
     const changeCard = async (data, id) => {
 
 
@@ -1191,17 +1283,26 @@ export const MyProvider = ({ children }) => {
             bedrooms_uz: data.bedrooms.uz,
 
 
-            bathrooms_ru: data.bathrooms.ru,
-            bathrooms_en: data.bathrooms.en,
-            bathrooms_uz: data.bathrooms.uz,
-
-
             price: data.price,
 
             image: data.image
 
 
         };
+
+
+        if (data.type) {
+            updateData.type_ru = data.type.ru;
+            updateData.type_en = data.type.en;
+            updateData.type_uz = data.type.uz;
+        }
+
+        // Этаж: только если колонки есть в базе (форма передаёт floor лишь тогда)
+        if (data.floor !== undefined) {
+            const toNum = (v) => (v === "" || v == null ? null : Number(v) || null);
+            updateData.floor = toNum(data.floor);
+            updateData.total_floors = toNum(data.total_floors);
+        }
 
 
         // Аренда / Продажа (булево). Если поле не передали — не трогаем.
@@ -1260,7 +1361,10 @@ export const MyProvider = ({ children }) => {
 
             commercial_id: Number(page.commercial_id),
 
-            slug: page.slug,
+            slug: page.slug || `${(page.title?.ru || page.title?.en || "commercial")
+                .toLowerCase()
+                .normalize("NFKD")
+                .replace(/[^\w-]+/g, "-")}-${Date.now()}`,
 
 
             title_ru: page.title.ru,
@@ -1313,9 +1417,18 @@ export const MyProvider = ({ children }) => {
             images: page.images || [],
 
             amenities: page.amenities || []
-
         };
 
+        // Страница наследует Продажа/Аренда от своего объекта каталога
+        if (page.commercial_id) {
+            const { data: parent } = await supabase
+                .from("commercials")
+                .select("is_rent")
+                .eq("id", Number(page.commercial_id))
+                .maybeSingle();
+
+            if (parent) payload.is_rent = parent.is_rent === true;
+        }
 
         const { data, error } = await supabase
             .from("commercial_pages")
@@ -2029,12 +2142,24 @@ export const MyProvider = ({ children }) => {
         try {
 
 
+            // Страница наследует Продажа/Аренда от своей карточки
+            let inheritedRent = null;
+
+            if (data.card_id) {
+                const { data: cardRow } = await supabase
+                    .from("cardss")
+                    .select("is_rent")
+                    .eq("id", data.card_id)
+                    .maybeSingle();
+
+                inheritedRent = cardRow ? cardRow.is_rent === true : null;
+            }
+
             const { data: villa, error } = await supabase
                 .from("villas")
                 .insert([{
-
-
                     card_id: data.card_id || null,
+                    ...(inheritedRent !== null ? { is_rent: inheritedRent } : {}),
 
 
                     title_ru: data.title.ru,
@@ -2043,9 +2168,9 @@ export const MyProvider = ({ children }) => {
 
 
                     slug: data.slug ||
-                        data.title.ru
+                        `${data.title.ru
                             .toLowerCase()
-                            .replaceAll(" ", "-"),
+                            .replaceAll(" ", "-")}-${Date.now()}`,
 
 
                     description_ru: data.description.ru,
@@ -2861,6 +2986,8 @@ export const MyProvider = ({ children }) => {
 
 
             getCardId,
+            getAdminListings,
+            setListingSold,
 
 
             cardId,
@@ -2887,7 +3014,7 @@ export const MyProvider = ({ children }) => {
             updateVilla,
 
 
-
+          
 
 
             user,

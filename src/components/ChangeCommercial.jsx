@@ -1,475 +1,212 @@
 import { useContext, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { MyContext } from "../Context";
+import {
+  AdminPage,
+  AdminDenied,
+  Section,
+  Fields,
+  Field,
+  TriFields,
+  DealSwitch,
+  Thumb,
+  ak as s
+} from "./admin/AdminKit";
 
-import s from "./ChangeCommercial.module.css";
-
+// Поля с тремя языками: ключ формы → ключ объекта из контекста
+const TRI = ["title", "description", "district", "address", "class", "landmark"];
 
 const ChangeCommercial = () => {
-
-
-    const { id } = useParams();
-
-
-    const {
-        commercials,
-        updateCommercial,
-        getCommercials
-    } = useContext(MyContext);
-
-
-
-    const {
-        register,
-        handleSubmit,
-        setValue
-    } = useForm();
-
-
-
-
-    useEffect(() => {
-
-        getCommercials();
-
-    }, []);
-
-
-
-
-
-    useEffect(() => {
-
-
-        const item = commercials.find(
-            x => x.id == id
-        );
-
-
-        if (!item) return;
-
-
-
-        setValue(
-            "titleRu",
-            item.title?.ru || ""
-        );
-
-        setValue(
-            "titleEn",
-            item.title?.en || ""
-        );
-
-        setValue(
-            "titleUz",
-            item.title?.uz || ""
-        );
-
-
-
-
-        setValue(
-            "descriptionRu",
-            item.description?.ru || ""
-        );
-
-        setValue(
-            "descriptionEn",
-            item.description?.en || ""
-        );
-
-        setValue(
-            "descriptionUz",
-            item.description?.uz || ""
-        );
-
-
-
-
-        setValue(
-            "districtRu",
-            item.district?.ru || ""
-        );
-
-        setValue(
-            "districtEn",
-            item.district?.en || ""
-        );
-
-        setValue(
-            "districtUz",
-            item.district?.uz || ""
-        );
-
-
-
-
-        setValue(
-            "addressRu",
-            item.address?.ru || ""
-        );
-
-        setValue(
-            "addressEn",
-            item.address?.en || ""
-        );
-
-        setValue(
-            "addressUz",
-            item.address?.uz || ""
-        );
-
-
-
-
-        setValue(
-            "classRu",
-            item.class?.ru || ""
-        );
-
-        setValue(
-            "classEn",
-            item.class?.en || ""
-        );
-
-        setValue(
-            "classUz",
-            item.class?.uz || ""
-        );
-
-
-
-
-
-        setValue(
-            "landmarkRu",
-            item.landmark?.ru || ""
-        );
-
-        setValue(
-            "landmarkEn",
-            item.landmark?.en || ""
-        );
-
-        setValue(
-            "landmarkUz",
-            item.landmark?.uz || ""
-        );
-
-
-
-
-
-        setValue(
-            "statusRu",
-            item.status?.ru || ""
-        );
-
-        setValue(
-            "statusEn",
-            item.status?.en || ""
-        );
-
-        setValue(
-            "statusUz",
-            item.status?.uz || ""
-        );
-
-
-
-
-
-        setValue(
-            "floor",
-            item.floor || ""
-        );
-
-
-        setValue(
-            "ceiling",
-            item.ceiling_height || ""
-        );
-
-
-        setValue(
-            "area",
-            item.area || ""
-        );
-
-
-        setValue(
-            "price",
-            item.price || ""
-        );
-
-
-        setValue(
-            "discount_price",
-            item.discount_price || ""
-        );
-
-
-        setValue(
-            "image",
-            item.image || ""
-        );
-
-
-        setValue(
-            "dealType",
-            item.is_rent ? "rent" : "sale"
-        );
-
-
-    }, [commercials, id]);
-
-
-
-
-
-
-
-
-
-    const onSubmit = (data) => {
-
-
-        const updated = {
-
-
-
-            title: {
-
-                ru: data.titleRu,
-                en: data.titleEn,
-                uz: data.titleUz
-
-            },
-
-
-
-            description: {
-
-                ru: data.descriptionRu,
-                en: data.descriptionEn,
-                uz: data.descriptionUz
-
-            },
-
-
-
-            district: {
-
-                ru: data.districtRu,
-                en: data.districtEn,
-                uz: data.districtUz
-
-            },
-
-
-
-            address: {
-
-                ru: data.addressRu,
-                en: data.addressEn,
-                uz: data.addressUz
-
-            },
-
-
-
-            class: {
-
-                ru: data.classRu,
-                en: data.classEn,
-                uz: data.classUz
-
-            },
-
-
-
-            landmark: {
-
-                ru: data.landmarkRu,
-                en: data.landmarkEn,
-                uz: data.landmarkUz
-
-            },
-
-
-
-            status: {
-
-                ru: data.statusRu,
-                en: data.statusEn,
-                uz: data.statusUz
-
-            },
-
-
-
-            floor: data.floor,
-
-            ceiling: data.ceiling,
-
-            area: data.area,
-
-
-            price: data.price,
-
-            discount_price: data.discount_price,
-
-
-            image: data.image,
-
-
-            is_rent: data.dealType === "rent"
-
-
-        };
-
-
-
-        updateCommercial(
-            updated,
-            id
-        );
-
-
-    };
-
-
-
-
-
-
-
-    return (
-
-
-        <section className={s.change}>
-
-
-            <form
-                className={s.form}
-                onSubmit={
-                    handleSubmit(onSubmit)
-                }
-            >
-
-
-
-                <h1>
-                    Изменить коммерцию
-                </h1>
-
-
-
-
-
-                {
-                    [
-
-                        "titleRu",
-                        "titleEn",
-                        "titleUz",
-
-                        "descriptionRu",
-                        "descriptionEn",
-                        "descriptionUz",
-
-                        "districtRu",
-                        "districtEn",
-                        "districtUz",
-
-                        "addressRu",
-                        "addressEn",
-                        "addressUz",
-
-                        "classRu",
-                        "classEn",
-                        "classUz",
-
-                        "landmarkRu",
-                        "landmarkEn",
-                        "landmarkUz",
-
-                        "statusRu",
-                        "statusEn",
-                        "statusUz",
-
-                        "floor",
-                        "ceiling",
-                        "area",
-
-                        "price",
-                        "discount_price",
-
-                        "image"
-
-
-                    ].map(
-                        field => (
-
-
-                            <input
-
-                                key={field}
-
-                                className={s.input}
-
-                                placeholder={field}
-
-                                {...register(field)}
-
-                            />
-
-
-                        ))
-                }
-
-
-
-
-
-                <label>
-
-                    Тип сделки
-
-                    <select
-                        className={s.input}
-                        {...register("dealType")}
-                    >
-                        <option value="sale">Продажа</option>
-                        <option value="rent">Аренда</option>
-                    </select>
-
-                </label>
-
-
-                <button
-                    className={s.btn}
-                    type="submit"
-                >
-
-                    Сохранить
-
-                </button>
-
-
-
-
-            </form>
-
-
-        </section>
-
-
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const {
+    profile,
+    commercials,
+    updateCommercial,
+    getCommercials,
+    setListingSold
+  } = useContext(MyContext);
+
+  const isAdmin = profile?.role === "admin";
+
+  const { register, handleSubmit, setValue, watch } = useForm();
+
+  const deal = watch("dealType");
+  const image = watch("image");
+
+  useEffect(() => {
+    getCommercials();
+  }, []);
+
+  useEffect(() => {
+    const item = commercials.find((x) => x.id == id);
+
+    if (!item) return;
+
+    TRI.forEach((key) => {
+
+      setValue(`${key}Ru`, item[key]?.ru || "");
+      setValue(`${key}En`, item[key]?.en || "");
+      setValue(`${key}Uz`, item[key]?.uz || "");
+    });
+
+    setValue("floor", item.floor || "");
+    setValue("ceiling", item.ceiling_height || "");
+    setValue("area", item.area || "");
+    setValue("price", item.price || "");
+    setValue("image", item.image || "");
+    setValue("dealType", item.is_rent ? "rent" : "sale");
+  }, [commercials, id]);
+
+  const onSubmit = (data) => {
+    const pick = (key) => ({
+      ru: data[`${key}Ru`],
+      en: data[`${key}En`],
+      uz: data[`${key}Uz`]
+    });
+
+    updateCommercial(
+      {
+        title: pick("title"),
+        description: pick("description"),
+        district: pick("district"),
+        address: pick("address"),
+        class: pick("class"),
+        landmark: pick("landmark"),
+        floor: data.floor,
+        ceiling: data.ceiling,
+        area: data.area,
+        price: data.price,
+        image: data.image,
+        is_rent: data.dealType === "rent"
+      },
+      id
     );
+  };
 
+  const markSold = async () => {
+    if (!window.confirm("Отметить объект как проданный? Он пропадёт с сайта.")) {
+      return;
+    }
 
+    const ok = await setListingSold("commercial", id, true);
+
+    if (ok) navigate("/admin/commercials");
+  };
+
+  if (!isAdmin) return <AdminDenied />;
+
+  return (
+    <AdminPage
+      narrow
+      title="Изменить коммерцию"
+      subtitle="Данные, как они видны в каталоге"
+      back="/admin/commercials"
+      backLabel="К списку коммерции"
+    >
+      <form className={s.form} onSubmit={handleSubmit(onSubmit)}>
+        <Section title="Тип сделки и цена">
+          <input type="hidden" {...register("dealType")} />
+
+          <Fields cols={2}>
+            <Field label="Тип сделки">
+              <div>
+                <DealSwitch
+                  value={deal}
+                  onChange={(v) =>
+                    setValue("dealType", v, { shouldDirty: true })
+                  }
+                />
+              </div>
+            </Field>
+
+            <Field label="Цена">
+              <input className={s.input} type="text" {...register("price")} />
+            </Field>
+          </Fields>
+        </Section>
+
+        <Section title="Название">
+          <TriFields label="Название" name="title" register={register} />
+        </Section>
+
+        <Section title="Описание">
+          <TriFields
+            label="Описание"
+            name="description"
+            register={register}
+            textarea
+          />
+        </Section>
+
+        <Section title="Расположение">
+          <TriFields label="Район" name="district" register={register} />
+          <div style={{ height: 14 }} />
+          <TriFields label="Адрес" name="address" register={register} />
+          <div style={{ height: 14 }} />
+          <TriFields label="Ориентир" name="landmark" register={register} />
+        </Section>
+
+        <Section title="Характеристики">
+          <TriFields label="Класс" name="class" register={register} />
+          <div style={{ height: 14 }} />
+
+          <Fields cols={3}>
+            <Field label="Этаж">
+              <input className={s.input} type="text" {...register("floor")} />
+            </Field>
+
+            <Field label="Высота потолков">
+              <input className={s.input} type="text" {...register("ceiling")} />
+            </Field>
+
+            <Field label="Площадь">
+              <input className={s.input} type="text" {...register("area")} />
+            </Field>
+          </Fields>
+        </Section>
+
+        <Section title="Фото">
+          <Fields cols={1}>
+            <Field label="Фото (ссылка)">
+              <input className={s.input} type="text" {...register("image")} />
+            </Field>
+          </Fields>
+
+          {image ? (
+            <div style={{ marginTop: 16 }}>
+              <Thumb src={image} />
+            </div>
+          ) : null}
+        </Section>
+
+        <Section title="Статус объекта">
+          <div className={s.statusBox}>
+            <p className={s.statusText}>
+              «Продано» скроет объект из каталога и по прямой ссылке; вернуть
+              можно в любой момент из списка коммерции.
+            </p>
+
+            <button
+              type="button"
+              className={`${s.btn} ${s.btnDanger}`}
+              onClick={markSold}
+            >
+              Отметить проданным
+            </button>
+          </div>
+        </Section>
+
+        <div className={s.saveBar}>
+          <button className={`${s.btn} ${s.btnPrimary}`} type="submit">
+            Сохранить изменения
+          </button>
+        </div>
+      </form>
+    </AdminPage>
+  );
 };
-
 
 export default ChangeCommercial;

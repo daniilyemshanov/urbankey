@@ -237,26 +237,6 @@ const CreateVilla = () => {
 
                 <input
 
-                    placeholder="Slug"
-
-                    value={villa.slug}
-
-                    onChange={(e) =>
-
-                        setVilla(prev => ({
-
-                            ...prev,
-
-                            slug: e.target.value
-
-                        }))
-
-                    }
-
-
-                />
-                <input
-
                     placeholder="Card ID"
 
                     value={villa.card_id}
@@ -455,14 +435,6 @@ const CreateVilla = () => {
 
                     }
 
-                />
-                <input
-                    placeholder="Год"
-                    value={villa.year}
-                    onChange={(e) => setVilla(prev => ({
-                        ...prev,
-                        year: e.target.value
-                    }))}
                 />
 
 

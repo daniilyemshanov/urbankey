@@ -1,34 +1,38 @@
-
 import { useForm } from "react-hook-form";
-import s from "./ChangeCard.module.css";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useContext, useEffect } from "react";
 import { MyContext } from "../Context";
+import ListingsManager from "./admin/ListingsManager";
+import {
+  AdminPage,
+  AdminDenied,
+  Section,
+  Fields,
+  Field,
+  TriFields,
+  DealSwitch,
+  Thumb,
+  ak as s
+} from "./admin/AdminKit";
 
 const ChangeCard = () => {
-
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const {
-    properties,
-    getCards,
+    profile,
     cardId,
     getCardId,
-    changeCard
+    changeCard,
+    setListingSold
   } = useContext(MyContext);
-  const {
-    deleteVilla
-  } = useContext(MyContext)
 
-  const {
-    register,
-    handleSubmit,
-    setValue
-  } = useForm();
+  const isAdmin = profile?.role === "admin";
 
-  useEffect(() => {
-    getCards();
-  }, []);
+  const { register, handleSubmit, setValue, watch } = useForm();
+
+  const deal = watch("dealType");
+  const image = watch("image");
 
   useEffect(() => {
     if (id) {
@@ -37,9 +41,7 @@ const ChangeCard = () => {
   }, [id]);
 
   useEffect(() => {
-
-    if (cardId) {
-
+    if (cardId && String(cardId.id) === String(id)) {
       setValue("titleRu", cardId.title?.ru || "");
       setValue("titleEn", cardId.title?.en || "");
       setValue("titleUz", cardId.title?.uz || "");
@@ -48,357 +50,188 @@ const ChangeCard = () => {
       setValue("descriptionEn", cardId.description?.en || "");
       setValue("descriptionUz", cardId.description?.uz || "");
 
-      setValue("image", cardId.image);
+      setValue("image", cardId.image || "");
 
       setValue("bedroomsRu", cardId.bedrooms?.ru || "");
       setValue("bedroomsEn", cardId.bedrooms?.en || "");
       setValue("bedroomsUz", cardId.bedrooms?.uz || "");
 
-      setValue("bathroomsRu", cardId.bathrooms?.ru || "");
-      setValue("bathroomsEn", cardId.bathrooms?.en || "");
-      setValue("bathroomsUz", cardId.bathrooms?.uz || "");
-
       setValue("typeRu", cardId.type?.ru || "");
       setValue("typeEn", cardId.type?.en || "");
       setValue("typeUz", cardId.type?.uz || "");
 
-      setValue("price", cardId.price);
-
-      setValue("link", cardId.link);
+      setValue("price", cardId.price || "");
+      setValue("floor", cardId.floor ?? "");
+      setValue("total_floors", cardId.total_floors ?? "");
 
       setValue("dealType", cardId.is_rent ? "rent" : "sale");
     }
-
-  }, [cardId]);
+  }, [cardId, id]);
 
   const onSubmit = (data) => {
-
     const updatedCard = {
       title: {
         ru: data.titleRu,
         en: data.titleEn,
-        uz: data.titleUz,
+        uz: data.titleUz
       },
-
       description: {
         ru: data.descriptionRu,
         en: data.descriptionEn,
-        uz: data.descriptionUz,
+        uz: data.descriptionUz
       },
-
       image: data.image,
-
-      bedroomIcon: "/BACKGROUND_2.svg",
-      typeIcon: "/Icon (1).svg",
-
       bedrooms: {
         ru: data.bedroomsRu,
         en: data.bedroomsEn,
-        uz: data.bedroomsUz,
+        uz: data.bedroomsUz
       },
-
-      bathrooms: {
-        ru: data.bathroomsRu,
-        en: data.bathroomsEn,
-        uz: data.bathroomsUz,
-      },
-
       type: {
         ru: data.typeRu,
         en: data.typeEn,
-        uz: data.typeUz,
+        uz: data.typeUz
       },
-
       price: data.price,
-      link: data.link,
-
       is_rent: data.dealType === "rent"
     };
+
+    // Этаж — только если такие колонки есть в базе
+    if (cardId?.hasFloorColumns) {
+      updatedCard.floor = data.floor;
+      updatedCard.total_floors = data.total_floors;
+    }
 
     changeCard(updatedCard, id);
   };
 
-  if (!id) {
+  const markSold = async () => {
+    if (!window.confirm("Отметить объект как проданный? Он пропадёт с сайта.")) {
+      return;
+    }
 
-    return (
+    const ok = await setListingSold("card", id, true);
 
-      <section className={s.cards}>
+    if (ok) navigate("/admin/changeCard");
+  };
 
-        <h1>
-          Choose Property
-        </h1>
+  if (!isAdmin) return <AdminDenied />;
 
-        {properties.map((item) => (
-
-          <div
-            key={item.id}
-            className={s.card}
-          >
-
-            <h2>
-              {item.title?.en}
-            </h2>
-
-
-            <div className={s.actions}>
-
-
-              <Link
-                to={`/admin/changeCard/${item.id}`}
-                className={s.link}
-              >
-                Edit
-              </Link>
-
-
-
-              <Link
-                to={`/admin/CreateVilla/${item.id}`}
-                className={s.link}
-              >
-                Создать страницу
-              </Link>
-              
-
-            </div>
-
-
-          </div>
-
-        ))}
-
-      </section>
-    );
-  }
+  if (!id) return <ListingsManager kind="card" />;
 
   return (
+    <AdminPage
+      narrow
+      title="Изменить карточку"
+      subtitle="Данные, как они видны в каталоге"
+      back="/admin/changeCard"
+      backLabel="К списку квартир"
+    >
+      <form className={s.form} onSubmit={handleSubmit(onSubmit)}>
+        <Section title="Тип сделки и цена">
+          <input type="hidden" {...register("dealType")} />
 
-    <section className={s.changeCard}>
+          <Fields cols={2}>
+            <Field label="Тип сделки">
+              <div>
+                <DealSwitch
+                  value={deal}
+                  onChange={(v) =>
+                    setValue("dealType", v, { shouldDirty: true })
+                  }
+                />
+              </div>
+            </Field>
 
-      <form
-        className={s.form}
-        onSubmit={handleSubmit(onSubmit)}
-      >
+            <Field label="Цена">
+              <input className={s.input} type="text" {...register("price")} />
+            </Field>
+          </Fields>
+        </Section>
 
-        <h1 className={s.mainTitle}>
-         Изменить 
-        </h1>
+        <Section title="Название">
+          <TriFields label="Название" name="title" register={register} />
+        </Section>
 
-        <div className={s.box}>
-          <h2 className={s.title}>Название RU</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("titleRu")}
+        <Section title="Описание">
+          <TriFields
+            label="Описание"
+            name="description"
+            register={register}
+            textarea
           />
+        </Section>
+
+        <Section title="Параметры">
+          <TriFields label="Комнаты" name="bedrooms" register={register} />
+          <div style={{ height: 14 }} />
+          <TriFields label="Тип" name="type" register={register} />
+
+          {cardId?.hasFloorColumns && (
+            <>
+              <div style={{ height: 14 }} />
+
+              <Fields cols={2}>
+                <Field label="Этаж (число)">
+                  <input
+                    className={s.input}
+                    type="number"
+                    min="1"
+                    {...register("floor")}
+                  />
+                </Field>
+
+                <Field label="Этажей в доме (число)">
+                  <input
+                    className={s.input}
+                    type="number"
+                    min="1"
+                    {...register("total_floors")}
+                  />
+                </Field>
+              </Fields>
+            </>
+          )}
+        </Section>
+
+        <Section title="Фото">
+          <Fields cols={1}>
+            <Field label="Фото (ссылка)">
+              <input className={s.input} type="text" {...register("image")} />
+            </Field>
+          </Fields>
+
+          {image ? (
+            <div style={{ marginTop: 16 }}>
+              <Thumb src={image} />
+            </div>
+          ) : null}
+        </Section>
+
+        <Section title="Статус объекта">
+          <div className={s.statusBox}>
+            <p className={s.statusText}>
+              Сейчас объект показывается на сайте. «Продано» скроет его из
+              каталога и по прямой ссылке; вернуть можно в любой момент из
+              списка квартир.
+            </p>
+
+            <button
+              type="button"
+              className={`${s.btn} ${s.btnDanger}`}
+              onClick={markSold}
+            >
+              Отметить проданным
+            </button>
+          </div>
+        </Section>
+
+        <div className={s.saveBar}>
+          <button className={`${s.btn} ${s.btnPrimary}`} type="submit">
+            Сохранить изменения
+          </button>
         </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Название EN</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("titleEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Название UZ</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("titleUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Описание RU</h2>
-
-          <textarea
-            className={s.textarea}
-            {...register("descriptionRu")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Описание EN</h2>
-
-          <textarea
-            className={s.textarea}
-            {...register("descriptionEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Описание UZ</h2>
-
-          <textarea
-            className={s.textarea}
-            {...register("descriptionUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-
-          <h2 className={s.title}>
-            Фото
-          </h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("image")}
-          />
-
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Комнаты RU</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bedroomsRu")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Комнаты EN</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bedroomsEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Комнаты UZ</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bedroomsUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Этаж RU</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bathroomsRu")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Этаж  EN</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bathroomsEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Этаж UZ</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("bathroomsUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Тип RU</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("typeRu")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Тип EN</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("typeEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Тип UZ</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("typeUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-
-          <h2 className={s.title}>
-            Тип сделки
-          </h2>
-
-          <select
-            className={s.inp}
-            {...register("dealType")}
-          >
-            <option value="sale">Продажа</option>
-            <option value="rent">Аренда</option>
-          </select>
-
-        </div>
-
-        <div className={s.box}>
-
-          <h2 className={s.title}>
-            Цена
-          </h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("price")}
-          />
-
-        </div>
-
-        <div className={s.box}>
-
-          <h2 className={s.title}>
-            Link
-          </h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            {...register("link")}
-          />
-
-        </div>
-
-        <button
-          className={s.btn}
-          type="submit"
-        >
-          Сохранить изменения 
-        </button>
-
       </form>
-
-    </section>
+    </AdminPage>
   );
 };
 

@@ -469,14 +469,6 @@ const ChangeVilla = () => {
                         </h3>
 
 
-                        <input
-                            placeholder="Year"
-                            value={villa.year || ""}
-                            onChange={(e) => setVilla(prev => ({
-                                ...prev,
-                                year: e.target.value
-                            }))}
-                        />
 
 
                         <input

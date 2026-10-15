@@ -1,306 +1,148 @@
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
-import s from "./CreateCard.module.css";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { MyContext } from "../Context";
+import {
+  AdminPage,
+  AdminDenied,
+  Section,
+  Fields,
+  Field,
+  TriFields,
+  DealSwitch,
+  ak as s
+} from "./admin/AdminKit";
 
 const CreateCard = () => {
+  const { t } = useTranslation();
 
-  const {
-    createCard,
-    uploadImage
-  } = useContext(MyContext);
+  const { profile, createCard, uploadImage } = useContext(MyContext);
 
-  const {
-    register,
-    handleSubmit,
-    reset
-  } = useForm();
+  const isAdmin = profile?.role === "admin";
+
+  const { register, handleSubmit, reset } = useForm();
+
+  const [deal, setDeal] = useState("sale");
+  const [saving, setSaving] = useState(false);
 
   const onSubmit = async (data) => {
-
     if (!data.image || !data.image.length) {
       toast.error(t("imageFileMissing"));
       return;
     }
 
-    const file = data.image[0];
+    setSaving(true);
 
-    const imageUrl = await uploadImage(file);
+    try {
+      const imageUrl = await uploadImage(data.image[0]);
 
-    const newCard = {
+      await createCard({
+        title: {
+          ru: data.titleRu,
+          en: data.titleEn,
+          uz: data.titleUz
+        },
+        description: {
+          ru: data.descriptionRu,
+          en: data.descriptionEn,
+          uz: data.descriptionUz
+        },
+        image: imageUrl,
+        bedrooms: {
+          ru: data.bedroomsRu,
+          en: data.bedroomsEn,
+          uz: data.bedroomsUz
+        },
+        type: {
+          ru: data.typeRu,
+          en: data.typeEn,
+          uz: data.typeUz
+        },
+        price: data.price,
+        is_rent: deal === "rent"
+      });
 
-      title: {
-        ru: data.titleRu,
-        en: data.titleEn,
-        uz: data.titleUz,
-      },
-
-      description: {
-        ru: data.descriptionRu,
-        en: data.descriptionEn,
-        uz: data.descriptionUz,
-      },
-
-      image: imageUrl,
-
-      bedrooms: {
-        ru: data.bedroomsRu,
-        en: data.bedroomsEn,
-        uz: data.bedroomsUz,
-      },
-
-      bathrooms: {
-        ru: data.bathroomsRu,
-        en: data.bathroomsEn,
-        uz: data.bathroomsUz,
-      },
-
-      type: {
-        ru: data.typeRu,
-        en: data.typeEn,
-        uz: data.typeUz,
-      },
-
-      price: data.price,
-      link: data.link,
-    };
-
-    await createCard(newCard);
-
-    reset();
+      reset();
+      setDeal("sale");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  if (!isAdmin) return <AdminDenied />;
+
   return (
-    <section className={s.createCard}>
+    <AdminPage
+      narrow
+      title="Новая карточка квартиры"
+      subtitle="Карточка для каталога. Подробную страницу можно создать после."
+      back="/admin/changeCard"
+      backLabel="К списку квартир"
+    >
+      <form className={s.form} onSubmit={handleSubmit(onSubmit)}>
+        <Section title="Тип сделки и цена">
+          <Fields cols={2}>
+            <Field label="Тип сделки">
+              <div>
+                <DealSwitch value={deal} onChange={setDeal} />
+              </div>
+            </Field>
 
-      <form
-        className={s.form}
-        onSubmit={handleSubmit(onSubmit)}
-      >
+            <Field label="Цена">
+              <input
+                className={s.input}
+                type="text"
+                placeholder="$120,000"
+                {...register("price")}
+              />
+            </Field>
+          </Fields>
+        </Section>
 
-        <h1 className={s.mainTitle}>
-          Create Property
-        </h1>
+        <Section title="Название">
+          <TriFields label="Название" name="title" register={register} />
+        </Section>
 
-        <div className={s.box}>
-          <h2 className={s.title}>Title RU</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            placeholder="Морское Спокойствие"
-            {...register("titleRu")}
+        <Section title="Описание">
+          <TriFields
+            label="Описание"
+            name="description"
+            register={register}
+            textarea
           />
+        </Section>
+
+        <Section title="Параметры">
+          <TriFields label="Комнаты" name="bedrooms" register={register} />
+          <div style={{ height: 14 }} />
+          <TriFields label="Тип" name="type" register={register} />
+        </Section>
+
+        <Section title="Фото">
+          <Fields cols={1}>
+            <Field label="Фото объекта (файл)">
+              <input
+                className={s.input}
+                type="file"
+                accept="image/*"
+                {...register("image", { required: true })}
+              />
+            </Field>
+          </Fields>
+        </Section>
+
+        <div className={s.saveBar}>
+          <button
+            className={`${s.btn} ${s.btnPrimary}`}
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Создаю…" : "Создать карточку"}
+          </button>
         </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Title EN</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            placeholder="Seaside Serenity"
-            {...register("titleEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Title UZ</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            placeholder="Dengiz Bo'yidagi Sokinlik"
-            {...register("titleUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Description RU</h2>
-
-          <textarea
-            className={s.textarea}
-            placeholder="Описание..."
-            {...register("descriptionRu")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Description EN</h2>
-
-          <textarea
-            className={s.textarea}
-            placeholder="Description..."
-            {...register("descriptionEn")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Description UZ</h2>
-
-          <textarea
-            className={s.textarea}
-            placeholder="Tavsif..."
-            {...register("descriptionUz")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Image</h2>
-
-          <input
-            className={s.inp}
-            type="file"
-            accept="image/*"
-            {...register("image", { required: true })}
-          />
-        </div>
-
-        <div className={s.row}>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bedrooms RU</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="4 спальни"
-              {...register("bedroomsRu")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bedrooms EN</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="4 bedrooms"
-              {...register("bedroomsEn")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bedrooms UZ</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="4 yotoqxona"
-              {...register("bedroomsUz")}
-            />
-          </div>
-
-        </div>
-
-        <div className={s.row}>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bathrooms RU</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="3 ванные"
-              {...register("bathroomsRu")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bathrooms EN</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="3 bathrooms"
-              {...register("bathroomsEn")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Bathrooms UZ</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="3 hammom"
-              {...register("bathroomsUz")}
-            />
-          </div>
-
-        </div>
-
-        <div className={s.row}>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Type RU</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="Вилла"
-              {...register("typeRu")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Type EN</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="Villa"
-              {...register("typeEn")}
-            />
-          </div>
-
-          <div className={s.box}>
-            <h2 className={s.title}>Type UZ</h2>
-
-            <input
-              className={s.inp}
-              type="text"
-              placeholder="Villa"
-              {...register("typeUz")}
-            />
-          </div>
-
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Price</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            placeholder="$550,000"
-            {...register("price")}
-          />
-        </div>
-
-        <div className={s.box}>
-          <h2 className={s.title}>Link</h2>
-
-          <input
-            className={s.inp}
-            type="text"
-            placeholder="/Property"
-            {...register("link")}
-          />
-        </div>
-
-        <button
-          className={s.btn}
-          type="submit"
-        >
-          Create Property
-        </button>
-
       </form>
-
-    </section>
+    </AdminPage>
   );
 };
 

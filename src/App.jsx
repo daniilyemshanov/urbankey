@@ -25,6 +25,7 @@ import CreateVilla from "./components/CreateVilla";
 import ScrollToTop from "./components/ScrollToTop";
 import ChangeVilla from "./components/ChangeVilla";
 import ChangeCommercial from "./components/ChangeCommercial";
+import ListingsManager from "./components/admin/ListingsManager";
 import CreateCommercialPage from "./components/CreateCommercialPage";
 import CommercialPage from "./pages/CommercialPage";
 import EditCommercialPage from "./components/EditCommercialPage";
@@ -177,6 +178,10 @@ const App = () => {
             <Route
               path="/admin/cards"
               element={<AdminCards />}
+            />
+            <Route
+              path="/admin/commercials"
+              element={<ListingsManager kind="commercial" />}
             />
 
             <Route
