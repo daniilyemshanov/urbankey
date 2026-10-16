@@ -1,10 +1,12 @@
 import { useState, useContext, useEffect } from "react";
 import { MyContext } from "../Context";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import s from "./CreateCommercialPage.module.css";
+import { ObjectPicker } from "./admin/AdminKit";
 
 const CreateCommercialPage = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
 
     const {
         commercials,
@@ -37,6 +39,11 @@ const CreateCommercialPage = () => {
 
     useEffect(() => {
         getCommercials();
+
+        // /admin/createCommercialPage/:id — объект выбран заранее
+        if (id) {
+            setPage(prev => ({ ...prev, commercial_id: id }));
+        }
     }, []);
 
     // 🔥 универсальный хендлер для multilingual полей
@@ -101,18 +108,22 @@ const CreateCommercialPage = () => {
 
                 <h1 className={s.title}>Создание страницы коммерции</h1>
 
-                {/* SELECT */}
-                <select
+                {/* ВЫБОР ОБЪЕКТА */}
+                <ObjectPicker
+                    collapsible
+                    items={commercials.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        subtitle: item.district?.ru || "",
+                        image: item.image,
+                        is_rent: item.is_rent
+                    }))}
                     value={page.commercial_id}
-                    onChange={(e) => handleChange("commercial_id", e.target.value)}
-                >
-                    <option value="">Выберите объект</option>
-                    {commercials.map(item => (
-                        <option key={item.id} value={item.id}>
-                            {item.title.ru}
-                        </option>
-                    ))}
-                </select>
+                    placeholder="Найти объект по названию…"
+                    onSelect={(commercialId) =>
+                        handleChange("commercial_id", commercialId)
+                    }
+                />
 
 
                 {/* TITLE */}

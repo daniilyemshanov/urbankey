@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { MyContext } from "../Context";
 import s from "./ChangeVilla.module.css";
+import { AdminPage, ObjectPicker } from "./admin/AdminKit";
 
 
 const ChangeVilla = () => {
@@ -67,62 +68,29 @@ const ChangeVilla = () => {
 
     if (!villa) {
 
+        const pickerItems = properties.map(item => ({
+            id: item.id,
+            title: item.title,
+            subtitle: item.type?.ru || "",
+            image: item.image,
+            is_rent: item.is_rent
+        }));
 
         return (
-
-            <section className={s.change}>
-
-
-                <div className={s.container}>
-
-
-                    <h1>
-                        Выберите квартиру
-                    </h1>
-
-
-
-                    <select
-
-                        value={selected}
-
-                        onChange={(e) => loadVilla(e.target.value)}
-
-                    >
-
-                        <option value="">
-                            Выберите квартиру
-                        </option>
-
-
-                        {
-                            properties.map(item => (
-
-                                <option
-
-                                    key={item.id}
-
-                                    value={item.id}
-
-                                >
-
-                                    {item.title.ru}
-
-                                </option>
-
-                            ))
-                        }
-
-
-                    </select>
-
-
-
-                </div>
-
-
-            </section>
-
+            <AdminPage
+                narrow
+                title="Страницы квартир"
+                subtitle="Найдите объект по названию и откройте его страницу для правки"
+                back="/admin"
+                backLabel="В админку"
+            >
+                <ObjectPicker
+                    items={pickerItems}
+                    value={selected}
+                    onSelect={loadVilla}
+                    placeholder="Поиск квартиры по названию…"
+                />
+            </AdminPage>
         )
 
     }

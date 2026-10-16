@@ -719,3 +719,130 @@
     flex: 1;
   }
 }
+
+/* ---------- Выбор объекта (поиск + список) ---------- */
+
+.picker {
+  border: 1px solid var(--a-line);
+  border-radius: 16px;
+  background: var(--a-surface-2);
+  overflow: hidden;
+  text-align: left;
+}
+
+.pickerSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--a-line);
+}
+
+/* два класса — чтобы перебить глобальные стили input внутри старых форм */
+.picker .pickerInput {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 15px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--a-text);
+  font-size: 15px;
+}
+
+.picker .pickerInput:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.pickerMeta {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--a-muted);
+}
+
+.pickerList {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.pickerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pickerRow:hover,
+.pickerRow:focus-visible {
+  background: rgba(212, 175, 55, 0.1);
+  outline: none;
+}
+
+.pickerRowActive {
+  background: rgba(212, 175, 55, 0.16);
+}
+
+.pickerThumb {
+  width: 56px;
+  height: 42px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--a-surface);
+}
+
+.pickerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.pickerTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pickerSub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--a-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pickerChosen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 16px;
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.pickerChange {
+  padding: 8px 14px;
+  border: 1px solid var(--a-line);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--a-text);
+  cursor: pointer;
+}
+
+.pickerChange:hover {
+  border-color: var(--a-line-strong);
+}

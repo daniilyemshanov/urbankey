@@ -2,6 +2,7 @@ import { useState, useContext, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { MyContext } from "../Context";
 import s from "./CreateVilla.module.css";
+import { ObjectPicker } from "./admin/AdminKit";
 
 
 const CreateVilla = () => {
@@ -69,6 +70,11 @@ const CreateVilla = () => {
     useEffect(() => {
 
         getCards();
+
+        // /admin/CreateVilla/:id — карточка выбрана заранее
+        if (id) {
+            setVilla(prev => ({ ...prev, card_id: id }));
+        }
 
     }, []);
 
@@ -185,74 +191,26 @@ const CreateVilla = () => {
 
 
                 <h1 className={s.title}>
-                    Create Villa
+                    Новая страница квартиры
                 </h1>
 
-                <select
-
+                <ObjectPicker
+                    collapsible
+                    items={properties.map(card => ({
+                        id: card.id,
+                        title: card.title,
+                        subtitle: card.type?.ru || "",
+                        image: card.image,
+                        is_rent: card.is_rent
+                    }))}
                     value={villa.card_id}
-
-                    onChange={(e) =>
-
+                    placeholder="Найти карточку по названию…"
+                    onSelect={(cardId) =>
                         setVilla(prev => ({
-
                             ...prev,
-
-                            card_id: e.target.value
-
+                            card_id: cardId
                         }))
-
                     }
-
-                >
-
-                    <option value="">
-                        Выберите карточку
-                    </option>
-
-
-                    {
-                        properties.map(card => (
-
-                            <option
-
-                                key={card.id}
-
-                                value={card.id}
-
-                            >
-
-                                {card.title.ru}
-
-                            </option>
-
-                        ))
-
-                    }
-
-
-                </select>
-
-
-
-                <input
-
-                    placeholder="Card ID"
-
-                    value={villa.card_id}
-
-                    onChange={(e) =>
-
-                        setVilla(prev => ({
-
-                            ...prev,
-
-                            card_id: e.target.value
-
-                        }))
-
-                    }
-
                 />
 
 
@@ -691,8 +649,7 @@ const CreateVilla = () => {
 
                 >
 
-                    Create Villa
-
+                    Создать страницу
                 </button>
 
 

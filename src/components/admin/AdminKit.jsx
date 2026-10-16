@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { parsePrice, formatPriceIn } from "../../utils/currency";
 import s from "./admin.module.css";
@@ -134,6 +135,145 @@ export const PriceHint = ({ value }) => {
         ? `На сайте: ${formatPriceIn(value, parsed.currency, null)}`
         : "Например: 120 000$ или 1 800$ за м²"}
     </span>
+  );
+};
+
+// Выбор объекта из большого списка: поиск по названию (ru/en/uz), району/типу и ID.
+// items: [{ id, title: {ru,en,uz}, subtitle, image, is_rent }]
+// collapsible — после выбора список сворачивается в плашку с кнопкой «Сменить».
+export const ObjectPicker = ({
+  items = [],
+  value,
+  onSelect,
+  placeholder = "Поиск по названию…",
+  emptyText = "Ничего не найдено",
+  collapsible = false
+}) => {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(!value);
+
+  const selected = items.find((i) => String(i.id) === String(value));
+
+  const visible = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return items;
+
+    return items.filter((i) =>
+      [i.title?.ru, i.title?.en, i.title?.uz, i.subtitle, String(i.id)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(query))
+    );
+  }, [items, q]);
+
+  const pick = (item) => {
+    onSelect(item.id);
+    setQ("");
+    setOpen(false);
+  };
+
+  const label = (i) => i.title?.ru || i.title?.en || i.title?.uz || `#${i.id}`;
+
+  if (collapsible && selected && !open) {
+    return (
+      <div className={s.pickerChosen}>
+        <Thumb src={selected.image} className={s.pickerThumb} />
+
+        <div className={s.pickerText}>
+          <div className={s.pickerTitle}>{label(selected)}</div>
+          {selected.subtitle ? (
+            <div className={s.pickerSub}>{selected.subtitle}</div>
+          ) : null}
+        </div>
+
+        <div
+          className={s.pickerChange}
+          role="button"
+          tabIndex={0}
+          onClick={() => setOpen(true)}
+          onKeyDown={(e) => e.key === "Enter" && setOpen(true)}
+        >
+          Сменить
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={s.picker}>
+      <div className={s.pickerSearch}>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#d4af37"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3.5-3.5" />
+        </svg>
+
+        <input
+          className={s.pickerInput}
+          type="text"
+          value={q}
+          placeholder={placeholder}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (visible[0]) pick(visible[0]);
+            }
+          }}
+        />
+      </div>
+
+      <div className={s.pickerMeta}>
+        <span>
+          Найдено: {visible.length} из {items.length}
+        </span>
+        <span>Enter — выбрать первый</span>
+      </div>
+
+      <div className={s.pickerList}>
+        {visible.length === 0 ? (
+          <div className={s.pickerRow} style={{ cursor: "default" }}>
+            <span className={s.pickerSub}>{emptyText}</span>
+          </div>
+        ) : (
+          visible.slice(0, 100).map((item) => (
+            <div
+              key={item.id}
+              role="button"
+              tabIndex={0}
+              className={`${s.pickerRow} ${
+                String(item.id) === String(value) ? s.pickerRowActive : ""
+              }`}
+              onClick={() => pick(item)}
+              onKeyDown={(e) => e.key === "Enter" && pick(item)}
+            >
+              <Thumb src={item.image} className={s.pickerThumb} />
+
+              <div className={s.pickerText}>
+                <div className={s.pickerTitle}>{label(item)}</div>
+                {item.subtitle ? (
+                  <div className={s.pickerSub}>{item.subtitle}</div>
+                ) : null}
+              </div>
+
+              <DealBadge isRent={item.is_rent} />
+            </div>
+          ))
+        )}
+
+        {visible.length > 100 && (
+          <div className={s.pickerMeta}>
+            Показаны первые 100 — уточните поиск
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
