@@ -276,7 +276,7 @@ const Catalog = () => {
                 // и видит цены на карточках. null — сравнить нельзя (нет цены или
                 // нет курса для перевода): такие объявления при фильтре по цене
                 // скрываются, а в сортировке идут в конец.
-                return { ...item, searchScore: score, priceValue: priceInCurrency(item.price, currency, rate) };
+                return { ...item, searchScore: score, priceValue: priceInCurrency(item.price, currency, rate, parseFloat(String(item.area ?? "").replace(",", "."))) };
             })
             .filter((item) => {
 

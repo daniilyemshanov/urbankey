@@ -467,7 +467,7 @@ function formatGrouped(amount) {
 
 // -> { raw, amount, currency: "USD"|"UZS"|null, perSqm, perSqmRaw }
 //   raw — каноничная строка для карточки ("85 000$" / "850 000 000 сум" /
-//         число без валюты), либо "" если цены нет или она указана за м².
+//         число без валюты; для цены за м² — "1 400$ за м²"), либо "" если цены нет.
 export function extractPriceInfo(text) {
     const source = String(text || "");
     const empty = { raw: "", amount: null, currency: null, perSqm: false, perSqmRaw: "" };
@@ -553,7 +553,10 @@ export function extractPriceInfo(text) {
     if (perSqmOnly.length) {
         const p = perSqmOnly[perSqmOnly.length - 1];
         const symbol = p.currency === "USD" ? "$" : " сум";
-        return { ...empty, perSqm: true, perSqmRaw: `${formatGrouped(p.amount)}${symbol} за м²` };
+        // Цена за м² сохраняется как есть ("1 400$ за м²"): сайт и админка умеют её
+        // показывать. Итоговой суммы тут нет, поэтому amount — это цена за м².
+        const perSqmRaw = `${formatGrouped(p.amount)}${symbol} за м²`;
+        return { raw: perSqmRaw, amount: p.amount, currency: p.currency, perSqm: true, perSqmRaw };
     }
 
     // Валюта не указана: число после метки "Цена:" — как есть (валюту определит сайт).
@@ -578,7 +581,9 @@ export function priceToNumber(raw) {
     if (raw == null || raw === "") return null;
     if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : null;
 
-    const info = extractPriceInfo(String(raw));
+        const info = extractPriceInfo(String(raw));
+    // цена за м² не может лежать в числовой колонке страницы как итоговая цена
+    if (info.perSqm) return null;
     if (info.amount != null) return info.amount;
 
     // строка вида "85000" / "83.000" без метки и валюты
@@ -593,7 +598,9 @@ export function priceToNumber(raw) {
 // Сумма в сумах МЕНЬШЕ 10 млн была бы показана как доллары — такое число не
 // записываем (null), лучше пустое значение, чем неверная валюта.
 export function priceNumberForPage(info) {
-    if (!info || info.amount == null) return null;
+        if (!info || info.amount == null) return null;
+    // цена за м² живёт в тексте цены карточки, а не в числовой колонке страницы
+    if (info.perSqm) return null;
     if (info.currency === "UZS" && info.amount < 10_000_000) return null;
     return info.amount;
 }

@@ -21,9 +21,9 @@ const DEFAULT_TITLE = {
 };
 
 const DEFAULT_DESCRIPTION = {
-    ru: "UrbanKey — подбор и продажа недвижимости в Ташкенте: виллы, квартиры, коммерческие объекты.",
-    en: "UrbanKey — real estate selection and sales in Tashkent: villas, apartments, commercial properties.",
-    uz: "UrbanKey — Toshkentda ko'chmas mulk tanlash va sotish: villalar, kvartiralar, tijorat obyektlari.",
+    ru: "UrbanKey — подбор и продажа недвижимости в Ташкенте: квартиры, коммерческие объекты.",
+    en: "UrbanKey — real estate selection and sales in Tashkent: apartments, commercial properties.",
+    uz: "UrbanKey — Toshkentda ko'chmas mulk tanlash va sotish: kvartiralar, tijorat obyektlari.",
 };
 
 /**

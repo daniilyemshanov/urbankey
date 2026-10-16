@@ -160,11 +160,17 @@ test("цена: сумы, курс и итог в долларах", () => {
     assert.equal(extractPriceInfo("общая сумма 85 000").currency, null);
 });
 
-test("цена: за м² не выдаётся за итоговую; проценты и телефон — не цена", () => {
+test("цена: за м² сохраняется как есть, итоговой не становится; проценты и телефон — не цена", () => {
     const perSqm = extractPriceInfo("1400$ за 1м²");
-    assert.equal(perSqm.raw, "");
+    assert.equal(perSqm.raw, "1 400$ за м²");
     assert.equal(perSqm.perSqm, true);
+    assert.equal(perSqm.amount, 1400);
     assert.equal(perSqm.perSqmRaw, "1 400$ за м²");
+
+    // если есть и итоговая цена, и цена за м² — выбирается итоговая
+    const both = extractPriceInfo("Цена 85 000$ (1400$ за м²)");
+    assert.equal(both.raw, "85 000$");
+    assert.equal(both.perSqm, false);
 
     assert.equal(extractPriceInfo("скидка 5% при оплате").raw, "");
     assert.equal(extractPriceInfo("тел +998 90 123 45 67").raw, "");
@@ -328,9 +334,11 @@ test("parseListing: аренда в сумах — валюта не подме�
     assert.equal(p.priceNumber, null); // 5 млн сайт принял бы за $ — не записываем
 });
 
-test("parseListing: цена за м² не становится ценой объекта", () => {
+test("parseListing: цена за м² сохраняется как цена «за м²», а не итоговая", () => {
     const p = parseListing("Квартира 68 м²\n1400$ за 1м²");
-    assert.equal(p.price, "");
+    assert.equal(p.price, "1 400$ за м²");
+    // в числовую колонку страницы цена за м² не попадает
+    assert.equal(p.priceNumber, null);
     assert.equal(p.pricePerSqm, "1 400$ за м²");
     assert.equal(p.area, "68");
     assert.ok(p.about_ru.includes("1 400$ за м²"), "информация о цене за м² не потеряна");

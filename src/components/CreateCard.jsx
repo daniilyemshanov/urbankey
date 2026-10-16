@@ -11,6 +11,7 @@ import {
   Field,
   TriFields,
   DealSwitch,
+  PriceHint,
   ak as s
 } from "./admin/AdminKit";
 
@@ -21,7 +22,9 @@ const CreateCard = () => {
 
   const isAdmin = profile?.role === "admin";
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch } = useForm();
+
+  const price = watch("price");
 
   const [deal, setDeal] = useState("sale");
   const [saving, setSaving] = useState(false);
@@ -93,9 +96,10 @@ const CreateCard = () => {
               <input
                 className={s.input}
                 type="text"
-                placeholder="$120,000"
+                placeholder="120 000$ или 1 800$ за м²"
                 {...register("price")}
               />
+              <PriceHint value={price} />
             </Field>
           </Fields>
         </Section>

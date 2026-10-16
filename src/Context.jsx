@@ -2,8 +2,26 @@ import { supabase } from "./supabase";
 import { createContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
+import { parsePrice } from "./utils/currency";
 
 export const MyContext = createContext();
+
+// Цена за м² хранится текстом в карточке ("1800$ за м2"), а на странице объекта
+// колонка price числовая и пометку «за м²» хранить не может. Если у карточки
+// цена за м² — страница показывает именно её текст.
+const perSqmPriceText = async (table, id) => {
+    try {
+        const { data } = await supabase
+            .from(table)
+            .select("price")
+            .eq("id", id)
+            .maybeSingle();
+
+        return parsePrice(data?.price)?.perSqm ? data.price : null;
+    } catch {
+        return null;
+    }
+};
 
 // Публичные "safe" наборы колонок cardss/commercials (без owner_phone/
 // owner_telegram) — те же самые, что перечислены в
@@ -1019,6 +1037,10 @@ export const MyProvider = ({ children }) => {
 
         if (requestId !== commercialRequest.current) return;
 
+        const perSqmText = await perSqmPriceText("commercials_public", commercialId);
+
+        if (requestId !== commercialRequest.current) return;
+
         setCommercialPage({
 
             id: data.id,
@@ -1074,7 +1096,7 @@ export const MyProvider = ({ children }) => {
             area: data.area,
             ceiling_height: data.ceiling_height,
             floor: data.floor,
-            price: data.price,
+            price: perSqmText ?? data.price,
             is_rent: Boolean(data.is_rent),
 
             images: data.images || [],
@@ -1191,39 +1213,51 @@ export const MyProvider = ({ children }) => {
 
     // ===== АДМИНКА: список объектов вместе с проданными =====
     // Публичные view (cardss_public / commercials_public) проданные строки
-    // скрывают, поэтому админке нужно читать таблицы напрямую — тем же
-    // безопасным списком колонок + is_sold.
+    // скрывают. Сами таблицы закрыты по колонкам (revoke select + grant только
+    // на «безопасные» колонки, см. supabase/user_listings_and_leads.sql), поэтому
+    // читаем ТОЛЬКО разрешённые колонки + is_sold, а is_rent (на таблице он не
+    // выдан) подмешиваем из публичной view.
     const getAdminListings = async (kind) => {
         const isCommercial = kind === "commercial";
 
-        const { data, error } = await supabase
-            .from(isCommercial ? "commercials" : "cardss")
-            .select(
-                (isCommercial
-                    ? COMMERCIAL_PUBLIC_COLUMNS
-                    : CARD_PUBLIC_COLUMNS) + ", is_sold"
-            )
-            .order("id", { ascending: false });
+        const table = isCommercial ? "commercials" : "cardss";
+        const view = isCommercial ? "commercials_public" : "cardss_public";
 
-        if (error) {
-            console.error("ADMIN LISTINGS ERROR:", error);
-            toast.error(error.message);
+        const columns = isCommercial
+            ? "id, title_ru, title_en, title_uz, district_ru, image, price, is_sold"
+            : "id, title_ru, title_en, title_uz, type_ru, image, price, is_sold";
+
+        const [direct, pub] = await Promise.all([
+            supabase.from(table).select(columns).order("id", { ascending: false }),
+            supabase.from(view).select("id, is_rent")
+        ]);
+
+        if (direct.error) {
+            console.error("ADMIN LISTINGS ERROR:", direct.error);
+            toast.error(direct.error.message);
             return [];
         }
 
-        return (data || []).map(item => ({
+        // is_rent — только из view; если колонки там нет, считаем «Продажа»
+        const rentById = new Map();
+
+        if (!pub.error) {
+            for (const row of pub.data || []) {
+                rentById.set(row.id, row.is_rent === true);
+            }
+        }
+
+        return (direct.data || []).map(item => ({
             id: item.id,
             title: {
                 ru: item.title_ru,
                 en: item.title_en,
                 uz: item.title_uz
             },
-            subtitle: isCommercial
-                ? (item.district_ru || item.address_ru || "")
-                : (item.type_ru || ""),
+            subtitle: isCommercial ? (item.district_ru || "") : (item.type_ru || ""),
             image: item.image,
             price: item.price,
-            is_rent: item.is_rent === true,
+            is_rent: rentById.get(item.id) === true,
             is_sold: item.is_sold === true
         }));
     };
@@ -1231,13 +1265,24 @@ export const MyProvider = ({ children }) => {
 
     // Продано / вернуть на сайт. Возвращает true при успехе.
     const setListingSold = async (kind, id, isSold) => {
-        const { error } = await supabase
-            .from(kind === "commercial" ? "commercials" : "cardss")
+        const table = kind === "commercial" ? "commercials" : "cardss";
+
+        let { error } = await supabase
+            .from(table)
             .update({
                 is_sold: isSold,
                 sold_at: isSold ? new Date().toISOString() : null
             })
             .eq("id", id);
+
+        // sold_at — вспомогательная колонка; если на неё нет права записи,
+        // повторяем только с is_sold, чтобы статус всё равно сменился.
+        if (error) {
+            ({ error } = await supabase
+                .from(table)
+                .update({ is_sold: isSold })
+                .eq("id", id));
+        }
 
         if (error) {
             console.error("SET SOLD ERROR:", error);
@@ -2045,6 +2090,10 @@ export const MyProvider = ({ children }) => {
             if (requestId !== villaRequest.current) return;
 
 
+            const perSqmText = await perSqmPriceText("cardss_public", cardId);
+
+            if (requestId !== villaRequest.current) return;
+
             setVilla({
 
 
@@ -2098,7 +2147,7 @@ export const MyProvider = ({ children }) => {
                 },
 
 
-                price: data.price,
+                price: perSqmText ?? data.price,
 
                 bedrooms: data.bedrooms,
 
@@ -2381,7 +2430,7 @@ export const MyProvider = ({ children }) => {
 
 
         toast.success(
-            "Villa удалена"
+            "Страница объекта удалена"
         );
 
 

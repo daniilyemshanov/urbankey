@@ -77,7 +77,7 @@ const ChangeVilla = () => {
 
 
                     <h1>
-                        Выберите виллу
+                        Выберите квартиру
                     </h1>
 
 
@@ -91,7 +91,7 @@ const ChangeVilla = () => {
                     >
 
                         <option value="">
-                            Villa
+                            Выберите квартиру
                         </option>
 
 
@@ -511,7 +511,7 @@ const ChangeVilla = () => {
 
                     >
 
-                        ← Выбрать другую виллу
+                        ← Выбрать другую квартиру
 
 
                     </button>

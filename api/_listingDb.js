@@ -336,9 +336,11 @@ export function checkCardDisplay(parsed) {
 
         if (!shown) {
             problems.push("price_unparseable_on_site");
-        } else if (expected.perSqm) {
-            // сайт склеит цифры "1400$ за 1м²" в 14001 — это не цена объекта
-            problems.push("price_is_per_sqm");
+                } else if (expected.perSqm) {
+            // цена за м²: сайт должен распознать пометку и не склеить "м2" с суммой
+            if (!shown.perSqm || shown.amount !== expected.amount) {
+                problems.push(`price_per_sqm_mismatch site=${shown.amount} parsed=${expected.amount}`);
+            }
         } else if (expected.amount != null && shown.amount !== expected.amount) {
             problems.push(`price_mismatch site=${shown.amount} parsed=${expected.amount}`);
         } else if (expected.currency && shown.currency !== expected.currency) {

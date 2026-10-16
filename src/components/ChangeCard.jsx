@@ -11,6 +11,7 @@ import {
   Field,
   TriFields,
   DealSwitch,
+  PriceHint,
   Thumb,
   ak as s
 } from "./admin/AdminKit";
@@ -33,6 +34,7 @@ const ChangeCard = () => {
 
   const deal = watch("dealType");
   const image = watch("image");
+  const price = watch("price");
 
   useEffect(() => {
     if (id) {
@@ -143,7 +145,13 @@ const ChangeCard = () => {
             </Field>
 
             <Field label="Цена">
-              <input className={s.input} type="text" {...register("price")} />
+              <input
+                className={s.input}
+                type="text"
+                placeholder="120 000$ или 1 800$ за м²"
+                {...register("price")}
+              />
+              <PriceHint value={price} />
             </Field>
           </Fields>
         </Section>

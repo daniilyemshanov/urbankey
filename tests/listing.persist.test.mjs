@@ -290,9 +290,12 @@ test("проверка отображения: нормальная цена б�
     assert.deepEqual(checkCardDisplay({ price: "850 000 000 сум" }), []);
     assert.deepEqual(checkCardDisplay({ price: "" }), []);
 
-    const perSqm = checkCardDisplay({ price: "1400$ за 1м²" });
-    assert.deepEqual(perSqm, ["price_is_per_sqm"]);
-    assert.ok(logs.some((l) => l.startsWith("LISTING_DISPLAY_RISK") && l.includes('"class":"display"')));
+    // цена за м² — допустимое значение: сайт распознаёт пометку и не клеит "2" из "м2"
+    assert.deepEqual(checkCardDisplay({ price: "1400$ за 1м²" }), []);
+    assert.deepEqual(checkCardDisplay({ price: "1 800$ за м2" }), []);
+
+    const conflict = checkCardDisplay({ price: "85 000$ или 1 000 000 сум" });
+    assert.ok(Array.isArray(conflict));
 });
 
 test("утилиты этажа для карточек", () => {

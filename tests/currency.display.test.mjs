@@ -46,11 +46,24 @@ test("пустая и нечисловая цена не ломаются", () =
     assert.equal(formatPriceIn("договорная", "UZS", 12000), "договорная");
 });
 
-test("parsePrice не изменился (его использует серверный api/_listingDb.js)", () => {
-    assert.deepEqual(parsePrice("85 000$"), { amount: 85000, currency: "USD" });
-    assert.deepEqual(parsePrice("850 млн сум"), { amount: 850, currency: "UZS" });
-    assert.deepEqual(parsePrice("1200000000"), { amount: 1200000000, currency: "UZS" });
+test("parsePrice для обычных цен не изменился (его использует серверный api/_listingDb.js)", () => {
+    assert.deepEqual(parsePrice("85 000$"), { amount: 85000, currency: "USD", perSqm: false });
+    assert.deepEqual(parsePrice("850 млн сум"), { amount: 850, currency: "UZS", perSqm: false });
+    assert.deepEqual(parsePrice("1200000000"), { amount: 1200000000, currency: "UZS", perSqm: false });
     assert.equal(parsePrice(""), null);
+});
+
+test("цена за м²: пометка вырезается, \"2\" из м2 не склеивается с суммой", () => {
+    for (const raw of ["1800$ за м2", "1 800 $/м²", "$1800 / кв.м", "1800 usd per m2", "1 800$ за 1м²"]) {
+        assert.deepEqual(parsePrice(raw), { amount: 1800, currency: "USD", perSqm: true }, raw);
+        assert.equal(price(raw, "USD", null), "$1 800 / м²", raw);
+    }
+    assert.deepEqual(parsePrice("15 000 000 сум за м²"), { amount: 15000000, currency: "UZS", perSqm: true });
+    // пересчёт валюты сохраняет пометку «за м²»
+    assert.equal(price("1800$ за м2", "UZS", 12000), "21 600 000 UZS / м²");
+    // сравнение: цена за м² умножается на площадь, без площади сравнить нельзя
+    assert.equal(priceInCurrency("1800$ за м2", "USD", 12000, 60), 108000);
+    assert.equal(priceInCurrency("1800$ за м2", "USD", 12000), null);
 });
 
 test("запись курса: строка Supabase и кэш приводятся к { rate, date }; мусор отклоняется", () => {
@@ -252,6 +265,6 @@ test("usdToCurrency: цены из ИИ-поиска (всегда USD) прив
 
 test("Catalog.jsx: цены сравниваются через priceInCurrency, а не голыми цифрами строки", () => {
     const src = readFileSync("src/components/Catalog.jsx", "utf8");
-    assert.match(src, /priceInCurrency\(item\.price, currency, rate\)/);
+    assert.match(src, /priceInCurrency\(item\.price, currency, rate,/);
     assert.doesNotMatch(src, /parsePriceValue/);
 });

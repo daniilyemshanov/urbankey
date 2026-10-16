@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { parsePrice, formatPriceIn } from "../../utils/currency";
 import s from "./admin.module.css";
 
 // Единый «скелет» страницы админки: заголовок, ссылка «назад», кнопки справа.
@@ -121,6 +122,20 @@ export const TriFields = ({ label, name, register, textarea = false }) => (
     ))}
   </Fields>
 );
+
+// Подсказка под полем цены: как цена будет выглядеть на сайте.
+// Понимает "120000$", "1800$ за м2", "1 800 $/м²", "15 000 000 сум".
+export const PriceHint = ({ value }) => {
+  const parsed = parsePrice(value);
+
+  return (
+    <span className={s.label} style={{ fontSize: 12 }}>
+      {parsed
+        ? `На сайте: ${formatPriceIn(value, parsed.currency, null)}`
+        : "Например: 120 000$ или 1 800$ за м²"}
+    </span>
+  );
+};
 
 // Миниатюра объекта
 export const Thumb = ({ src, className = "" }) =>
