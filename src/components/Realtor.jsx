@@ -1,57 +1,42 @@
+import { useState } from 'react'
 import s from './Realtor.module.css'
 import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
-import { ShieldCheck, Handshake, Camera, Tag, ClipboardCheck, UserCog, Phone, MessageCircle } from 'lucide-react'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Keyboard, A11y } from 'swiper/modules'
+import 'swiper/css'
 import {
-    RiInstagramFill,
-    RiTelegram2Fill,
-} from "react-icons/ri";
+    ShieldCheck, Building2, Home, Tag, Wallet, ClipboardCheck,
+    Camera, Megaphone, Newspaper, Users, Phone, ChevronLeft, ChevronRight
+} from 'lucide-react'
+
+// Общий номер агентства
+const PHONE = "+998 78 707 04 47"
+const PHONE_HREF = "+998787070447"
+
+// type: head — руководитель, agent — агент, smm — SMM-специалист
+const MEMBERS = [
+    { key: "vladislav", type: "head", photo: "/Vladislav.jpg", badge: true, thumbSize: "170% auto", thumbPos: "74.3% 5.6%" },
+    { key: "sunnat", type: "agent", photo: "/Sunnat.jpg", thumbSize: "230% auto", thumbPos: "50.0% 8.4%" },
+    { key: "mamurjon", type: "agent", photo: "/Mamurjon.jpg", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
+    { key: "sarvinoz", type: "agent", photo: "/Sarvinoz.jpg", thumbSize: "150% auto", thumbPos: "50.0% 9.0%" },
+    { key: "igor", type: "agent", photo: "/Igor.jpg", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
+    { key: "irina", type: "smm", photo: "/Irina.jpg", thumbSize: "190% auto", thumbPos: "50.0% 11.8%" },
+]
+
+const POINT_ICONS = {
+    head: [ShieldCheck, Building2, Tag, ClipboardCheck],
+    agent: [Building2, Home, Wallet, ClipboardCheck],
+    smm: [Megaphone, Camera, Newspaper, Users],
+}
 
 const Realtor = () => {
 
     const { t } = useTranslation()
+    const [swiper, setSwiper] = useState(null)
+    const [active, setActive] = useState(0)
 
-    const phoneNumber = "+998 90 974 62 56"
-    const phoneHref = "+998909746256"
-
-    const points = [
-        {
-            id: 1,
-            icon: <ShieldCheck size={22} />,
-            title: t("realtor.points.0.title"),
-            description: t("realtor.points.0.description"),
-        },
-        {
-            id: 2,
-            icon: <Handshake size={22} />,
-            title: t("realtor.points.1.title"),
-            description: t("realtor.points.1.description"),
-        },
-        {
-            id: 3,
-            icon: <Camera size={22} />,
-            title: t("realtor.points.2.title"),
-            description: t("realtor.points.2.description"),
-        },
-        {
-            id: 4,
-            icon: <Tag size={22} />,
-            title: t("realtor.points.3.title"),
-            description: t("realtor.points.3.description"),
-        },
-        {
-            id: 5,
-            icon: <ClipboardCheck size={22} />,
-            title: t("realtor.points.4.title"),
-            description: t("realtor.points.4.description"),
-        },
-        {
-            id: 6,
-            icon: <UserCog size={22} />,
-            title: t("realtor.points.5.title"),
-            description: t("realtor.points.5.description"),
-        },
-    ]
+    const go = (i) => swiper?.slideTo(i)
 
     return (
         <section className={s.realtor} id='realtor'>
@@ -63,128 +48,133 @@ const Realtor = () => {
                 transition={{ duration: 0.8 }}
                 viewport={{ amount: 0.2 }}
             >
-
-                <img
-                    src="/Abstract Design.svg"
-                    alt=""
-                    className={s.logo}
-                />
+                <img src="/Abstract Design.svg" alt="" className={s.logo} />
 
                 <h2>{t("realtor.title")}</h2>
 
                 <div className={s.titles}>
-                    <p>
-                        {t("realtor.subtitle")}
-                    </p>
+                    <p>{t("realtor.subtitle")}</p>
                 </div>
-
             </motion.div>
 
             <div className={s.content}>
 
-                <motion.div
-                    className={s.photoWrap}
-                    initial={{ opacity: 0, x: -60, scale: 0.95 }}
-                    whileInView={{ opacity: 1, x: 0, scale: 1 }}
-                    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                    viewport={{ amount: 0.2 }}
+                <Swiper
+                    className={s.slider}
+                    modules={[Keyboard, A11y]}
+                    keyboard={{ enabled: true }}
+                    spaceBetween={40}
+                    speed={600}
+                    grabCursor
+                    autoHeight={false}
+                    onSwiper={setSwiper}
+                    onSlideChange={(sw) => setActive(sw.activeIndex)}
                 >
-                    <img src="/realtor.webp" alt={t("realtor.name")} className={s.photo} />
+                    {MEMBERS.map((member) => {
+                        const base = `realtor.members.${member.key}`
+                        const icons = POINT_ICONS[member.type]
 
-                    <div className={s.badge}>
-                        <span>{t("realtor.experienceBadge")}</span>
-                    </div>
-                </motion.div>
+                        return (
+                            <SwiperSlide key={member.key} className={s.slide}>
+                                <div className={s.card}>
 
-                <motion.div
-                    className={s.info}
-                    initial={{ opacity: 0, x: 60 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                    viewport={{ amount: 0.2 }}
-                >
+                                    <div className={s.photoWrap}>
+                                        <img
+                                            src={member.photo}
+                                            alt={t(`${base}.name`)}
+                                            className={s.photo}
+                                            draggable={false}
+                                        />
+                                        {member.badge && (
+                                            <div className={s.badge}>
+                                                <span>{t("realtor.experienceBadge")}</span>
+                                            </div>
+                                        )}
+                                    </div>
 
-                    <h2>{t("realtor.name")}</h2>
-                    <h3>{t("realtor.role")}</h3>
+                                    <div className={s.info}>
+                                        <h2>{t(`${base}.name`)}</h2>
+                                        <h3>{t(`${base}.role`)}</h3>
 
-                    <div className={s.points}>
+                                        <p className={s.about}>{t(`realtor.about.${member.type}`)}</p>
 
-                        {points.map((point, index) => (
+                                        <div className={s.points}>
+                                            {icons.map((Icon, i) => (
+                                                <div key={i} className={s.point}>
+                                                    <div className={s.icon}><Icon size={22} /></div>
+                                                    <div>
+                                                        <h4>{t(`realtor.points.${member.type}.${i}.title`)}</h4>
+                                                        <p>{t(`realtor.points.${member.type}.${i}.description`)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
 
-                            <motion.div
-                                key={point.id}
-                                className={s.point}
-                                initial={{ opacity: 0, y: 24 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.6, delay: index * 0.08 }}
-                                viewport={{ amount: 0.2 }}
+                                        <div className={s.actions}>
+                                            <motion.a
+                                                className={s.callButton}
+                                                href={`tel:${PHONE_HREF}`}
+                                                whileHover={{ scale: 1.04 }}
+                                                whileTap={{ scale: 0.96 }}
+                                            >
+                                                <Phone size={18} />
+                                                {PHONE}
+                                            </motion.a>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </SwiperSlide>
+                        )
+                    })}
+                </Swiper>
+
+                <div className={s.controls}>
+
+                    <button
+                        type="button"
+                        className={s.arrow}
+                        onClick={() => swiper?.slidePrev()}
+                        disabled={active === 0}
+                        aria-label="Previous"
+                    >
+                        <ChevronLeft size={22} />
+                    </button>
+
+                    <div className={s.switcher} role="tablist" aria-label={t("realtor.title")}>
+                        {MEMBERS.map((m, i) => (
+                            <button
+                                key={m.key}
+                                type="button"
+                                role="tab"
+                                aria-selected={i === active}
+                                className={`${s.thumb} ${i === active ? s.thumbActive : ''}`}
+                                onClick={() => go(i)}
                             >
-                                <div className={s.icon}>
-                                    {point.icon}
-                                </div>
-
-                                <div>
-                                    <h4>{point.title}</h4>
-                                    <p>{point.description}</p>
-                                </div>
-
-                            </motion.div>
-
+                                <span
+                                    className={s.thumbImg}
+                                    style={{
+                                        backgroundImage: `url(${m.photo})`,
+                                        backgroundSize: m.thumbSize,
+                                        backgroundPosition: m.thumbPos,
+                                    }}
+                                />
+                                <span>{t(`realtor.members.${m.key}.short`)}</span>
+                            </button>
                         ))}
-
                     </div>
 
-                    <div className={s.actions}>
+                    <button
+                        type="button"
+                        className={s.arrow}
+                        onClick={() => swiper?.slideNext()}
+                        disabled={active === MEMBERS.length - 1}
+                        aria-label="Next"
+                    >
+                        <ChevronRight size={22} />
+                    </button>
 
-                        <motion.a
-                            className={s.callButton}
-                            href={`tel:${phoneHref}`}
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
-                        >
-                            <Phone size={18} />
-                            {phoneNumber}
-                        </motion.a>
-
-                        <motion.a
-                            className={s.waButton}
-                            href={`https://wa.me/${phoneHref.replace('+', '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
-                        >
-                            <MessageCircle size={18} />
-                            WhatsApp
-                        </motion.a>
-
-                        <motion.a
-                            className={s.instagramButton}
-                            href="https://www.instagram.com/vladislav_broker?fbclid=IwY2xjawS4YElleHRuA2FlbQIxMABicmlkETFZSThpZEFFZkhqODR3TnZ5c3J0YwZhcHBfaWQQMjIyMDM5MTc4ODIwMDg5MgABHrxU4SvIHrMEGgNNjYrBEKhEkP6ieJLCeqn2AA_4Pw7uBdCQ_1v4xF6osa_b_aem_eTaWAOI-mWKewTsM4ZEdoQ"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
-                        >
-                            <RiInstagramFill size={18} />
-                            Instagram
-                        </motion.a>
-                        <motion.a
-                            className={s.telegramButton}
-                            href="https://t.me/VladislaVBroker"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            whileHover={{ scale: 1.04 }}
-                            whileTap={{ scale: 0.96 }}
-                        >
-                            <RiTelegram2Fill size={18} />
-                            Telegram
-                        </motion.a>
-                    </div>
-
-
-
-                </motion.div>
+                </div>
 
             </div>
 

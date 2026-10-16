@@ -38,8 +38,8 @@
 
     .content {
         display: flex;
-        align-items: stretch;
-        gap: 40px;
+        flex-direction: column;
+        gap: 32px;
 
         position: relative;
         overflow: hidden;
@@ -72,13 +72,39 @@
             pointer-events: none;
         }
 
+        .slider {
+            position: relative;
+            z-index: 2;
+
+            width: 100%;
+
+            .slide {
+                height: auto;
+            }
+        }
+
+        .card {
+            position: relative;
+            z-index: 2;
+
+            display: flex;
+            align-items: stretch;
+            gap: 40px;
+
+            height: 100%;
+        }
+
         .photoWrap {
+            overflow: hidden;
+            border-radius: 18px;
+
             position: relative;
             z-index: 2;
 
             flex-shrink: 0;
 
             width: 340px;
+            aspect-ratio: 4 / 5;
 
             .photo {
                 width: 100%;
@@ -91,6 +117,11 @@
                 border: 1px solid rgba(214, 168, 58, .25);
 
                 box-shadow: 0 25px 60px rgba(0, 0, 0, .25);
+
+                object-position: center top;
+
+                transform: scale(1.06);
+                transition: transform 1.2s cubic-bezier(.22, 1, .36, 1);
             }
 
             .badge {
@@ -117,6 +148,161 @@
                     font-size: 14px;
 
                     color: var(--violet);
+                }
+            }
+        }
+
+        .about {
+            max-width: 520px;
+
+            font-family: var(--font-family);
+            font-weight: 500;
+            font-size: 16px;
+            line-height: 1.6;
+
+            color: rgba(255, 255, 255, .7);
+
+            margin-bottom: 36px;
+        }
+
+        .controls {
+            position: relative;
+            z-index: 2;
+
+            display: flex;
+            align-items: center;
+            gap: 16px;
+
+            border-top: 1px solid rgba(214, 168, 58, .18);
+            padding-top: 24px;
+
+            .arrow {
+                flex-shrink: 0;
+
+                width: 48px;
+                height: 48px;
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                border-radius: 50%;
+
+                border: 1px solid rgba(214, 168, 58, .35);
+                background: rgba(214, 168, 58, .08);
+
+                color: var(--violet);
+
+                cursor: pointer;
+
+                transition: background .3s ease, transform .3s ease, opacity .3s ease;
+
+                &:hover:not(:disabled) {
+                    background: rgba(214, 168, 58, .2);
+
+                    transform: scale(1.06);
+                }
+
+                &:focus-visible {
+                    outline: 2px solid var(--violet);
+                    outline-offset: 2px;
+                }
+
+                &:disabled {
+                    opacity: .3;
+
+                    cursor: default;
+                }
+            }
+        }
+
+        .switcher {
+            position: relative;
+            z-index: 2;
+
+            flex: 1;
+
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+
+            overflow-x: auto;
+            scrollbar-width: none;
+
+            padding: 4px 2px 2px;
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+
+            .thumb {
+                flex: 0 0 auto;
+
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+
+                min-width: 84px;
+
+                padding: 0;
+
+                border: 0;
+                background: none;
+
+                cursor: pointer;
+
+                font-family: var(--font-family);
+                font-weight: 500;
+                font-size: 13px;
+
+                color: rgba(255, 255, 255, .55);
+
+                transition: color .3s ease;
+
+                .thumbImg {
+                    display: block;
+
+                    width: 68px;
+                    height: 68px;
+
+                    background-repeat: no-repeat;
+                    background-color: #1a1a1a;
+
+                    border-radius: 50%;
+
+                    border: 2px solid rgba(214, 168, 58, .25);
+
+                    filter: grayscale(.6) brightness(.8);
+
+                    transition: border-color .3s ease, filter .3s ease, transform .3s ease;
+                }
+
+                &:hover {
+                    color: var(--white);
+
+                    .thumbImg {
+                        filter: none;
+                        transform: translateY(-2px);
+                    }
+                }
+
+                &:focus-visible {
+                    outline: none;
+
+                    .thumbImg {
+                        border-color: var(--violet);
+                    }
+                }
+            }
+
+            .thumbActive {
+                color: var(--violet);
+
+                .thumbImg {
+                    border-color: var(--violet);
+
+                    filter: none;
                 }
             }
         }
@@ -276,6 +462,8 @@
                 }
 
                 .callButton {
+                    flex: 0 1 340px;
+
                     background: var(--violet);
 
                     color: var(--black);
@@ -347,11 +535,19 @@
         }
 
         .content {
-            flex-direction: column;
-
-            gap: 28px;
+            gap: 24px;
 
             padding: 22px;
+
+            .card {
+                flex-direction: column;
+
+                gap: 28px;
+            }
+
+            .about {
+                margin-bottom: 28px;
+            }
 
             .photoWrap {
                 width: 100%;
@@ -402,6 +598,8 @@
                     gap: 12px;
 
                     a {
+                        flex: 0 0 auto;
+
                         width: 100%;
 
                         min-height: 54px;
@@ -493,5 +691,23 @@
                 }
             }
         }
+    }
+}
+.realtor .content .slide:global(.swiper-slide-active) .photoWrap .photo {
+    transform: scale(1);
+}
+
+@media (max-width: 900px) {
+    .realtor .controls {
+        gap: 8px;
+    }
+
+    .realtor .controls .arrow {
+        width: 40px;
+        height: 40px;
+    }
+
+    .realtor .switcher {
+        justify-content: flex-start;
     }
 }

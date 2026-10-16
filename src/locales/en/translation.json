@@ -951,37 +951,104 @@
   "removeFromFavorites": "Remove from favorites",
   "meters": "m",
   "realtor": {
-    "title": "Your Realtor at Urban Key",
-    "subtitle": "I'll help you buy or sell property: from listing it to closing the deal with a notary. Honest work, focused on results, with an individual approach to every client.",
+    "title": "Our Team at Urban Key",
+    "subtitle": "We help you buy or sell property: from listing it to closing the deal with a notary. Honest work, focused on results, with an individual approach to every client.",
     "name": "Your Realtor",
     "role": "Real Estate Specialist, Urban Key",
     "experienceBadge": "6 years of experience",
-    "points": [
-      {
-        "title": "6 years of experience",
-        "description": "In the real estate market"
+    "points": {
+      "head": [
+        {
+          "title": "6 years of experience",
+          "description": "In the real estate market"
+        },
+        {
+          "title": "Commercial real estate",
+          "description": "Offices, retail spaces and other properties"
+        },
+        {
+          "title": "Realistic property price",
+          "description": "Valuation based on current market prices"
+        },
+        {
+          "title": "Deal support",
+          "description": "From advertising to the notary"
+        }
+      ],
+      "agent": [
+        {
+          "title": "New builds",
+          "description": "Current offers from developers"
+        },
+        {
+          "title": "Resale properties",
+          "description": "Selection and checking of resale listings"
+        },
+        {
+          "title": "Selection within your budget",
+          "description": "Options matched to your goals"
+        },
+        {
+          "title": "Deal support",
+          "description": "From viewings to the notary"
+        }
+      ],
+      "smm": [
+        {
+          "title": "Urban Key social media",
+          "description": "Managing accounts and talking to followers"
+        },
+        {
+          "title": "Property content",
+          "description": "Photos and videos of new listings from the catalog"
+        },
+        {
+          "title": "Market news",
+          "description": "Prices, new builds and trends in plain language"
+        },
+        {
+          "title": "Team life",
+          "description": "Stories, events and behind the scenes"
+        }
+      ]
+    },
+    "members": {
+      "vladislav": {
+        "name": "Vladislav Yemshanov",
+        "role": "Head of UrbanKey · Commercial Real Estate Broker",
+        "short": "Vladislav"
       },
-      {
-        "title": "Honesty and professionalism",
-        "description": "Working for results and trust"
+      "sunnat": {
+        "name": "Sunnat Kamilov",
+        "role": "New-Build and Resale Property Sales Agent",
+        "short": "Sunnat"
       },
-      {
-        "title": "On-site photo and video shoots",
-        "description": "A quality presentation of your property"
+      "mamurjon": {
+        "name": "Mamurjon Kenjaev",
+        "role": "New-Build and Resale Property Sales Agent",
+        "short": "Mamurjon"
       },
-      {
-        "title": "Realistic pricing advice",
-        "description": "Based only on current market prices"
+      "sarvinoz": {
+        "name": "Sarvinoz Nizamova",
+        "role": "New-Build and Resale Property Sales Agent",
+        "short": "Sarvinoz"
       },
-      {
-        "title": "From listing to the notary",
-        "description": "Every stage of the deal under my control"
+      "igor": {
+        "name": "Igor Kim",
+        "role": "New-Build and Resale Property Sales Agent",
+        "short": "Igor"
       },
-      {
-        "title": "Flexible, individual terms",
-        "description": "A personal approach to every client"
+      "irina": {
+        "name": "Irina Yemshanova",
+        "role": "UrbanKey SMM",
+        "short": "Irina"
       }
-    ]
+    },
+    "about": {
+      "head": "Leads the Urban Key team and personally handles commercial real estate deals. Guides clients from property valuation to signing the contract at the notary.",
+      "agent": "Helps you find an apartment in a new build or on the resale market that fits your goals and budget. Supports you at every step, from the first viewings to closing the deal.",
+      "smm": "Runs the Urban Key social media: creates and publishes content about properties, talks about the real estate market and shows how the team works. Thanks to her, clients see current offers and get to know us before the first call."
+    }
   },
   "switchCurrency": "Switch currency",
   "toggleTheme": "Theme",

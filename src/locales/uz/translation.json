@@ -1025,37 +1025,104 @@
   "removeFromFavorites": "Sevimlilardan olib tashlash",
   "meters": "m",
   "realtor": {
-    "title": "Urban Key’dagi rieltoringiz",
-    "subtitle": "Ko‘chmas mulkni sotib olish yoki sotishda yordam beraman: e’londan notariusdagi bitimgacha. Halol, natijaga yo‘naltirilgan va har bir mijozga individual yondashuv bilan ishlayman.",
+    "title": "Urban Key jamoasi",
+    "subtitle": "Ko‘chmas mulkni sotib olish yoki sotishda yordam beramiz: e’londan notariusdagi bitimgacha. Halol, natijaga yo‘naltirilgan va har bir mijozga individual yondashuv bilan ishlaymiz.",
     "name": "Sizning rieltoringiz",
     "role": "Ko‘chmas mulk bo‘yicha mutaxassis, Urban Key",
     "experienceBadge": "6 yillik tajriba",
-    "points": [
-      {
-        "title": "6 yillik tajriba",
-        "description": "Ko‘chmas mulk bozorida"
+    "points": {
+      "head": [
+        {
+          "title": "6 yillik tajriba",
+          "description": "Ko‘chmas mulk bozorida"
+        },
+        {
+          "title": "Tijoriy ko‘chmas mulk",
+          "description": "Ofislar, savdo maydonlari va boshqa obyektlar"
+        },
+        {
+          "title": "Obyektning real narxi",
+          "description": "Dolzarb bozor narxlari asosida baholash"
+        },
+        {
+          "title": "Bitimni kuzatish",
+          "description": "E’londan notariusgacha"
+        }
+      ],
+      "agent": [
+        {
+          "title": "Yangi qurilishlar",
+          "description": "Quruvchilardan dolzarb takliflar"
+        },
+        {
+          "title": "Ikkilamchi uy-joy",
+          "description": "Ikkilamchi bozordagi obyektlarni tanlash va tekshirish"
+        },
+        {
+          "title": "Byudjetga mos tanlov",
+          "description": "Maqsadingizga mos variantlarni taklif qilaman"
+        },
+        {
+          "title": "Bitimni kuzatish",
+          "description": "Ko‘rishlardan notariusgacha"
+        }
+      ],
+      "smm": [
+        {
+          "title": "Urban Key ijtimoiy tarmoqlari",
+          "description": "Akkauntlarni yuritish va obunachilar bilan muloqot"
+        },
+        {
+          "title": "Obyektlar haqida kontent",
+          "description": "Katalogdagi yangi takliflarning foto va videolari"
+        },
+        {
+          "title": "Bozor yangiliklari",
+          "description": "Narxlar, yangi qurilishlar va tendensiyalar haqida sodda tilda"
+        },
+        {
+          "title": "Jamoa hayoti",
+          "description": "Hikoyalar, tadbirlar va sahna ortidagi ish"
+        }
+      ]
+    },
+    "members": {
+      "vladislav": {
+        "name": "Vladislav Yemshanov",
+        "role": "UrbanKey rahbari · tijoriy ko‘chmas mulk brokeri",
+        "short": "Vladislav"
       },
-      {
-        "title": "Halollik va professionallik",
-        "description": "Natija va ishonch uchun ishlayman"
+      "sunnat": {
+        "name": "Sunnat Komilov",
+        "role": "Yangi qurilish va ikkilamchi uy-joy bo‘yicha sotuv agenti",
+        "short": "Sunnat"
       },
-      {
-        "title": "Foto va videosuratga olish",
-        "description": "Obyektingizning sifatli taqdimoti"
+      "mamurjon": {
+        "name": "Ma’murjon Kenjayev",
+        "role": "Yangi qurilish va ikkilamchi uy-joy bo‘yicha sotuv agenti",
+        "short": "Ma’murjon"
       },
-      {
-        "title": "Real narxni aytib beraman",
-        "description": "Faqat dolzarb bozor narxlari asosida"
+      "sarvinoz": {
+        "name": "Sarvinoz Nizamova",
+        "role": "Yangi qurilish va ikkilamchi uy-joy bo‘yicha sotuv agenti",
+        "short": "Sarvinoz"
       },
-      {
-        "title": "E’londan notariusgacha",
-        "description": "Bitimning barcha bosqichlari nazoratim ostida"
+      "igor": {
+        "name": "Igor Kim",
+        "role": "Yangi qurilish va ikkilamchi uy-joy bo‘yicha sotuv agenti",
+        "short": "Igor"
       },
-      {
-        "title": "Individual shartlarda ishlayman",
-        "description": "Har bir mijozga individual yondashuv"
+      "irina": {
+        "name": "Irina Yemshanova",
+        "role": "UrbanKey SMM",
+        "short": "Irina"
       }
-    ]
+    },
+    "about": {
+      "head": "Urban Key jamoasiga rahbarlik qiladi va tijoriy ko‘chmas mulk bitimlarini shaxsan olib boradi. Mijozni obyektni baholashdan notariusda shartnoma imzolashgacha kuzatib boradi.",
+      "agent": "Yangi qurilishdagi yoki ikkilamchi bozordagi kvartirani sizning maqsad va byudjetingizga mos tanlashda yordam beradi. Dastlabki ko‘rishlardan bitimgacha har bir bosqichda hamroh bo‘ladi.",
+      "smm": "Urban Key ijtimoiy tarmoqlarini yuritadi: obyektlar haqida kontent tayyorlab nashr qiladi, ko‘chmas mulk bozori haqida hikoya qiladi va jamoa hayotini ko‘rsatadi. Uning sharofati bilan mijozlar dolzarb takliflarni ko‘radi va bizni birinchi qo‘ng‘iroqdan oldin taniydi."
+    }
   },
   "switchCurrency": "Valyutani almashtirish",
   "toggleTheme": "Mavzu",
