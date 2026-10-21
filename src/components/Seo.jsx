@@ -33,13 +33,24 @@ const DEFAULT_DESCRIPTION = {
  * @param {boolean} [noIndex]
  * @param {object|object[]} [jsonLd] - один объект или массив объектов schema.org для JSON-LD
  */
+// Описание для сниппета: одна строка до ~160 символов, обрезка по слову
+// (та же логика, что в api/_seoMeta.js, чтобы после гидрации description не
+// расходился с серверным и не был «простынёй» из полного текста объявления).
+const shortDescription = (text, max = 160) => {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (clean.length <= max) return clean;
+    const cut = clean.slice(0, max - 1);
+    const lastSpace = cut.lastIndexOf(" ");
+    return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,.;:!-]+$/, "") + "…";
+};
+
 const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
     const { i18n } = useTranslation();
     const { pathname } = useLocation();
     const lang = SUPPORTED_LANGS.includes(i18n.language) ? i18n.language : DEFAULT_LANG;
 
     const fullTitle = title ? `${title} — ${SITE_NAME}` : DEFAULT_TITLE[lang];
-    const desc = description || DEFAULT_DESCRIPTION[lang];
+    const desc = shortDescription(description) || DEFAULT_DESCRIPTION[lang];
     const ogImage = image
         ? (image.startsWith("http") ? image : `${SITE_ORIGIN}${image}`)
         : `${SITE_ORIGIN}${FALLBACK_IMAGE}`;

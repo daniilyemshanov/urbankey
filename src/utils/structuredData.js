@@ -2,6 +2,8 @@
 // полей проекта/объекта — никаких выдуманных значений (рейтинги, отзывы и т.п. не добавляем,
 // т.к. на сайте нет соответствующих данных).
 
+import { parsePrice } from "./currency.js";
+
 const SITE_ORIGIN = "https://urbankey.uz";
 
 /**
@@ -15,7 +17,7 @@ export const buildOrganizationJsonLd = () => ({
     name: "UrbanKey",
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/favicon.png`,
-    image: `${SITE_ORIGIN}/image (16).webp`,
+    image: `${SITE_ORIGIN}/image%20(16).webp`,
     areaServed: {
         "@type": "City",
         name: "Tashkent",
@@ -43,83 +45,54 @@ export const buildBreadcrumbJsonLd = (items, lang) => ({
     })),
 });
 
-/**
- * Карточка объекта недвижимости (жилая недвижимость).
- * Заполняются только реально существующие в данных объекта поля.
- */
-export const buildResidenceJsonLd = ({ villa, lang, url }) => {
-    const name = villa?.title?.[lang] || villa?.title?.ru;
-    const description = villa?.about?.[lang] || villa?.about?.ru;
+// Offer только из реальной цены объявления: число + валюта, определённые теми же
+// правилами, что и в каталоге (parsePrice). Цена за м², пустая или нечитаемая
+// цена — Offer не выводим, чтобы не заявить неверную сумму.
+const buildOffer = (rawPrice) => {
+    const parsed = parsePrice(rawPrice);
+    if (!parsed || parsed.perSqm) return undefined;
+    return {
+        "@type": "Offer",
+        price: parsed.amount,
+        priceCurrency: parsed.currency,
+    };
+};
 
+const buildListing = ({ name, description, url, images, price }) => {
     const data = {
         "@context": "https://schema.org",
-        "@type": "House",
+        "@type": "RealEstateListing",
         name,
         description,
         url,
-        image: Array.isArray(villa?.images) ? villa.images : undefined,
-        address: {
-            "@type": "PostalAddress",
-            addressLocality: "Tashkent",
-            addressCountry: "UZ",
-            streetAddress: villa?.address || undefined,
-        },
     };
-
-    if (villa?.price) {
-        data.offers = {
-            "@type": "Offer",
-            price: villa.price,
-            priceCurrency: villa?.currency || "USD",
-            availability: "https://schema.org/InStock",
-        };
-    }
-
-    if (villa?.area) {
-        data.floorSize = {
-            "@type": "QuantitativeValue",
-            value: villa.area,
-            unitCode: "MTK",
-        };
-    }
-
-    if (villa?.rooms) {
-        data.numberOfRooms = villa.rooms;
-    }
-
+    if (Array.isArray(images) && images.length > 0) data.image = images;
+    const offers = buildOffer(price);
+    if (offers) data.offers = offers;
     return data;
 };
 
 /**
- * Карточка коммерческого объекта.
+ * Страница объявления о жилье: schema.org RealEstateListing (страница объявления
+ * с предложением). Только поля, которые есть в данных и видны на странице.
  */
-export const buildCommercialJsonLd = ({ page, lang, url }) => {
-    const name = page?.title?.[lang] || page?.title?.ru;
-    const description = page?.about?.[lang] || page?.about?.ru;
-
-    const data = {
-        "@context": "https://schema.org",
-        "@type": "CommercialPropertyListing",
-        name,
-        description,
+export const buildResidenceJsonLd = ({ villa, lang, url }) =>
+    buildListing({
+        name: villa?.title?.[lang] || villa?.title?.ru,
+        description: villa?.about?.[lang] || villa?.about?.ru,
         url,
-        image: Array.isArray(page?.images) ? page.images : undefined,
-        address: {
-            "@type": "PostalAddress",
-            addressLocality: "Tashkent",
-            addressCountry: "UZ",
-            streetAddress: page?.address || undefined,
-        },
-    };
+        images: villa?.images,
+        price: villa?.price,
+    });
 
-    if (page?.price) {
-        data.offers = {
-            "@type": "Offer",
-            price: page.price,
-            priceCurrency: page?.currency || "USD",
-            availability: "https://schema.org/InStock",
-        };
-    }
-
-    return data;
-};
+/**
+ * Страница объявления о коммерческом объекте.
+ */
+export const buildCommercialJsonLd = ({ page, lang, url }) =>
+    buildListing({
+        name: page?.title?.[lang] || page?.title?.ru,
+        description: page?.about?.[lang] || page?.about?.ru,
+        url,
+        images: page?.images,
+        price: page?.price,
+    });

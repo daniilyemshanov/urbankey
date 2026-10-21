@@ -66,6 +66,45 @@
 }
 
 
+/* ===== РАЙОНЫ: ссылки на каталог с выбранным районом ===== */
+
+.districtNav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.districtChip {
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--gray);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: .25s;
+}
+
+.districtChip:hover {
+    color: var(--white);
+    border-color: var(--violet);
+}
+
+.districtChipActive {
+    background: var(--violet);
+    color: #111;
+    border-color: var(--violet);
+}
+
+.districtCount {
+    opacity: .7;
+    font-weight: 500;
+    margin-left: 2px;
+}
+
+
 .filtersToggle {
 
     display: flex;

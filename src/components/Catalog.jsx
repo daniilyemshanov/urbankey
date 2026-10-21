@@ -14,7 +14,10 @@ import { useCurrency } from "../context/CurrencyContext";
 import { formatPriceIn, priceInCurrency, usdToCurrency } from "../utils/currency";
 import { fuzzyScore, highlightSegments } from "../utils/search";
 import { aiSearchCatalog } from "../utils/aiSearch";
-import { TASHKENT_DISTRICTS, detectDistrict, districtLabel } from "../utils/districts";
+import {
+    TASHKENT_DISTRICTS, DISTRICT_PARAM, detectDistrict, districtLabel,
+    parseDistrictKey, districtCatalogPath
+} from "../utils/districts";
 import FavoriteButton from "./FavoriteButton";
 import { SkeletonGrid } from "./SkeletonCard";
 import s from "./Catalog.module.css";
@@ -107,7 +110,19 @@ const Catalog = () => {
     const [category, setCategory] = useState("all");
     const [type, setType] = useState("all");
     const [dealType, setDealType] = useState("all");
-    const [district, setDistrict] = useState("all");
+    // Район хранится в URL (?district=<key>): ссылка открывается сразу с выбранным
+    // районом, он переживает обновление страницы и новую вкладку. Значение
+    // валидируется по справочнику; мусор = "нет фильтра". Остальные параметры
+    // (например q) не трогаем.
+    const district = parseDistrictKey(searchParams.get(DISTRICT_PARAM)) || "all";
+
+    const setDistrict = (value) => {
+        const next = new URLSearchParams(searchParams);
+        const key = parseDistrictKey(value);
+        if (key) next.set(DISTRICT_PARAM, key);
+        else next.delete(DISTRICT_PARAM);
+        setSearchParams(next, { replace: true });
+    };
     const [minPrice, setMinPrice] = useState("");
     const [maxPrice, setMaxPrice] = useState("");
     const [bedrooms, setBedrooms] = useState("all");
@@ -236,11 +251,36 @@ const Catalog = () => {
 
     }, [items, category, lang]);
 
-    // Выбранный район сбрасывается сам, если в новой категории его нет
-    const activeDistrict =
-        district !== "all" && !availableDistricts.some((d) => d.key === district)
-            ? "all"
-            : district;
+    // Район из URL остаётся выбранным, даже если в нём сейчас нет объявлений:
+    // тогда показывается пустой результат, а не весь каталог под чужим URL.
+    const activeDistrict = district;
+
+    // Если выбранного района нет в списке (прямая ссылка на пустой район) —
+    // добавляем его в select, чтобы значение не расходилось с отображением.
+    const districtOptions =
+        activeDistrict !== "all" && !availableDistricts.some((d) => d.key === activeDistrict)
+            ? [...availableDistricts, { key: activeDistrict, label: districtLabel(activeDistrict, lang), count: 0 }]
+            : availableDistricts;
+
+    // Переключение вкладки категории: как и раньше, район сбрасывается, если
+    // в новой категории в нём нет объявлений. Не срабатывает на «Все» и пока
+    // данные грузятся, иначе прямая ссылка потеряла бы параметр.
+    useEffect(() => {
+        if (
+            !loading && category !== "all" && district !== "all" &&
+            !availableDistricts.some((d) => d.key === district)
+        ) {
+            setDistrict("all");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [category]);
+
+    // Неизвестное значение ?district= убираем из адресной строки.
+    useEffect(() => {
+        const raw = searchParams.get(DISTRICT_PARAM);
+        if (raw !== null && !parseDistrictKey(raw)) setDistrict("all");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
 
     useEffect(() => {
@@ -444,7 +484,10 @@ const Catalog = () => {
 
         if (q && q.trim()) {
             runAiSearch(q);
-            setSearchParams({}, { replace: true });
+            // убираем только q — выбранный район в URL должен сохраниться
+            const next = new URLSearchParams(searchParams);
+            next.delete("q");
+            setSearchParams(next, { replace: true });
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -453,6 +496,13 @@ const Catalog = () => {
 
     return (
         <section className={s.catalog} id='discover'>
+
+            {/* Пустая выборка по району — не страница для индекса (soft 404).
+                Только когда каталог в целом загружен и не пуст: при сбое загрузки
+                основной каталог noindex получить не должен. */}
+            {!loading && items.length > 0 && activeDistrict !== "all" && filtered.length === 0 && (
+                <meta name="robots" content="noindex, follow" />
+            )}
 
             <div className={s.container}>
 
@@ -489,6 +539,30 @@ const Catalog = () => {
 
                 </div>
 
+
+                {/* Районы: обычные ссылки на этот же каталог с выбранным районом
+                    (не отдельные страницы). Только районы, где есть объявления. */}
+                {availableDistricts.length > 0 && (
+                    <nav className={s.districtNav} aria-label={t("catalog.district")}>
+                        <Link
+                            to={districtCatalogPath(null, lang)}
+                            className={`${s.districtChip} ${activeDistrict === "all" ? s.districtChipActive : ""}`}
+                            aria-current={activeDistrict === "all" ? "true" : undefined}
+                        >
+                            {t("catalog.allDistricts")}
+                        </Link>
+                        {availableDistricts.map((d) => (
+                            <Link
+                                key={d.key}
+                                to={districtCatalogPath(d.key, lang)}
+                                className={`${s.districtChip} ${activeDistrict === d.key ? s.districtChipActive : ""}`}
+                                aria-current={activeDistrict === d.key ? "true" : undefined}
+                            >
+                                {d.label} <span className={s.districtCount}>{d.count}</span>
+                            </Link>
+                        ))}
+                    </nav>
+                )}
 
                 <div className={`${s.filtersPanel} ${filtersOpen ? s.filtersPanelOpen : ""}`}>
 
@@ -581,7 +655,7 @@ const Catalog = () => {
                         <label>{t("catalog.district")}</label>
                         <select value={activeDistrict} onChange={(e) => setDistrict(e.target.value)}>
                             <option value="all">{t("catalog.allDistricts")}</option>
-                            {availableDistricts.map((d) => (
+                            {districtOptions.map((d) => (
                                 <option key={d.key} value={d.key}>{d.label} ({d.count})</option>
                             ))}
                         </select>

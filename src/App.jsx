@@ -12,38 +12,41 @@ import Services from "./pages/Services";
 import { ToastContainer } from "react-toastify";
 import AOS from "aos";
 import "aos/dist/aos.css";
-import { useContext, useEffect } from "react";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
+import { lazy, Suspense, useContext, useEffect } from "react";
 import { MyContext } from "./Context";
-import Admin from "./pages/Admin";
-import CreateCard from "./components/CreateCard";
-import ChangeCard from "./components/ChangeCard";
-import AdminCards from "./pages/AdminCards";
 import PropertyPage from "./pages/PropertyPage";
-import CreateVilla from "./components/CreateVilla";
 import ScrollToTop from "./components/ScrollToTop";
-import ChangeVilla from "./components/ChangeVilla";
-import ChangeCommercial from "./components/ChangeCommercial";
-import ListingsManager from "./components/admin/ListingsManager";
-import CreateCommercialPage from "./components/CreateCommercialPage";
 import CommercialPage from "./pages/CommercialPage";
-import EditCommercialPage from "./components/EditCommercialPage";
-import ChangeCommercialPage from "./components/ChangeCommercialPage";
-import Profile from "./pages/Profile";
-import ResetPassword from "./pages/ResetPassword";
-import ForgotPassword from "./pages/ForgotPassword";
-import UserProfile from "./components/UserProfile";
-import AdminUsers from "./pages/AdminUsers";
-import Favorites from "./pages/Favorites";
-import AddProperty from "./pages/AddProperty";
-import MyListings from "./pages/MyListings";
-import AdminLeads from "./pages/AdminLeads";
 import TelegramFloatButton from "./components/TelegramFloatButton";
 import CallFloatButton from "./components/CallFloatButton";
 import LeadPopup from "./components/LeadPopup";
 import LanguageLayout from "./components/LanguageLayout";
 import LegacyRedirect from "./components/LegacyRedirect";
+
+// Непубличные страницы (вход, профиль, админка, добавление объявлений) грузятся
+// отдельными чанками: публичные страницы для поиска не тащат этот код.
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Admin = lazy(() => import("./pages/Admin"));
+const CreateCard = lazy(() => import("./components/CreateCard"));
+const ChangeCard = lazy(() => import("./components/ChangeCard"));
+const AdminCards = lazy(() => import("./pages/AdminCards"));
+const CreateVilla = lazy(() => import("./components/CreateVilla"));
+const ChangeVilla = lazy(() => import("./components/ChangeVilla"));
+const ChangeCommercial = lazy(() => import("./components/ChangeCommercial"));
+const ListingsManager = lazy(() => import("./components/admin/ListingsManager"));
+const CreateCommercialPage = lazy(() => import("./components/CreateCommercialPage"));
+const EditCommercialPage = lazy(() => import("./components/EditCommercialPage"));
+const ChangeCommercialPage = lazy(() => import("./components/ChangeCommercialPage"));
+const Profile = lazy(() => import("./pages/Profile"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const UserProfile = lazy(() => import("./components/UserProfile"));
+const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const Favorites = lazy(() => import("./pages/Favorites"));
+const AddProperty = lazy(() => import("./pages/AddProperty"));
+const MyListings = lazy(() => import("./pages/MyListings"));
+const AdminLeads = lazy(() => import("./pages/AdminLeads"));
 
 
 
@@ -95,6 +98,7 @@ const App = () => {
         theme="light"
       />
 
+      <Suspense fallback={null}>
       <Routes>
         {/* Публичные, индексируемые страницы — живут под языковым префиксом /ru /en /uz,
             это даёт каждому языку собственный URL для hreflang и убирает дубли контента. */}
@@ -225,6 +229,7 @@ const App = () => {
         <Route path="*" element={<Error />} />
 
       </Routes>
+      </Suspense>
     </>
   );
 };

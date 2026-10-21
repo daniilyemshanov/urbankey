@@ -6,6 +6,8 @@
 // латиница, разные написания) и берём то, что упомянуто РАНЬШЕ всего —
 // обычно объявление начинается с района ("Юнусабад, 2-комн...").
 
+import { localizedPath } from "./lang.js";
+
 export const TASHKENT_DISTRICTS = [
     { key: "yunusabad",   ru: "Юнусабад",       en: "Yunusabad",     uz: "Yunusobod",     aliases: ["юнусабад", "юнусобод", "yunusabad", "yunusobod"] },
     { key: "chilanzar",   ru: "Чиланзар",       en: "Chilanzar",     uz: "Chilonzor",     aliases: ["чиланзар", "чилонзор", "chilanzar", "chilonzor"] },
@@ -73,4 +75,28 @@ export function districtLabel(key, lang) {
     if (!d) return "";
 
     return d[lang] || d.ru;
+}
+
+
+// ── Ссылки на каталог с заранее выбранным районом ───────────────────────────
+// Район в URL — это ?district=<key>, где key — существующий стабильный ключ из
+// TASHKENT_DISTRICTS (например "yunusabad", "mirzo"). Отдельных страниц
+// районов нет: открывается обычный каталог, фильтр уже выбран.
+
+export const DISTRICT_PARAM = "district";
+
+// Безопасный разбор значения из URL: известный ключ (без учёта регистра и
+// пробелов) или null. Любой мусор → null (каталог покажется без фильтра).
+export function parseDistrictKey(raw) {
+    if (typeof raw !== "string") return null;
+    const key = raw.trim().toLowerCase();
+    return TASHKENT_DISTRICTS.some((d) => d.key === key) ? key : null;
+}
+
+// Путь каталога с выбранным районом: "/ru/Properties?district=chilanzar".
+// Для null/неизвестного ключа — путь каталога без параметра.
+export function districtCatalogPath(key, lang) {
+    const base = localizedPath("/Properties", lang);
+    const valid = parseDistrictKey(key);
+    return valid ? `${base}?${DISTRICT_PARAM}=${valid}` : base;
 }
