@@ -1,9 +1,12 @@
 // Состояние "загрузка" для detail-страниц (объект ещё не пришёл из базы).
-// Намеренно минимальный: без новых стилей и дизайна, noindex —
-// чтобы пустая оболочка не попала в индекс.
+// Намеренно минимальный: без новых стилей и дизайна. <head> здесь не трогаем:
+// серверные теги объявления (title, canonical, hreflang — api/spa.js) остаются, а
+// noindex на время загрузки НЕ ставим — иначе робот, снявший страницу до ответа
+// базы, получил бы noindex у живого объявления. Несуществующие объекты уже
+// отдаются сервером как 404 + X-Robots-Tag: noindex, а после загрузки
+// ошибку/404 показывает <Error /> (noindex).
 
 import { useTranslation } from "react-i18next";
-import Seo from "./Seo";
 
 const DetailLoading = () => {
     const { t } = useTranslation();
@@ -14,7 +17,6 @@ const DetailLoading = () => {
             aria-live="polite"
             style={{ minHeight: "60vh", display: "grid", placeItems: "center", color: "inherit" }}
         >
-            <Seo noIndex />
             <p>{t("loading")}</p>
         </div>
     );
