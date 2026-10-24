@@ -8,6 +8,7 @@ import Burger from "./components/Burger";
 import ContactUs from "./pages/ContactUs";
 import AboutUs from "./pages/AboutUs";
 import Properties from "./pages/Properties";
+import DistrictListings from "./pages/DistrictListings";
 import Services from "./pages/Services";
 import { ToastContainer } from "react-toastify";
 import AOS from "aos";
@@ -106,6 +107,8 @@ const App = () => {
           <Route index element={<Home />} />
           <Route path="AboutUs" element={<AboutUs />} />
           <Route path="Properties" element={<Properties />} />
+          <Route path="Properties/apartments/:district" element={<DistrictListings kind="apartments" />} />
+          <Route path="Properties/commercial/:district" element={<DistrictListings kind="commercial" />} />
           <Route path="Services" element={<Services />} />
           <Route path="ContactUs" element={<ContactUs />} />
           <Route path="property/:id" element={<PropertyPage />} />

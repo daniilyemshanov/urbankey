@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
@@ -18,6 +18,7 @@ import {
     TASHKENT_DISTRICTS, DISTRICT_PARAM, detectDistrict, districtLabel,
     parseDistrictKey, districtCatalogPath
 } from "../utils/districts";
+import { districtPagePath } from "../utils/districtPages";
 import FavoriteButton from "./FavoriteButton";
 import { SkeletonGrid } from "./SkeletonCard";
 import s from "./Catalog.module.css";
@@ -51,7 +52,9 @@ const RESIDENTIAL_TYPE_LABELS = {
 };
 
 
-const Catalog = () => {
+// presetCategory/presetKind/presetDistrict задаются страницей района
+// (pages/DistrictListings.jsx); на обычной странице каталога их нет.
+const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = null } = {}) => {
 
     const {
         properties,
@@ -69,6 +72,7 @@ const Catalog = () => {
 
     const { t, i18n } = useTranslation();
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
 
     const handleDelete = async (item) => {
 
@@ -107,16 +111,24 @@ const Catalog = () => {
     }, []);
 
 
-    const [category, setCategory] = useState("all");
+    const [category, setCategory] = useState(presetCategory || "all");
     const [type, setType] = useState("all");
     const [dealType, setDealType] = useState("all");
     // Район хранится в URL (?district=<key>): ссылка открывается сразу с выбранным
     // районом, он переживает обновление страницы и новую вкладку. Значение
     // валидируется по справочнику; мусор = "нет фильтра". Остальные параметры
     // (например q) не трогаем.
-    const district = parseDistrictKey(searchParams.get(DISTRICT_PARAM)) || "all";
+    const district = presetDistrict || parseDistrictKey(searchParams.get(DISTRICT_PARAM)) || "all";
 
     const setDistrict = (value) => {
+        // На странице района смена района = переход на страницу другого района.
+        if (presetCategory) {
+            const picked = parseDistrictKey(value);
+            navigate(picked
+                ? districtPagePath(presetKind || "apartments", picked, lang)
+                : localizedPath("/Properties", lang));
+            return;
+        }
         const next = new URLSearchParams(searchParams);
         const key = parseDistrictKey(value);
         if (key) next.set(DISTRICT_PARAM, key);
@@ -494,6 +506,13 @@ const Catalog = () => {
     }, [searchParams]);
 
 
+    // Чипы районов: на странице района ведут на страницы районов той же категории,
+    // на обычном каталоге — как раньше, на ?district=.
+    const chipPath = (key) =>
+        presetCategory
+            ? (key ? districtPagePath(presetKind || "apartments", key, lang) : localizedPath("/Properties", lang))
+            : districtCatalogPath(key, lang);
+
     return (
         <section className={s.catalog} id='discover'>
 
@@ -508,7 +527,7 @@ const Catalog = () => {
 
                 <div className={s.topBar}>
 
-                    <div className={s.tabs}>
+                    <div className={s.tabs} style={presetCategory ? { display: "none" } : undefined}>
 
                         {[
                             { key: "all", label: t("catalog.allCategories") },
@@ -545,7 +564,7 @@ const Catalog = () => {
                 {availableDistricts.length > 0 && (
                     <nav className={s.districtNav} aria-label={t("catalog.district")}>
                         <Link
-                            to={districtCatalogPath(null, lang)}
+                            to={chipPath(null)}
                             className={`${s.districtChip} ${activeDistrict === "all" ? s.districtChipActive : ""}`}
                             aria-current={activeDistrict === "all" ? "true" : undefined}
                         >
@@ -554,7 +573,7 @@ const Catalog = () => {
                         {availableDistricts.map((d) => (
                             <Link
                                 key={d.key}
-                                to={districtCatalogPath(d.key, lang)}
+                                to={chipPath(d.key)}
                                 className={`${s.districtChip} ${activeDistrict === d.key ? s.districtChipActive : ""}`}
                                 aria-current={activeDistrict === d.key ? "true" : undefined}
                             >

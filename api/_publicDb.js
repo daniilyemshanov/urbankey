@@ -7,6 +7,7 @@
 // у объекта есть строка страницы (villas / commercial_pages).
 
 import { createClient } from "@supabase/supabase-js";
+import { detectDistrict } from "../src/utils/districts.js";
 
 export const SITE_ORIGIN = "https://urbankey.uz";
 export const LANGS = ["ru", "en", "uz"];
@@ -143,6 +144,61 @@ export async function getListingMeta(supabase, kind, id) {
         };
     } catch (err) {
         console.error("getListingMeta failed:", err);
+        return null;
+    }
+}
+
+// Какие районы имеют хотя бы одно опубликованное объявление.
+// Район определяется ТОЙ ЖЕ функцией, что и в каталоге (src/utils/districts.js),
+// по тем же полям, поэтому серверный и клиентский результат совпадают.
+// Возвращает { apartments: Set, commercial: Set } или null, если проверить не
+// удалось (ошибка БД/таймаут): тогда вызывающий код ничего не скрывает.
+export async function getDistrictsWithListings(supabase) {
+    try {
+        const [homes, commercials] = await Promise.all([
+            noRetry(
+                supabase
+                    .from("cardss_public")
+                    .select("title_ru, title_en, title_uz, description_ru, description_en, description_uz")
+                    .limit(2000)
+            ),
+            noRetry(
+                supabase
+                    .from("commercials_public")
+                    .select(
+                        "title_ru, title_en, title_uz, description_ru, description_en, description_uz, " +
+                        "district_ru, district_en, district_uz, address_ru, address_en, address_uz"
+                    )
+                    .limit(2000)
+            ),
+        ]);
+        if (homes.error || commercials.error) {
+            console.error("getDistrictsWithListings failed:", (homes.error || commercials.error).message);
+            return null;
+        }
+
+        const apartments = new Set();
+        for (const r of homes.data || []) {
+            const key = detectDistrict([
+                r.title_ru, r.title_en, r.title_uz,
+                r.description_ru, r.description_en, r.description_uz,
+            ]);
+            if (key) apartments.add(key);
+        }
+
+        const commercial = new Set();
+        for (const r of commercials.data || []) {
+            const key = detectDistrict([
+                r.district_ru, r.district_en, r.district_uz,
+                r.address_ru, r.address_en, r.address_uz,
+                r.title_ru, r.title_en, r.title_uz,
+                r.description_ru, r.description_en, r.description_uz,
+            ]);
+            if (key) commercial.add(key);
+        }
+        return { apartments, commercial };
+    } catch (err) {
+        console.error("getDistrictsWithListings threw:", err);
         return null;
     }
 }

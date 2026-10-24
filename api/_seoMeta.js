@@ -7,6 +7,8 @@
 // создаёт такие же теги и удаляет эти, чтобы дублей в DOM не оставалось.
 
 import { SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
+import { getDistrictPage, districtBasePath } from "../src/utils/districtPages.js";
+import { getStaticPage, staticBasePath } from "../src/utils/staticPages.js";
 
 const SITE_NAME = "UrbanKey";
 const FALLBACK_IMAGE = `${SITE_ORIGIN}/image%20(16).webp`;
@@ -87,4 +89,63 @@ export function injectHead(html, head) {
     if (!/<\/head>/i.test(out)) return html; // нестандартная оболочка — не рискуем
     out = out.replace(/<html lang="[a-z]{2}"/i, `<html lang="${head.lang}"`);
     return out.replace(/<\/head>/i, () => `  ${head.lines}\n</head>`);
+}
+
+// ── Страницы без объекта в БД: районы и общие страницы ─────────────────────────
+// Серверный <head> для роботов без JS. Теги помечены data-ssr-seo="1" —
+// после загрузки React (Seo.jsx) создаёт свои и удаляет эти.
+function buildPageHead({ page, basePath, lang }) {
+    const title = `${page.title} — ${SITE_NAME}`;
+    const description = shortDescription(page.description);
+    const canonical = `${SITE_ORIGIN}/${lang}${basePath}`;
+    const a = 'data-ssr-seo="1"';
+
+    const lines = [
+        `<title ${a}>${escapeHtml(title)}</title>`,
+        `<meta ${a} name="description" content="${escapeHtml(description)}" />`,
+        `<link ${a} rel="canonical" href="${escapeHtml(canonical)}" />`,
+        ...LANGS.map((code) => `<link ${a} rel="alternate" hreflang="${code}" href="${escapeHtml(`${SITE_ORIGIN}/${code}${basePath}`)}" />`),
+        `<link ${a} rel="alternate" hreflang="x-default" href="${escapeHtml(`${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`)}" />`,
+        `<meta ${a} property="og:type" content="website" />`,
+        `<meta ${a} property="og:site_name" content="${SITE_NAME}" />`,
+        `<meta ${a} property="og:title" content="${escapeHtml(title)}" />`,
+        `<meta ${a} property="og:description" content="${escapeHtml(description)}" />`,
+        `<meta ${a} property="og:image" content="${escapeHtml(FALLBACK_IMAGE)}" />`,
+        `<meta ${a} property="og:url" content="${escapeHtml(canonical)}" />`,
+        `<meta ${a} property="og:locale" content="${OG_LOCALES[lang]}" />`,
+        ...LANGS.filter((c) => c !== lang).map((c) => `<meta ${a} property="og:locale:alternate" content="${OG_LOCALES[c]}" />`),
+        `<meta ${a} name="twitter:card" content="summary_large_image" />`,
+        `<meta ${a} name="twitter:title" content="${escapeHtml(title)}" />`,
+        `<meta ${a} name="twitter:description" content="${escapeHtml(description)}" />`,
+        `<meta ${a} name="twitter:image" content="${escapeHtml(FALLBACK_IMAGE)}" />`,
+    ];
+
+    // Видимый текст страницы (h1 + абзац) прямо в HTML: React при старте заменяет
+    // содержимое #root своим (createRoot), поэтому дублей у посетителей нет.
+    // Цвет светлый: до загрузки React фон сайта тёмный (--black), тема применяется позже.
+    const paragraphs = String(page.intro).split(/\n+/).map((t) => `<p>${escapeHtml(t)}</p>`).join("");
+    const body = `<main ${a} style="max-width:1440px;margin:0 auto;padding:120px 20px 0;font-family:sans-serif;color:#f5f5f5">` +
+        `<h1>${escapeHtml(page.h1)}</h1>${paragraphs}</main>`;
+
+    return { lines: lines.join("\n  "), lang, body };
+}
+
+// /:lang/Properties/apartments|commercial/:district
+export function buildDistrictHead({ kind, key, lang }) {
+    const page = getDistrictPage(kind, key, lang);
+    return page ? buildPageHead({ page, basePath: districtBasePath(kind, key), lang }) : null;
+}
+
+// /:lang, /:lang/Properties, /:lang/AboutUs, /:lang/Services, /:lang/ContactUs
+export function buildStaticHead({ page: pageKey, lang }) {
+    const page = getStaticPage(pageKey, lang);
+    return page ? buildPageHead({ page, basePath: staticBasePath(pageKey), lang }) : null;
+}
+
+// Вставляет готовый HTML внутрь пустого <div id="root"></div>.
+export function injectRootContent(html, body) {
+    if (!body) return html;
+    const re = /<div id="root">\s*<\/div>/i;
+    if (!re.test(html)) return html; // нестандартная оболочка — не рискуем
+    return html.replace(re, () => `<div id="root">${body}</div>`);
 }

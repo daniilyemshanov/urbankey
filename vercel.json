@@ -16,6 +16,17 @@
     "trailingSlash": false,
     "redirects": [
         {
+            "source": "/((?!api/).*)",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "urbankeyy.vercel.app"
+                }
+            ],
+            "destination": "https://urbankey.uz/$1",
+            "permanent": true
+        },
+        {
             "source": "/",
             "destination": "/ru",
             "permanent": true
@@ -58,11 +69,15 @@
         },
         {
             "source": "/:lang(ru|en|uz)",
-            "destination": "/index.html"
+            "destination": "/api/spa?kind=page&page=home&lang=:lang"
         },
         {
             "source": "/:lang(ru|en|uz)/:page(AboutUs|Properties|Services|ContactUs)",
-            "destination": "/index.html"
+            "destination": "/api/spa?kind=page&page=:page&lang=:lang"
+        },
+        {
+            "source": "/:lang(ru|en|uz)/Properties/:dtype(apartments|commercial)/:district",
+            "destination": "/api/spa?kind=district&dtype=:dtype&district=:district&lang=:lang"
         },
         {
             "source": "/:lang(ru|en|uz)/property/:id",

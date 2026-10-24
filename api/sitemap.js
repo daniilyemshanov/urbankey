@@ -18,7 +18,8 @@
 // Используется только anon-ключ (то, что и так видит любой посетитель).
 // Env: VITE_SUPABASE_URL / VITE_SUPABASE_KEY (или SUPABASE_URL / SUPABASE_ANON_KEY).
 
-import { getSupabase, noRetry, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
+import { getSupabase, noRetry, getDistrictsWithListings, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
+import { allDistrictPages, districtBasePath } from "../src/utils/districtPages.js";
 
 const STATIC_PATHS = [
     { path: "", priority: "1.0", changefreq: "daily" },
@@ -150,6 +151,13 @@ export default async function handler(req, res) {
 
     for (const { path, priority, changefreq } of STATIC_PATHS) {
         blocks.push(...buildUrlBlocks(path, priority, changefreq));
+    }
+    // страницы районов: только те, где есть объявления (иначе пустые страницы
+    // попадали бы в sitemap). Если проверить не удалось — добавляем все.
+    const withListings = await getDistrictsWithListings(supabase);
+    for (const { kind, key } of allDistrictPages()) {
+        if (withListings && !withListings[kind === "commercial" ? "commercial" : "apartments"].has(key)) continue;
+        blocks.push(...buildUrlBlocks(districtBasePath(kind, key), "0.7", "weekly"));
     }
     for (const id of propertyIds) {
         blocks.push(...buildUrlBlocks(`/property/${id}`, "0.8", "weekly"));

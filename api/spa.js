@@ -28,10 +28,13 @@ import {
     propertyExists,
     commercialExists,
     getListingMeta,
+    getDistrictsWithListings,
     LANGS,
     DEFAULT_LANG,
 } from "./_publicDb.js";
-import { buildListingHead, injectHead } from "./_seoMeta.js";
+import { buildListingHead, buildDistrictHead, buildStaticHead, injectHead, injectRootContent } from "./_seoMeta.js";
+import { DISTRICT_PAGE_KINDS, districtKeyFromSlug } from "../src/utils/districtPages.js";
+import { STATIC_PAGES } from "../src/utils/staticPages.js";
 
 const SHELL_HEADER = "x-urbankey-shell";
 
@@ -77,6 +80,8 @@ export default async function handler(req, res) {
     let status = 404;
     let checkState = "ok";
     let listingMeta = null;
+    let emptyDistrict = false;
+    let pageHead = null; // серверный head + h1 для районов и общих страниц
 
     if (kind === "property" || kind === "commercial") {
         let exists;
@@ -120,6 +125,36 @@ export default async function handler(req, res) {
         status = exists ? 200 : 404;
     }
 
+    // Страницы районов: существуют только для известного вида и района (иначе 404).
+    if (kind === "district") {
+        const dtype = String(req.query.dtype || "");
+        const key = districtKeyFromSlug(String(req.query.district || ""));
+        if (DISTRICT_PAGE_KINDS.includes(dtype) && key) {
+            pageHead = buildDistrictHead({ kind: dtype, key, lang });
+            status = pageHead ? 200 : 404;
+
+            // Район без объявлений: страница доступна людям, но в поиск не нужна.
+            // Если проверить не удалось (БД недоступна) — ничего не скрываем.
+            if (status === 200) {
+                const supabase = getSupabase({ timeoutMs: 3000 });
+                const found = supabase ? await getDistrictsWithListings(supabase) : null;
+                if (found && !found[dtype === "commercial" ? "commercial" : "apartments"].has(key)) {
+                    emptyDistrict = true;
+                }
+            }
+        }
+    }
+
+    // Общие страницы (/ru, /ru/Properties, /ru/AboutUs, ...): всегда 200, но со своим
+    // серверным head и <h1>, чтобы роботу не приходилось ждать выполнения JavaScript.
+    if (kind === "page") {
+        const page = String(req.query.page || "");
+        if (STATIC_PAGES.includes(page)) {
+            pageHead = buildStaticHead({ page, lang });
+            status = pageHead ? 200 : 404;
+        }
+    }
+
     let html;
     try {
         html = await loadShell(req);
@@ -140,6 +175,14 @@ export default async function handler(req, res) {
         }
     }
 
+    if (status === 200 && pageHead) {
+        try {
+            html = injectRootContent(injectHead(html, pageHead), pageHead.body);
+        } catch (err) {
+            console.error("spa: page head injection failed:", err);
+        }
+    }
+
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("X-SPA-Existence-Check", checkState);
 
@@ -153,6 +196,10 @@ export default async function handler(req, res) {
                 ? "public, s-maxage=60, stale-while-revalidate=300"
                 : "public, s-maxage=60"
         );
+    }
+
+    if (emptyDistrict) {
+        res.setHeader("X-Robots-Tag", "noindex, follow");
     }
 
     if (status === 404) {

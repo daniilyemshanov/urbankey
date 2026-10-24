@@ -20,7 +20,7 @@ export const TASHKENT_DISTRICTS = [
     { key: "uchtepa",     ru: "Учтепа",         en: "Uchtepa",       uz: "Uchtepa",       aliases: ["учтепа", "учтепинск", "uchtepa"] },
     { key: "almazar",     ru: "Алмазар",        en: "Almazar",       uz: "Olmazor",       aliases: ["алмазар", "олмазор", "almazar", "olmazor"] },
     { key: "bektemir",    ru: "Бектемир",       en: "Bektemir",      uz: "Bektemir",      aliases: ["бектемир", "bektemir"] },
-    { key: "yangihayot",  ru: "Янгихаят",       en: "Yangihayot",    uz: "Yangihayot",    aliases: ["янгихаят", "янгиҳаёт", "янгихает", "yangihayot", "yangihayat"] }
+    { key: "yangihayot",  ru: "Янгихаёт",       en: "Yangihayot",    uz: "Yangihayot",    aliases: ["янгихаят", "янгихаёт", "янгиҳаёт", "янгихает", "yangihayot", "yangihayat"] }
 ];
 
 // нижний регистр, ё→е, апострофы убираем, дефисы/подчёркивания → пробел
