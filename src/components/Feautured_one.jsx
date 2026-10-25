@@ -16,6 +16,8 @@ import { formatPriceIn } from '../utils/currency';
 import { Ruler, Tag } from 'lucide-react';
 import FloorIcon from "./FloorIcon";
 import { residentialFloorSlot } from "../utils/floor";
+import useVillaLocations from "../hooks/useVillaLocations";
+import { rankSimilar } from "../utils/similarListings";
 import { itemRoomsLabel } from "../utils/rooms";
 
 const readMoreLabels = {
@@ -24,6 +26,24 @@ const readMoreLabels = {
     uz: { more: "Batafsil", less: "Yopish" },
 };
 
+
+// Почему объявление показано как похожее (см. utils/similarListings.js).
+const REASON_LABELS = {
+    district: { ru: "Тот же район", en: "Same district", uz: "Shu tuman" },
+    rooms: { ru: (n) => `${n} комн.`, en: (n) => `${n} rooms`, uz: (n) => `${n} xona` },
+    roomsNear: { ru: (n) => `${n} комн.`, en: (n) => `${n} rooms`, uz: (n) => `${n} xona` },
+    price: { ru: "Похожая цена", en: "Similar price", uz: "Narxi yaqin" },
+    priceNear: { ru: "Близкая цена", en: "Close price", uz: "Narxi yaqin" },
+    area: { ru: "Похожая площадь", en: "Similar area", uz: "Maydoni yaqin" },
+    floor: { ru: "Близкий этаж", en: "Similar floor", uz: "Qavati yaqin" },
+    type: { ru: "Тот же тип", en: "Same type", uz: "Shu turdagi" },
+    class: { ru: "Тот же класс", en: "Same class", uz: "Shu sinf" },
+};
+
+const reasonLabel = (reason, language) => {
+    const entry = REASON_LABELS[reason.code]?.[language] || REASON_LABELS[reason.code]?.ru;
+    return typeof entry === "function" ? entry(reason.value) : entry || "";
+};
 
 const Feautured = ({ data, commercial, items }) => {
 
@@ -102,70 +122,25 @@ const Feautured = ({ data, commercial, items }) => {
             ? (data?.commercial_id ?? data?.id)
             : (data?.card_id ?? data?.id);
 
-    const similar = useMemo(() => list
-        .filter(item => String(item.id) !== String(currentId))
-        .map(item => {
+    // Строка «Расположение» всех объявлений — по ней определяется район квартир.
+    const locations = useVillaLocations();
 
-            let score = 0;
+    // Открытый объект в списке (у него те же поля, что у кандидатов).
+    const currentItem = useMemo(
+        () => (list || []).find((item) => String(item.id) === String(currentId)),
+        [list, currentId]
+    );
 
-
-            if (
-                item.type?.ru &&
-                data?.type?.ru &&
-                item.type.ru === data.type.ru
-            ) score += 5;
-
-
-            if (
-                item.class?.ru &&
-                data?.class?.ru &&
-                item.class.ru === data.class.ru
-            ) score += 3;
-
-
-            if (
-                item.district?.ru &&
-                data?.district?.ru &&
-                item.district.ru === data.district.ru
-            ) score += 3;
-
-
-            if (
-                item.area &&
-                data?.area &&
-                Math.abs(item.area - data.area) < 50
-            ) score += 2;
-
-
-            // Спальни раньше вообще не участвовали в подборе похожих —
-            // а это единственный явный признак сходства для жилой недвижимости,
-            // раз district/class у неё в базе не хранятся.
-            if (
-                item.bedrooms?.ru &&
-                data?.bedrooms?.ru &&
-                item.bedrooms.ru === data.bedrooms.ru
-            ) score += 3;
-
-
-            // Цена — единственное числовое поле, доступное и у жилья, и у коммерции.
-            // Раньше не учитывалась вовсе — похожими считались случайные объекты
-            // одного типа, вне зависимости от того, насколько разнится стоимость.
-            if (
-                item.price &&
-                data?.price &&
-                Math.abs(item.price - data.price) / data.price <= 0.25
-            ) score += 2;
-
-
-            return {
-                ...item,
-                score
-            }
-
-        })
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3), [list, currentId, data?.type?.ru, data?.class?.ru, data?.district?.ru, data?.area, data?.bedrooms?.ru, data?.price]);
+    // 7 самых похожих: район, комнаты, цена, площадь, этаж (коммерция: район, тип,
+    // класс, площадь, цена). Аренда и продажа не смешиваются.
+    const similar = useMemo(() => rankSimilar({
+        current: { ...(data || {}), ...(currentItem || {}) },
+        candidates: list || [],
+        currentId,
+        kind: commercial ? "commercial" : "residential",
+        locations: commercial ? {} : locations,
+        limit: 7,
+    }).map((r) => ({ ...r.item, reasons: r.reasons })), [list, currentId, currentItem, data, commercial, locations]);
 
     useLayoutEffect(() => {
         const next = {};
@@ -356,6 +331,16 @@ const Feautured = ({ data, commercial, items }) => {
                             </div>
 
 
+
+                            {item.reasons?.length > 0 && (
+                                <div className={s.reasons}>
+                                    {item.reasons.map((r) => (
+                                        <span key={r.code} className={s.reason}>
+                                            {reasonLabel(r, i18n.language)}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
 
                             <h2>
 

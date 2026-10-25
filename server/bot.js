@@ -357,6 +357,7 @@ async function processPost(mainMsg, allMsgs) {
             ? "\n📝 Черновик страницы объекта создан — откройте её в админке и дозаполните описание/удобства при необходимости."
             : "\n⚠️ Карточка создана, но черновик страницы объекта создать не удалось — заведите её вручную.";
 
+        if (parsed.districtNote) statusLine += `\n${parsed.districtNote}`;
         statusLine += `\n🔗 ${buildListingUrl(parsed.isCommercial, data.id)}`;
 
         await replyToChannel(mainMsg, statusLine);

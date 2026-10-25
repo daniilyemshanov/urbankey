@@ -7,6 +7,7 @@
 // обычно объявление начинается с района ("Юнусабад, 2-комн...").
 
 import { localizedPath } from "./lang.js";
+import { LANDMARK_DISTRICTS } from "./landmarks.js";
 
 export const TASHKENT_DISTRICTS = [
     { key: "yunusabad",   ru: "Юнусабад",       en: "Yunusabad",     uz: "Yunusobod",     aliases: ["юнусабад", "юнусобод", "yunusabad", "yunusobod"] },
@@ -32,6 +33,10 @@ const normalize = (text) =>
         .replace(/[-_–—]/g, " ")
         .replace(/\s+/g, " ");
 
+const NORMALIZED_LANDMARKS = LANDMARK_DISTRICTS.flatMap((l) =>
+    l.names.map((name) => ({ key: l.district, alias: normalize(name) })).filter((x) => x.alias)
+);
+
 const NORMALIZED = TASHKENT_DISTRICTS.map((d) => ({
     key: d.key,
     aliases: d.aliases.map(normalize)
@@ -51,6 +56,16 @@ function detectInText(text) {
             if (idx !== -1 && (best === null || idx < best.idx)) {
                 best = { key: d.key, idx };
             }
+        }
+    }
+
+    if (best) return best.key;
+
+    // Район в тексте не назван — ищем известный ЖК/ориентир (src/utils/landmarks.js).
+    for (const l of NORMALIZED_LANDMARKS) {
+        const idx = haystack.indexOf(l.alias);
+        if (idx !== -1 && (best === null || idx < best.idx)) {
+            best = { key: l.key, idx };
         }
     }
 

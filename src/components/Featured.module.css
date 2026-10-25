@@ -433,3 +433,22 @@
 :global(.swiper-slide-prev) {
     opacity: 1 !important;
 }
+
+/* «Почему похоже»: район, комнаты, цена... */
+.reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 12px;
+}
+
+.reason {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--violet);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+}

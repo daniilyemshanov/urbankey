@@ -155,11 +155,11 @@ export async function getListingMeta(supabase, kind, id) {
 // удалось (ошибка БД/таймаут): тогда вызывающий код ничего не скрывает.
 export async function getDistrictsWithListings(supabase) {
     try {
-        const [homes, commercials] = await Promise.all([
+        const [homes, commercials, villas] = await Promise.all([
             noRetry(
                 supabase
                     .from("cardss_public")
-                    .select("title_ru, title_en, title_uz, description_ru, description_en, description_uz")
+                    .select("id, title_ru, title_en, title_uz, description_ru, description_en, description_uz")
                     .limit(2000)
             ),
             noRetry(
@@ -171,15 +171,33 @@ export async function getDistrictsWithListings(supabase) {
                     )
                     .limit(2000)
             ),
+            // строка «Расположение» страницы жилья — самый точный источник района квартиры
+            noRetry(
+                supabase
+                    .from("villas")
+                    .select("card_id, location_ru, location_en, location_uz")
+                    .limit(5000)
+            ),
         ]);
         if (homes.error || commercials.error) {
             console.error("getDistrictsWithListings failed:", (homes.error || commercials.error).message);
             return null;
         }
 
+        // Нет доступа к villas — не страшно: район определится по названию и описанию.
+        const locationByCard = new Map();
+        if (!villas.error) {
+            for (const v of villas.data || []) {
+                if (v.card_id != null && !locationByCard.has(v.card_id)) {
+                    locationByCard.set(v.card_id, [v.location_ru, v.location_en, v.location_uz]);
+                }
+            }
+        }
+
         const apartments = new Set();
         for (const r of homes.data || []) {
             const key = detectDistrict([
+                ...(locationByCard.get(r.id) || []),
                 r.title_ru, r.title_en, r.title_uz,
                 r.description_ru, r.description_en, r.description_uz,
             ]);

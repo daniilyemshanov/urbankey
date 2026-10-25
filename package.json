@@ -15,7 +15,8 @@
     "test:anthropic": "node --test tests/listing.anthropic.test.mjs",
     "test:sold": "node --test tests/sold.test.mjs tests/districts.test.mjs",
     "test:fx": "node --test tests/exchange-rate.test.mjs tests/currency.display.test.mjs",
-    "test:all": "node --test tests/api.test.mjs tests/listing.facts.test.mjs tests/listing.ai.test.mjs tests/listing.persist.test.mjs tests/listing.anthropic.test.mjs tests/exchange-rate.test.mjs tests/currency.display.test.mjs tests/sold.test.mjs tests/districts.test.mjs",
+    "test:seo": "node --test tests/listing.floors.test.mjs tests/similar.test.mjs tests/district.rules.test.mjs",
+    "test:all": "node --test tests/api.test.mjs tests/listing.facts.test.mjs tests/listing.ai.test.mjs tests/listing.persist.test.mjs tests/listing.anthropic.test.mjs tests/exchange-rate.test.mjs tests/currency.display.test.mjs tests/sold.test.mjs tests/districts.test.mjs tests/listing.floors.test.mjs tests/similar.test.mjs tests/district.rules.test.mjs",
     "reparse": "node --env-file=.env scripts/reparse-telegram.mjs"
   },
   "dependencies": {

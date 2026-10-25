@@ -365,14 +365,42 @@ export function extractArea(text) {
 // ---------------------------------------------------------------------
 const FLOOR_WORD = "этаж\\p{L}*";
 
+// Слова-числительные для этажности («девятиэтажный») и порядковые для этажа («пятый этаж»).
+const TOTAL_WORDS = [
+    ["одно", 1], ["двух", 2], ["трех", 3], ["трёх", 3], ["четырех", 4], ["четырёх", 4], ["пяти", 5],
+    ["шести", 6], ["семи", 7], ["восьми", 8], ["девяти", 9], ["десяти", 10], ["одиннадцати", 11],
+    ["двенадцати", 12], ["тринадцати", 13], ["четырнадцати", 14], ["пятнадцати", 15],
+    ["шестнадцати", 16], ["семнадцати", 17], ["восемнадцати", 18], ["девятнадцати", 19], ["двадцати", 20],
+];
+const TOTAL_WORD_ALT = TOTAL_WORDS.map(([w]) => w).join("|");
+
+// Длинные основы раньше коротких: «пятнадцат» не должно распознаться как «пят».
+const ORDINAL_FLOOR_STEMS = [
+    ["одиннадцат", 11], ["двенадцат", 12], ["тринадцат", 13], ["четырнадцат", 14], ["пятнадцат", 15],
+    ["шестнадцат", 16], ["десят", 10], ["девят", 9], ["восьм", 8], ["седьм", 7], ["шест", 6],
+    ["пят", 5], ["четверт", 4], ["трет", 3], ["втор", 2], ["перв", 1],
+];
+const ORDINAL_FLOOR_ALT = "одиннадцат|двенадцат|тринадцат|четырнадцат|пятнадцат|шестнадцат|десят|девят|восьм|седьм|шест|пят|четв[её]рт|трет|втор|перв";
+
+const wordToNumber = (word, table) => {
+    const w = String(word || "").toLowerCase().replace(/ё/g, "е");
+    const hit = table.find(([k]) => (table === TOTAL_WORDS ? w === k.replace(/ё/g, "е") : w.startsWith(k)));
+    return hit ? hit[1] : 0;
+};
+
+// «этаж», «эт.», «qavat», «floor» — но НЕ «этажность», «этажей», «9-этажный», «qavatli».
+const FLOOR_LABEL = String.raw`(?:этаж(?!н|ей)\p{L}*|эт(?![\p{L}])\.?|qavat(?!li|lik)\p{L}*|floor)`;
+const OF = String.raw`(?:/|из|of|dan)`;
+
 export function extractFloorInfo(text) {
-    const t = String(text || "");
+    const t = String(text || "").replace(/\\/g, "/");
+    const R = (src) => new RegExp(src, "iu");
     const num = (v) => {
         const n = Number(v);
         return Number.isInteger(n) && n >= 1 && n <= 200 ? String(n) : "";
     };
     const done = (floor, total) => {
-        let f = num(floor);
+        const f = num(floor);
         let tot = num(total);
         // этаж выше этажности — данные ненадёжны: этажность не берём
         if (f && tot && Number(f) > Number(tot)) tot = "";
@@ -380,56 +408,82 @@ export function extractFloorInfo(text) {
     };
     let m;
 
-    // "5/9 этаж", "5/9 эт."
-    m = t.match(re(`(\\d{1,3})\\s*[/\\\\]\\s*(\\d{1,3})\\s*(?:${FLOOR_WORD}|эт(?![\\p{L}])\\.?|qavat)`));
+    // ── 1. Этаж и этажность вместе, рядом со словом «этаж» ─────────────────
+    // «5/9 этаж», «5 из 9 этаж», «5/9 эт.», «5/9 qavat»
+    m = t.match(R(String.raw`(\d{1,3})\s*${OF}\s*(\d{1,3})\s*${FLOOR_LABEL}`));
     if (m) return done(m[1], m[2]);
 
-    // "Этаж 5/9", "Этаж: 5/9"
-    m = t.match(re(`${FLOOR_WORD}\\s*[:\\-–—]?\\s*(\\d{1,3})\\s*[/\\\\]\\s*(\\d{1,3})`));
+    // «Этаж: 5/9», «этаж 5 из 9», «Этаж: 5 (из 9)», «Qavat: 5/9», «Floor 5 of 9»
+    m = t.match(R(String.raw`${FLOOR_LABEL}\s*[:\-–—]?\s*(\d{1,3})\s*\(?\s*${OF}\s*(\d{1,3})`));
     if (m) return done(m[1], m[2]);
 
-    // "5 этаж из 9", "5-й этаж из 9"
-    m = t.match(re(`(\\d{1,3})\\s*(?:-?(?:й|ой|ый|ий))?\\s*${FLOOR_WORD}\\s*(?:из|/)\\s*(\\d{1,3})`));
+    // «5 этаж из 9», «5-й этаж из 9», «5th floor of 9»
+    m = t.match(R(String.raw`(\d{1,3})\s*-?\s*(?:й|ой|ый|ий|st|nd|rd|th)?\s*${FLOOR_LABEL}\s*\(?\s*${OF}\s*(\d{1,3})`));
     if (m) return done(m[1], m[2]);
 
-    // "Этаж: 5 из 9"
-    m = t.match(re(`${FLOOR_WORD}\\s*[:\\-–—]?\\s*(\\d{1,3})\\s*(?:из|/)\\s*(\\d{1,3})`));
+    // «1 этаж 4-этажного дома», «5 этаж, 9-этажный»
+    m = t.match(R(String.raw`(\d{1,3})\s*-?\s*(?:й|ой|ый|ий)?\s*${FLOOR_LABEL}\s*,?\s*(\d{1,3})\s*-?\s*(?:ти\s*)?(?:этажн|qavatli)`));
     if (m) return done(m[1], m[2]);
 
-    // "1 этаж 4-этажного дома"
-    m = t.match(re(`(\\d{1,3})\\s*${FLOOR_WORD}\\s+(\\d{1,3})\\s*-?\\s*этажн`));
-    if (m) return done(m[1], m[2]);
-
-    // Раздельные указания.
+    // ── 2. Раздельные указания ─────────────────────────────────────────────
     let total = "";
-    m = t.match(re("этажност\\p{L}*(?:\\s+(?:здания|дома))?\\s*[:\\-–—]?\\s*(\\d{1,3})"));
-    if (m) total = m[1];
+    const tryTotal = (rx) => {
+        if (total) return;
+        const mm = t.match(R(rx));
+        if (mm) total = mm[1];
+    };
+    tryTotal(String.raw`этажност\p{L}*(?:\s+(?:здания|дома))?\s*[:\-–—]?\s*(\d{1,3})`);
+    tryTotal(String.raw`(?:всего\s+)?этажей(?:\s+в\s+(?:доме|здании))?\s*[:\-–—]?\s*(\d{1,3})`);
+    tryTotal(String.raw`(\d{1,3})\s*[-–—]?\s*(?:ти\s*)?(?:этажн\p{L}*|этажей|этажка|этажност\p{L}*|qavatli\p{L}*|qavatlik)`);
     if (!total) {
-        m = t.match(re("(\\d{1,3})\\s*[-–—]?\\s*(?:ти\\s*)?этажн\\p{L}*"));
-        if (m) total = m[1];
+        const mm = t.match(R(String.raw`(${TOTAL_WORD_ALT})\s*-?\s*этажн\p{L}*`));
+        if (mm) total = String(wordToNumber(mm[1], TOTAL_WORDS) || "");
     }
     if (!total) {
-        m = t.match(re("(?:всего\\s+)?этаж(?:ей|ность)\\s+(?:в\\s+доме|здания)?\\s*[:\\-–—]?\\s*(\\d{1,3})"));
-        if (m) total = m[1];
+        // «пятый этаж из девяти»
+        const mm = t.match(R(String.raw`${FLOOR_LABEL}\s+из\s+(${TOTAL_WORD_ALT})`));
+        if (mm) total = String(wordToNumber(mm[1], TOTAL_WORDS) || "");
     }
 
     let floor = "";
-    // "Этаж: 5", "Этаж - 5", "Этаж 5" (но не "Этажность")
-    m = t.match(re("этаж(?![нй])(?!ей)\\p{L}*\\s*[:\\-–—]\\s*(\\d{1,3})(?![\\d/])"));
-    if (m) floor = m[1];
-    // "5 этаж", "5-й этаж", "на 5 этаже" (но не "9-этажный")
+    const tryFloor = (rx) => {
+        if (floor) return;
+        const mm = t.match(R(rx));
+        if (mm) floor = mm[1];
+    };
+    // «Этаж: 5», «Этаж - 5», «этаж 5», «Qavat: 5» (но не «Этажность»)
+    tryFloor(String.raw`${FLOOR_LABEL}\s*[:\-–—]?\s*(\d{1,3})(?![\d/])`);
+    // «5 этаж», «5-й этаж», «на 5 этаже», «5-qavat», «5th floor» (но не «9-этажный»)
+    tryFloor(String.raw`(\d{1,3})\s*-?\s*(?:й|ой|ый|ий|м|ом|st|nd|rd|th)?\s*${FLOOR_LABEL}`);
+    // «пятый этаж», «Этаж: пятый»
     if (!floor) {
-        m = t.match(re("(\\d{1,3})\\s*(?:-?(?:й|ой|ый|ий))?\\s*этаж(?!н)(?!ей)\\p{L}*"));
-        if (m) floor = m[1];
+        let mm = t.match(R(String.raw`((?:${ORDINAL_FLOOR_ALT})\p{L}*)\s+${FLOOR_LABEL}`));
+        if (!mm) mm = t.match(R(String.raw`${FLOOR_LABEL}\s*[:\-–—]?\s*((?:${ORDINAL_FLOOR_ALT})\p{L}*)`));
+        if (mm) floor = String(wordToNumber(mm[1], ORDINAL_FLOOR_STEMS) || "");
     }
-    if (!floor) {
-        m = t.match(re("этаж(?!н)(?!ей)\\p{L}*\\s+(\\d{1,3})(?![\\d/])"));
-        if (m) floor = m[1];
+    // «квартира на 5-м» — только если речь явно о квартире/этаже
+    if (!floor && /этаж|квартир|дом/i.test(t)) {
+        tryFloor(String.raw`(?:^|[\s,.;(])на\s+(\d{1,2})\s*-?\s*(?:м|й|ом)(?![\p{L}\d])`);
     }
-    // "пятый этаж", "первый этаж"
+
+    // ── 3. Без слова «этаж»: «5/9» и «3/5/9» (комнаты/этаж/этажность) ──────
     if (!floor) {
-        m = t.match(re("((?:перв|втор|трет|четв[её]рт|пят|шест|седьм|восьм|девят|десят)\\p{L}*)\\s+этаж"));
-        if (m) for (const [rx, v] of ORDINAL_STEMS) if (rx.test(m[1])) { floor = String(v); break; }
+        const notUnit = String.raw`(?!\s*(?:м|кв|сот|%|\$|usd|у\.?\s?е|сум|тыс|млн|дол|част|комн|ком\b|k\b|к\b))`;
+        // «3/5/9»: первое число — комнаты (1–9), второе — этаж, третье — этажность
+        const triple = t.match(R(String.raw`(?<![\d/.,])(\d)\s*/\s*(\d{1,2})\s*/\s*(\d{1,2})(?![\d/])${notUnit}`));
+        if (triple && Number(triple[2]) >= 1 && Number(triple[2]) <= Number(triple[3]) && Number(triple[3]) <= 45) {
+            return done(triple[2], triple[3]);
+        }
+        // «5/9», «7/16»
+        const pairRx = new RegExp(String.raw`(?<![\d/.,])(\d{1,2})\s*/\s*(\d{1,2})(?![\d/])${notUnit}`, "giu");
+        for (const pair of t.matchAll(pairRx)) {
+            const f = Number(pair[1]);
+            const tt = Number(pair[2]);
+            // «торг 1/2», «скидка 1/2», «доля 1/2» — это не этаж
+            const before = t.slice(Math.max(0, pair.index - 14), pair.index);
+            if (/(?:торг|скидк\p{L}*|дол[яиь]\p{L}*)\s*:?\s*$/iu.test(before)) continue;
+            if (f >= 1 && f <= tt && tt <= 60) return done(f, tt);
+        }
     }
 
     return done(floor, total);

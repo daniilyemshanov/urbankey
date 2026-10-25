@@ -9,6 +9,7 @@ import { residentialFloorLabel } from "../utils/floor";
 import { itemRoomsLabel } from "../utils/rooms";
 
 import { MyContext } from "../Context";
+import useVillaLocations from "../hooks/useVillaLocations";
 import { localizedPath } from "../utils/lang";
 import { useCurrency } from "../context/CurrencyContext";
 import { formatPriceIn, priceInCurrency, usdToCurrency } from "../utils/currency";
@@ -67,6 +68,10 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     } = useContext(MyContext);
 
     const isAdmin = profile?.role === "admin";
+
+    // Строка «Расположение» страниц жилья (villas.location_*): по ней определяем
+    // район квартиры точнее, чем по тексту объявления (общий хук, один запрос на сессию).
+    const villaLocations = useVillaLocations();
 
     const [deletingId, setDeletingId] = useState(null);
 
@@ -174,8 +179,10 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             floorLabel: residentialFloorLabel(item, lang),
             link: localizedPath(`/property/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
-            // у жилья отдельной колонки "район" нет — определяем по тексту
+            // у жилья отдельной колонки "район" нет: сначала строка «Расположение»
+            // (villas.location_*), потом название и описание
             districtKey: detectDistrict([
+                ...(villaLocations[item.id] || []),
                 item.district?.ru, item.district?.en, item.district?.uz,
                 item.title?.ru, item.title?.en, item.title?.uz,
                 item.description?.ru, item.description?.en, item.description?.uz
@@ -214,7 +221,7 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             districtName: item.districtKey ? districtLabel(item.districtKey, lang) : ""
         }));
 
-    }, [properties, commercials, lang, t]);
+    }, [properties, commercials, villaLocations, lang, t]);
 
 
     const availableTypes = useMemo(() => {
