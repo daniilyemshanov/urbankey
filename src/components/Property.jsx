@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useCurrency } from "../context/CurrencyContext"
 import { formatPriceIn } from "../utils/currency"
 import { roomsLabel } from "../utils/rooms"
+import { hasValue } from "../utils/hasValue"
 
 import { Swiper, SwiperSlide } from "swiper/react"
 import { Navigation, Pagination, Autoplay } from "swiper/modules"
@@ -275,7 +276,8 @@ const Property = ({ data }) => {
                         <div className={s.cards}>
 
 
-                            <div className={s.card}>
+                            {hasValue(roomsLabel(data.bedrooms, i18n.language)) && (
+<div className={s.card}>
 
 
                                 <h4>
@@ -291,6 +293,7 @@ const Property = ({ data }) => {
 
 
                             </div>
+)}
 
 
 
@@ -298,7 +301,8 @@ const Property = ({ data }) => {
 
 
 
-                            <div className={s.card}>
+                            {hasValue(data.type?.[i18n.language]) && (
+<div className={s.card}>
 
 
                                 <h4>
@@ -316,15 +320,18 @@ const Property = ({ data }) => {
 
 
                             </div>
+)}
                           
 
 
-                            <div className={s.card}>
+                            {hasValue(data.square) && (
+<div className={s.card}>
                                 <h4>{t("square")}</h4>
                                 <h3>
                                     {data.square || "—"} m²
                                 </h3>
                             </div>
+)}
 
 
 
@@ -332,7 +339,8 @@ const Property = ({ data }) => {
 
 
 
-                            <div className={s.card}>
+                            {hasValue(data.price) && (
+<div className={s.card}>
 
 
                                 <h4>
@@ -350,6 +358,7 @@ const Property = ({ data }) => {
 
 
                             </div>
+)}
 
 
 

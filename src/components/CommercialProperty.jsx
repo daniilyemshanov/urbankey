@@ -23,6 +23,7 @@ import "swiper/css/pagination";
 import { useState } from "react";
 
 import GalleryModal from "./GalleryModal";
+import { hasValue } from "../utils/hasValue"
 
 
 const CommercialProperty = ({ data }) => {
@@ -210,7 +211,8 @@ const CommercialProperty = ({ data }) => {
                     <div className={s.rooms}>
 
 
-                        <h2>
+                        {hasValue(data.floor) && (
+<h2>
 
                             {data.floor || "—"}
 
@@ -219,14 +221,17 @@ const CommercialProperty = ({ data }) => {
                             {t("floor")}
 
                         </h2>
+)}
 
 
 
-                        <h2>
+                        {hasValue(text("class")) && (
+<h2>
 
                             {text("class")}
 
                         </h2>
+)}
 
 
 
@@ -250,7 +255,8 @@ const CommercialProperty = ({ data }) => {
 
 
 
-                            <div className={s.card}>
+                            {hasValue(data.area) && (
+<div className={s.card}>
 
                                 <h4>
                                     {t("area")}
@@ -261,12 +267,14 @@ const CommercialProperty = ({ data }) => {
                                 </h3>
 
                             </div>
+)}
 
 
 
 
 
-                            <div className={s.card}>
+                            {hasValue(data.ceiling_height) && (
+<div className={s.card}>
 
                                 <h4>
                                     {t("ceiling")}
@@ -277,13 +285,15 @@ const CommercialProperty = ({ data }) => {
                                 </h3>
 
                             </div>
+)}
 
 
 
 
 
 
-                            <div className={s.card}>
+                            {hasValue(text("type")) && (
+<div className={s.card}>
 
                                 <h4>
                                     {t("type")}
@@ -296,6 +306,7 @@ const CommercialProperty = ({ data }) => {
                                 </h3>
 
                             </div>
+)}
 
 
 
@@ -303,7 +314,8 @@ const CommercialProperty = ({ data }) => {
 
 
 
-                            <div className={s.card}>
+                            {hasValue(text("purpose")) && (
+<div className={s.card}>
 
                                 <h4>
                                     {t("purpose")}
@@ -317,6 +329,7 @@ const CommercialProperty = ({ data }) => {
 
 
                             </div>
+)}
 
 
 
@@ -324,7 +337,8 @@ const CommercialProperty = ({ data }) => {
 
 
 
-                            <div className={s.card}>
+                            {hasValue(data.price) && (
+<div className={s.card}>
 
                                 <h4>
                                     {t("price")}
@@ -339,6 +353,7 @@ const CommercialProperty = ({ data }) => {
 
 
                             </div>
+)}
 
 
 

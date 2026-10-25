@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { useTranslation } from 'react-i18next'
 import { useCurrency } from '../context/CurrencyContext'
 import { formatPriceIn } from '../utils/currency'
+import { hasValue } from "../utils/hasValue"
 
 
 
@@ -80,13 +81,15 @@ const Villa = ({ data }) => {
 
 
 
-                <motion.p>
+                {hasValue(data.description?.[i18n.language]) && (
+<motion.p>
 
 
                     {data.description?.[i18n.language]}
 
 
                 </motion.p>
+)}
 
 
 
@@ -97,7 +100,8 @@ const Villa = ({ data }) => {
                 <div className={s.info}>
 
 
-                    <motion.div
+                    {hasValue(data.location?.[i18n.language]) && (
+<motion.div
 
                         className={s.box}
 
@@ -129,6 +133,7 @@ const Villa = ({ data }) => {
 
 
                     </motion.div>
+)}
 
 
 
@@ -138,7 +143,8 @@ const Villa = ({ data }) => {
 
 
 
-                    <motion.div
+                    {hasValue(data.type?.[i18n.language]) && (
+<motion.div
 
                         className={s.box}
 
@@ -170,6 +176,7 @@ const Villa = ({ data }) => {
 
 
                     </motion.div>
+)}
 
 
 
@@ -179,7 +186,8 @@ const Villa = ({ data }) => {
 
 
 
-                    <motion.div
+                    {hasValue(data.price) && (
+<motion.div
 
                         className={s.box}
 
@@ -215,6 +223,7 @@ const Villa = ({ data }) => {
 
 
                     </motion.div>
+)}
 
 
 

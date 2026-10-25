@@ -16,6 +16,7 @@ import { MyContext } from '../Context';
 import { useCurrency } from '../context/CurrencyContext';
 import { formatPriceIn } from '../utils/currency';
 import FavoriteButton from './FavoriteButton';
+import { hasValue } from "../utils/hasValue"
 
 const Feautured = () => {
 
@@ -159,7 +160,8 @@ const Feautured = () => {
 
                             <div className={s.info}>
 
-                                <span>
+                                {hasValue(itemRoomsLabel(item, i18n.language)) && (
+<span>
 
                                     <img
                                         src="/BACKGROUND_2.svg"
@@ -169,6 +171,7 @@ const Feautured = () => {
                                     {itemRoomsLabel(item, i18n.language) || "—"}
 
                                 </span>
+)}
 
                                 {residentialFloorSlot(item, i18n.language).label && (
                                     <span>
