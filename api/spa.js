@@ -186,16 +186,22 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("X-SPA-Existence-Check", checkState);
 
+    // В HTML зашиты имена файлов стилей и скриптов с хешем (/assets/index-XXXX.css).
+    // После деплоя старые файлы пропадают, поэтому HTML, застрявший в кэше CDN,
+    // ссылается на несуществующие файлы, и сайт открывается без стилей.
+    // Общие страницы и страницы районов (/ru, /ru/Properties, ...) поэтому не
+    // кэшируются на CDN вообще — как статический index.html. Страницы объектов
+    // кэшируются на минуту (без stale-while-revalidate: устаревший HTML живёт не
+    // дольше минуты после деплоя).
+    const sharedShellPage = kind === "page" || kind === "district";
+
     if (checkState !== "ok") {
         // ответ получен без проверки — не кэшируем на CDN
         res.setHeader("Cache-Control", "no-store");
+    } else if (sharedShellPage && status === 200) {
+        res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
     } else {
-        res.setHeader(
-            "Cache-Control",
-            status === 200
-                ? "public, s-maxage=60, stale-while-revalidate=300"
-                : "public, s-maxage=60"
-        );
+        res.setHeader("Cache-Control", "public, s-maxage=60");
     }
 
     if (emptyDistrict) {

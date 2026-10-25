@@ -200,3 +200,25 @@ test("секрет обхода Deployment Protection передаётся то�
     shell = (_u, init) => { assert.equal(init.headers["x-vercel-protection-bypass"], "s3cret"); return new Response(SHELL); };
     await callSpa({ kind: "notfound" });
 });
+
+// --- кэш HTML: страницы с именами файлов-с-хешем не должны переживать деплой ----
+
+test("общие страницы и страницы районов не кэшируются на CDN (иначе после деплоя пропадают стили)", async () => {
+    for (const q of [
+        { kind: "page", page: "home", lang: "ru" },
+        { kind: "page", page: "Properties", lang: "uz" },
+        { kind: "district", dtype: "apartments", district: "yunusabad", lang: "ru" },
+    ]) {
+        const res = await callSpa(q);
+        assert.equal(res.code, 200, JSON.stringify(q));
+        assert.equal(res.headers["Cache-Control"], "public, max-age=0, must-revalidate", JSON.stringify(q));
+        assert.doesNotMatch(res.headers["Cache-Control"], /s-maxage|stale-while-revalidate/);
+    }
+});
+
+test("страница объекта кэшируется не дольше минуты и без stale-while-revalidate", async () => {
+    withEnv();
+    supabase = () => json([{ card_id: 5 }]);
+    const res = await callSpa({ kind: "property", id: "5" });
+    assert.equal(res.headers["Cache-Control"], "public, s-maxage=60");
+});
