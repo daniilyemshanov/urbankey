@@ -1,6 +1,3 @@
-// node snapshot.mjs save   — запомнить, что видит анонимный посетитель
-// node snapshot.mjs check  — проверить: всё, что было видно раньше, видно и теперь
-//                            (ничего не исчезло), а новые объекты появились.
 import fs from "fs";
 const T = JSON.parse(fs.readFileSync(process.env.E2E_TOKENS || "./tokens.json"));
 const FILE = process.env.E2E_SNAPSHOT || "./snapshot.json";

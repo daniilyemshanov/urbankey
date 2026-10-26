@@ -40,13 +40,11 @@ const CreateCommercialPage = () => {
     useEffect(() => {
         getCommercials();
 
-        // /admin/createCommercialPage/:id — объект выбран заранее
         if (id) {
             setPage(prev => ({ ...prev, commercial_id: id }));
         }
     }, []);
 
-    // 🔥 универсальный хендлер для multilingual полей
     const handleLangChange = (field, lang, value) => {
         setPage(prev => ({
             ...prev,
@@ -108,7 +106,6 @@ const CreateCommercialPage = () => {
 
                 <h1 className={s.title}>Создание страницы коммерции</h1>
 
-                {/* ВЫБОР ОБЪЕКТА */}
                 <ObjectPicker
                     collapsible
                     items={commercials.map(item => ({
@@ -126,7 +123,6 @@ const CreateCommercialPage = () => {
                 />
 
 
-                {/* TITLE */}
                 <h3>Название</h3>
                 <div className={s.inputs}>
                     {["ru", "en", "uz"].map(lang => (
@@ -141,7 +137,6 @@ const CreateCommercialPage = () => {
                     ))}
                 </div>
 
-                {/* TYPE */}
                 <h3>Тип</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <input
@@ -154,7 +149,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* CLASS */}
                 <h3>Класс</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <input
@@ -167,7 +161,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* PURPOSE */}
                 <h3>Назначение</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <input
@@ -180,7 +173,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* NUMBERS */}
                 <h3>Параметры</h3>
                 <input
                     type="number"
@@ -231,7 +223,6 @@ const CreateCommercialPage = () => {
                     }
                 />
 
-                {/* DESCRIPTION */}
                 <h3>Описание</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <textarea
@@ -244,7 +235,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* ABOUT */}
                 <h3>О компании</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <textarea
@@ -257,7 +247,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* LOCATION */}
                 <h3>Локация</h3>
                 {["ru", "en", "uz"].map(lang => (
                     <input
@@ -270,7 +259,6 @@ const CreateCommercialPage = () => {
                     />
                 ))}
 
-                {/* IMAGES */}
                 <h3>Фотографии</h3>
                 <input type="file" onChange={upload} />
 
@@ -280,7 +268,6 @@ const CreateCommercialPage = () => {
                     ))}
                 </div>
 
-                {/* AMENITIES */}
                 <h3>Преимущества</h3>
 
                 <button type="button" onClick={addAmenity}>

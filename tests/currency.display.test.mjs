@@ -1,8 +1,3 @@
-// Отображение курса: пересчёт цен по сохранённому официальному курсу, дата курса
-// в интерфейсе, поведение без курса (никаких выдуманных цифр). Компоненты
-// рендерятся по-настоящему (Vite SSR + react-dom/server), без браузера и сети.
-// Запуск: npm run test:fx
-
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -15,11 +10,8 @@ import {
     formatRateDate, formatRateValue, isValidRate, priceInCurrency, usdToCurrency,
 } from "../src/utils/currency.js";
 
-// toLocaleString("ru-RU") разделяет разряды неразрывным пробелом — сравниваем с обычным.
 const sp = (s) => String(s).replace(/[\u00a0\u202f]/g, " ");
 const price = (...args) => sp(formatPriceIn(...args));
-
-// ---- чистые функции -------------------------------------------------------------------
 
 test("пересчёт USD -> UZS и UZS -> USD по официальному курсу", () => {
     assert.equal(price("85 000$", "UZS", 12000), "1 020 000 000 UZS");
@@ -59,9 +51,7 @@ test("цена за м²: пометка вырезается, \"2\" из м2 н
         assert.equal(price(raw, "USD", null), "$1 800 / м²", raw);
     }
     assert.deepEqual(parsePrice("15 000 000 сум за м²"), { amount: 15000000, currency: "UZS", perSqm: true });
-    // пересчёт валюты сохраняет пометку «за м²»
     assert.equal(price("1800$ за м2", "UZS", 12000), "21 600 000 UZS / м²");
-    // сравнение: цена за м² умножается на площадь, без площади сравнить нельзя
     assert.equal(priceInCurrency("1800$ за м2", "USD", 12000, 60), 108000);
     assert.equal(priceInCurrency("1800$ за м2", "USD", 12000), null);
 });
@@ -91,8 +81,6 @@ test("дата и значение курса форматируются для 
     assert.equal(getRateNoteParams(null), null);
     assert.equal(getRateNoteParams({ rate: 0, date: "2026-10-12" }), null);
 });
-
-// ---- реальный рендер компонентов -----------------------------------------------------
 
 const store = {};
 let server;
@@ -126,8 +114,6 @@ const normalizeSpaces = (s) => s.replace(/[\u00a0\u202f]/g, " ");
 const renderFooter = () => renderToString(createElement(CurrencyProvider, null, createElement(Gray)));
 const noteOf = (html) => normalizeSpaces(html.match(/<p class="[^"]*rateNote[^"]*">(.*?)<\/p>/)?.[1] ?? "");
 
-// Компонент-«зонд» делает ровно то, что делают карточки сайта: берёт валюту и курс
-// из useCurrency и форматирует цену через formatPriceIn.
 const PriceProbe = ({ price }) => {
     const { currency, rate } = useCurrency();
     return createElement("span", null, formatPriceIn(price, currency, rate));
@@ -211,8 +197,6 @@ test("в коде сайта не осталось зашитого курса",
 });
 
 
-// ---- сравнение цен в одной валюте (фильтр и сортировка каталога) ----
-
 test("priceInCurrency: та же валюта — как есть, курс не нужен", () => {
     assert.equal(priceInCurrency("$50 000", "USD", null), 50000);
     assert.equal(priceInCurrency("600 000 000 UZS", "UZS", null), 600000000);
@@ -239,9 +223,9 @@ test("priceInCurrency: нет цены — null", () => {
 test("смешанные USD и UZS сортируются и фильтруются как одна величина", () => {
     const rate = 12000;
     const items = [
-        { id: "a", price: "$80 000" },            // 960 млн UZS
-        { id: "b", price: "600 000 000 UZS" },    // 50 000 USD
-        { id: "c", price: "$55 000" },            // 660 млн UZS
+        { id: "a", price: "$80 000" },
+        { id: "b", price: "600 000 000 UZS" },
+        { id: "c", price: "$55 000" },
     ];
 
     const inUsd = items.map((i) => ({ id: i.id, v: priceInCurrency(i.price, "USD", rate) }));
@@ -250,7 +234,6 @@ test("смешанные USD и UZS сортируются и фильтруют
     const inUzs = items.map((i) => ({ id: i.id, v: priceInCurrency(i.price, "UZS", rate) }));
     assert.deepEqual(inUzs.sort((x, y) => x.v - y.v).map((i) => i.id), ["b", "c", "a"]);
 
-    // "до $60 000" оставляет b и c независимо от того, в чём сохранена цена
     const max = 60000;
     assert.deepEqual(items.filter((i) => priceInCurrency(i.price, "USD", rate) <= max).map((i) => i.id), ["b", "c"]);
 });

@@ -27,7 +27,6 @@ Deno.serve(async (req) => {
     );
   }
 
-  // клиент пользователя (проверяем кто вошёл)
   const userClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -57,14 +56,12 @@ Deno.serve(async (req) => {
     );
   }
 
-  // админ клиент для удаления
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
 
     Deno.env.get("SERVICE_ROLE_KEY")!,
   );
 
-  // удаляем профиль
   const { error: profileError } = await admin
     .from("profiles")
     .delete()
@@ -82,7 +79,6 @@ Deno.serve(async (req) => {
     );
   }
 
-  // удаляем auth пользователя
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
 
   if (deleteError) {

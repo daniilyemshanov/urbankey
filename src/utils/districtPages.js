@@ -1,36 +1,23 @@
-// Страницы районов: /:lang/Properties/apartments/:district (квартиры) и
-// /:lang/Properties/commercial/:district (коммерческая недвижимость).
-//
-// Модуль общий: его импортируют и React-приложение, и серверные функции
-// (api/spa.js, api/sitemap.js), поэтому здесь нет JSX и обращений к браузеру.
-// Тексты — черновики: проверьте и поправьте под себя (особенно описания районов).
-
 import { TASHKENT_DISTRICTS, parseDistrictKey } from "./districts.js";
 import { DISTRICT_TEXTS } from "./districtTexts.js";
 
 export const DISTRICT_PAGE_KINDS = ["apartments", "commercial"];
 
-// Внутренние ключи районов остаются прежними (они уже используются в каталоге),
-// в URL для "mirzo" читаемее "mirzo-ulugbek".
 const SLUG_BY_KEY = { mirzo: "mirzo-ulugbek" };
 const KEY_BY_SLUG = Object.fromEntries(Object.entries(SLUG_BY_KEY).map(([k, v]) => [v, k]));
 
 export const districtSlug = (key) => SLUG_BY_KEY[key] || key;
 
-// slug из URL -> ключ района или null (любой мусор -> null)
 export const districtKeyFromSlug = (raw) => {
     if (typeof raw !== "string") return null;
     const slug = raw.trim().toLowerCase();
     return parseDistrictKey(KEY_BY_SLUG[slug] || slug);
 };
 
-// Путь БЕЗ языкового префикса: "/Properties/apartments/yunusabad"
 export const districtBasePath = (kind, key) => `/Properties/${kind}/${districtSlug(key)}`;
 
-// Путь С языковым префиксом: "/ru/Properties/apartments/yunusabad"
 export const districtPagePath = (kind, key, lang) => `/${lang}${districtBasePath(kind, key)}`;
 
-// name — официальное название, loc — «где» (в Юнусабадском районе), about — запасной текст о районе.
 const DISTRICTS = {
     yunusabad: {
         name: { ru: "Юнусабадский район", en: "Yunusabad District", uz: "Yunusobod tumani" },
@@ -189,13 +176,11 @@ const KIND_TEXT = {
     },
 };
 
-// Тексты страницы района или null, если вид/район/язык неизвестны.
 export function getDistrictPage(kind, key, lang) {
     const d = DISTRICTS[key];
     const k = KIND_TEXT[kind];
     if (!d || !k || !d.loc[lang]) return null;
     const loc = d.loc[lang];
-    // Свой текст района (src/utils/districtTexts.js) важнее шаблона.
     const custom = DISTRICT_TEXTS[key]?.[kind]?.[lang];
     return {
         name: d.name[lang],
@@ -206,6 +191,5 @@ export function getDistrictPage(kind, key, lang) {
     };
 }
 
-// Все пары (вид, ключ района) — для sitemap и блока ссылок.
 export const allDistrictPages = () =>
     DISTRICT_PAGE_KINDS.flatMap((kind) => TASHKENT_DISTRICTS.map((d) => ({ kind, key: d.key })));

@@ -1,29 +1,5 @@
-// /api/translate — серверная точка для автоперевода текстов объявления.
-//
-// ЗАЧЕМ ОТДЕЛЬНАЯ СЕРВЕРНАЯ ФУНКЦИЯ, А НЕ ПРЯМОЙ ВЫЗОВ ИЗ БРАУЗЕРА:
-//   1. У сайта настроен строгий Content-Security-Policy (connect-src) —
-//      прямой fetch на домен переводчика из браузера был бы заблокирован.
-//      Так этот запрос идёт на свой же домен (/api/translate), а сервер
-//      уже сам обращается наружу.
-//   2. Если в будущем подключите платный переводчик (DeepL/Google Cloud
-//      Translation с ключом) — ключ будет жить только тут, а не в
-//      клиентском бандле.
-//   3. Тут же — простейший rate-limit и проверка Origin, чтобы этим
-//      эндпоинтом не пользовались как бесплатным прокси-переводчиком
-//      с чужих сайтов.
-//
-// Пользователь на странице /add-property пишет объявление ОДИН раз на
-// удобном ему языке (ru или uz) — этот эндпоинт переводит текст на
-// оставшиеся языки, и в базу уходят все 3 варианта (ru/en/uz), как и
-// раньше ожидают Villa/Property/Amenities и CommercialPage.
-//
-// Если сам переводчик недоступен (нет сети, сервис лёг) — функция
-// возвращает ok:false по конкретному тексту, а фронт в этом случае
-// просто использует исходный текст на всех языках (как раньше) —
-// объявление всё равно публикуется, просто без перевода части полей.
-
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 20; // запросов в минуту с одного IP
+const RATE_LIMIT_MAX = 20;
 const rateLimitStore = new Map();
 
 const isRateLimited = (ip) => {
@@ -66,10 +42,6 @@ const SUPPORTED_LANGS = ["ru", "en", "uz"];
 const MAX_TEXTS = 25;
 const MAX_TEXT_LENGTH = 2000;
 
-// бесплатный (без ключа) публичный эндпоинт Google Translate —
-// поддерживает ru/en/uz. Если решите подключить платный официальный
-// Google Cloud Translation API или DeepL — достаточно поменять только
-// эту функцию, интерфейс /api/translate для фронта останется тем же.
 const translateOne = async (text, source, target) => {
 
     if (!text || !text.trim()) return "";
@@ -85,7 +57,6 @@ const translateOne = async (text, source, target) => {
 
     const data = await res.json();
 
-    // формат ответа: [[["перевод","оригинал",null,null,3], ...], null, "ru"]
     const translated = Array.isArray(data?.[0])
         ? data[0].map((chunk) => chunk?.[0] || "").join("")
         : "";
@@ -134,7 +105,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Invalid texts payload" });
     }
 
-    // texts: [{ id: "title", text: "..." }, ...]
     const safeTexts = texts
         .filter((t) => t && typeof t.id === "string" && typeof t.text === "string")
         .map((t) => ({ id: t.id, text: t.text.slice(0, MAX_TEXT_LENGTH) }));
@@ -154,8 +124,6 @@ export default async function handler(req, res) {
                     } catch (err) {
                         console.error("TRANSLATE ERROR:", id, source, "->", target, err.message);
                         results[id].ok = false;
-                        // graceful fallback — фронт всё равно получит
-                        // валидное значение (исходный текст) вместо пустой строки
                         results[id][target] = text;
                     }
 

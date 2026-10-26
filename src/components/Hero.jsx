@@ -13,11 +13,6 @@ const Hero = () => {
 
     const [propertiesCount, setPropertiesCount] = useState(null)
 
-    // Фоновое видео (~0.7 МБ) не нужно для первого экрана, но если запросить его
-    // сразу вместе с React-рендером, оно делит канал с LCP-картинкой героя
-    // (на мобильной сети это задерживает LCP). Поэтому src назначается только
-    // после события load и когда браузер освободился — само видео и его
-    // поведение (autoplay, loop, muted) не меняются.
     const [videoSrc, setVideoSrc] = useState(undefined)
 
     useEffect(() => {
@@ -57,7 +52,6 @@ const Hero = () => {
 
         const fetchCount = async () => {
 
-            // view не содержат проданных; если view недоступна — читаем таблицы
             const countOf = async (view, table) => {
                 const res = await supabase.from(view).select("id", { count: "exact", head: true })
                 if (!res.error) return res
@@ -89,6 +83,7 @@ const Hero = () => {
                 loop
                 playsInline
                 preload="none"
+                poster="/hero-poster.webp"
                 src={videoSrc}
             />
 

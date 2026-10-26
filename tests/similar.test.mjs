@@ -1,5 +1,3 @@
-// Подбор похожих объявлений (src/utils/similarListings.js). Запуск: npm run test:seo
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rankSimilar } from "../src/utils/similarListings.js";

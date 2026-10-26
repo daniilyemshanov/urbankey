@@ -1,8 +1,3 @@
--- Имитация того, что делает Telegram-бот при новом посте (service key, без RLS):
---   1) вставка карточки в cardss / commercials
---   2) update link = '/property/<id>' | '/commercial/<id>'
---   3) createDraftPage: вставка страницы в villas / commercial_pages с is_draft = true
--- Поля повторяют server/bot.js и api/telegram-webhook.js (createDraftPage).
 DO $$
 DECLARE cid integer; kid integer;
 BEGIN

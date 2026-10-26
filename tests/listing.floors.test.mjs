@@ -1,13 +1,9 @@
-// Разбор этажа и этажности из текста поста (api/_listingFacts.js → extractFloorInfo).
-// Запуск: node --test tests/listing.floors.test.mjs  (или npm run test:seo)
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { extractFloorInfo } from "../api/_listingFacts.js";
 
 const toNum = (v) => (v === "" || v == null ? null : Number(v));
 
-// [текст, этаж, этажность]
 const CASES = [
     ["Этаж: 5/9", 5, 9], ["5/9 этаж", 5, 9], ["Этаж 5 из 9", 5, 9], ["5 этаж из 9", 5, 9], ["5-й этаж 9-этажного дома", 5, 9],
     ["Этаж: 5 (из 9)", 5, 9], ["Этаж - 5; этажность - 12", 5, 12], ["Этажность: 12, этаж: 7", 7, 12], ["эт. 5/9", 5, 9], ["5/9 эт.", 5, 9],

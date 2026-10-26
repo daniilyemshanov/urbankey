@@ -1,39 +1,15 @@
-// Общие функции сохранения объявлений в Supabase для webhook, finalize-albums
-// и server/bot.js. Файл начинается с "_", поэтому Vercel не превращает его
-// в endpoint.
-//
-// Что решает:
-//   • объявление не теряется из-за единичного сбоя записи: временная ошибка
-//     повторяется один раз; при ошибке, связанной с данными, запись
-//     повторяется "безопасным" урезанным набором колонок (заголовок,
-//     описание, цена, фото, связь с постом Telegram);
-//   • ошибки БД различаются в логе (class=db, код PostgREST/Postgres,
-//     временная ли, какой этап) и не содержат секретов;
-//   • проверка "сайт сможет это показать": цена, записанная в карточку,
-//     разбирается тем же parsePrice, что и на сайте (src/utils/currency.js),
-//     и расхождение логируется как class=display;
-//   • подписи комнат/санузлов склоняются ("1 спальня", "5 спален");
-//   • при редактировании поста пустые результаты разбора не затирают
-//     значения, которые уже есть в базе.
-
 import { ErrorClass, logEvent, shortBody } from "./_aiLog.js";
 import { countLabelsFor, extractPriceInfo, fillMissingTranslations, slugify, priceToNumber } from "./listingParser.js";
 import { parsePrice } from "../src/utils/currency.js";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Публичная ссылка на объявление на сайте (для ответа бота в канале).
-// Маршруты сайта: /:lang/property/:id (жильё) и /:lang/commercial/:id (коммерция),
-// где id — id карточки (cardss / commercials).
 export const SITE_ORIGIN = "https://urbankey.uz";
 
 export function buildListingUrl(isCommercial, id, lang = "ru") {
     return `${SITE_ORIGIN}/${lang}/${isCommercial ? "commercial" : "property"}/${id}`;
 }
 
-// ---------------------------------------------------------------------
-// Подписи комнат и санузлов для карточки жилья (со склонением)
-// ---------------------------------------------------------------------
 export function residentialCardFields(parsed) {
     const bedrooms = countLabelsFor("bedrooms", parsed.bedrooms);
     const bathrooms = countLabelsFor("bathrooms", parsed.bathrooms);
@@ -49,9 +25,6 @@ export function residentialCardFields(parsed) {
     };
 }
 
-// Колонки этажа в cardss — ОПЦИОНАЛЬНЫЕ (sql/optional_add_card_floor.sql).
-// По умолчанию бот их не пишет: схема БД не меняется, пока владелец сам не
-// применит SQL и не включит CARD_FLOOR_COLUMNS=1.
 function floorColumns(parsed) {
     if (process.env.CARD_FLOOR_COLUMNS !== "1") return {};
     return {
@@ -60,12 +33,6 @@ function floorColumns(parsed) {
     };
 }
 
-// ---------------------------------------------------------------------
-// Сборка строк для записи (общая для webhook, finalize-albums и bot.js)
-// ---------------------------------------------------------------------
-
-// Строка карточки каталога: cardss (жильё) или commercials (коммерция).
-// Объявление публикуется сразу — никаких флагов модерации здесь нет.
 export function buildCardRow(parsed, { image, videoUrl, tgChatId, tgMessageId }) {
     const baseFields = {
         title_ru: parsed.title_ru,
@@ -88,7 +55,6 @@ export function buildCardRow(parsed, { image, videoUrl, tgChatId, tgMessageId })
             row: {
                 ...baseFields,
                 ...parsed.commercialFields,
-                // "Категория" на сайте (CommercialHero: text("class")) — фиксированное "Коммерция"
                 class_ru: "Коммерция",
                 class_en: "Commercial",
                 class_uz: "Tijorat",
@@ -108,9 +74,6 @@ export function buildCardRow(parsed, { image, videoUrl, tgChatId, tgMessageId })
     };
 }
 
-// Страница объекта: villas (жильё) или commercial_pages (коммерция).
-// is_draft: true — как и раньше (на публикацию не влияет, сайт показывает
-// такие страницы сразу; флаг нужен только админке для отметки "дозаполнить").
 export function buildPagePayload(parsed, { table, linkIdField, cardId, images, videoUrl }) {
     const basePayload = {
         [linkIdField]: cardId,
@@ -124,15 +87,10 @@ export function buildPagePayload(parsed, { table, linkIdField, cardId, images, v
         description_en: parsed.description_en,
         description_uz: parsed.description_uz,
 
-        // Главный текст страницы жилья (Property.jsx выводит именно about_*,
-        // SEO-описание тоже берётся оттуда). Раньше здесь всегда писалась
-        // пустая строка — основной блок страницы был пуст.
         about_ru: parsed.about_ru || "",
         about_en: parsed.about_en || "",
         about_uz: parsed.about_uz || "",
 
-        // priceNumber уже учитывает правило "неоднозначную сумму в сумах не пишем";
-        // priceToNumber — только для результатов без этого поля (старый формат).
         price: parsed.priceNumber !== undefined ? parsed.priceNumber : priceToNumber(parsed.price),
 
         images: images || [],
@@ -178,13 +136,10 @@ export function buildPagePayload(parsed, { table, linkIdField, cardId, images, v
     };
 }
 
-// Создаёт страницу объекта. Никогда не бросает: возвращает false при неудаче
-// (карточка уже создана и не теряется; бот сообщает, что страницу нужно завести вручную).
 export async function savePage(supabase, table, linkIdField, cardId, parsed, images, videoUrl) {
     try {
         const payload = buildPagePayload(parsed, { table, linkIdField, cardId, images, videoUrl });
 
-        // location переводим на en/uz, about — если ещё не переведён
         await fillMissingTranslations(payload, ["location"]);
 
         const { ok } = await insertPageRow(supabase, table, payload, { cardId });
@@ -195,11 +150,6 @@ export async function savePage(supabase, table, linkIdField, cardId, parsed, ima
     }
 }
 
-// ---------------------------------------------------------------------
-// Классификация ошибок БД
-// ---------------------------------------------------------------------
-// transient — имеет смысл повторить тот же запрос (сеть, таймаут, 5xx);
-// dataRelated — проблема в значениях/колонках, помогает урезанный набор.
 export function classifyDbError(error) {
     const code = String(error?.code || "");
     const message = String(error?.message || "");
@@ -208,7 +158,7 @@ export function classifyDbError(error) {
     const transient =
         status >= 500 ||
         /fetch failed|network|timeout|timed out|ECONN|socket|ETIMEDOUT|temporarily/i.test(message) ||
-        /^(08|53|57)/.test(code); // 08 connection, 53 resources, 57 operator intervention
+        /^(08|53|57)/.test(code);
 
     const duplicate = code === "23505";
 
@@ -219,9 +169,6 @@ export function classifyDbError(error) {
     return { code, transient, duplicate, dataRelated };
 }
 
-// ---------------------------------------------------------------------
-// Урезанные наборы колонок (только то, что код и так всегда пишет)
-// ---------------------------------------------------------------------
 const CARD_SAFE_KEYS = [
     "title_ru", "title_en", "title_uz",
     "description_ru", "description_en", "description_uz",
@@ -248,10 +195,6 @@ function pickSafe(row, keys) {
     return out;
 }
 
-// ---------------------------------------------------------------------
-// Запись карточки (cardss / commercials)
-// ---------------------------------------------------------------------
-// -> { data, error, degraded }   data = { id }
 export async function insertCardRow(supabase, table, row, ctx = {}) {
     const run = (payload) => supabase.from(table).insert(payload).select("id").single();
 
@@ -274,8 +217,6 @@ export async function insertCardRow(supabase, table, row, ctx = {}) {
         logEvent("DB_INSERT_FAILED", { class: ErrorClass.DB, table, stage: "retry", code: info.code, message: shortBody(error.message, 200), ...ctx });
     }
 
-    // Последняя попытка: урезанный набор колонок. Лучше карточка без
-    // второстепенных полей, чем потерянное объявление.
     const safe = pickSafe(row, CARD_SAFE_KEYS);
     ({ data, error } = await run(safe));
 
@@ -288,10 +229,6 @@ export async function insertCardRow(supabase, table, row, ctx = {}) {
     return { data: null, error, degraded: false };
 }
 
-// ---------------------------------------------------------------------
-// Запись страницы объекта (villas / commercial_pages)
-// ---------------------------------------------------------------------
-// -> { ok, degraded }
 export async function insertPageRow(supabase, table, payload, ctx = {}) {
     const run = (row) => supabase.from(table).insert(row);
 
@@ -321,12 +258,6 @@ export async function insertPageRow(supabase, table, payload, ctx = {}) {
     return { ok: false, degraded: false };
 }
 
-// ---------------------------------------------------------------------
-// Проверка "сайт сможет это показать"
-// ---------------------------------------------------------------------
-// Цена из карточки на сайте разбирается parsePrice (убирает все нецифровые
-// символы). Если результат не совпадает с тем, что извлёк парсер, на сайте
-// будет показано неверное число — это ошибка отображения, не парсинга.
 export function checkCardDisplay(parsed) {
     const problems = [];
 
@@ -337,7 +268,6 @@ export function checkCardDisplay(parsed) {
         if (!shown) {
             problems.push("price_unparseable_on_site");
                 } else if (expected.perSqm) {
-            // цена за м²: сайт должен распознать пометку и не склеить "м2" с суммой
             if (!shown.perSqm || shown.amount !== expected.amount) {
                 problems.push(`price_per_sqm_mismatch site=${shown.amount} parsed=${expected.amount}`);
             }
@@ -358,11 +288,6 @@ export function checkCardDisplay(parsed) {
     return problems;
 }
 
-// ---------------------------------------------------------------------
-// Редактирование поста: не затираем существующие данные пустыми
-// ---------------------------------------------------------------------
-// Если в отредактированном посте цена/комнаты/описание не распознались,
-// старое значение в базе остаётся.
 export function omitEmpty(obj) {
     const out = {};
     for (const [key, value] of Object.entries(obj)) {
@@ -373,16 +298,6 @@ export function omitEmpty(obj) {
 }
 
 
-// ---------------------------------------------------------------------
-// «ПРОДАНО»: заморозка объявления ответом на пост в канале
-// ---------------------------------------------------------------------
-// Админ канала отвечает (reply) на пост словом ПРОДАНО — у карточки
-// ставится is_sold = true. Сайт читает cardss_public / commercials_public,
-// где проданные строки отфильтрованы (см. sql/add_sold_flag.sql), поэтому
-// объявление пропадает с сайта, а сама строка остаётся в базе.
-
-// Слова, которыми помечают завершённую сделку (после нормализации).
-// «сдано/сдан» и «berildi» — для аренды.
 const SOLD_WORDS = new Set([
     "продано", "продан", "продана", "проданы",
     "сдано", "сдан", "сдана", "сданы",
@@ -390,9 +305,6 @@ const SOLD_WORDS = new Set([
 ]);
 const NEGATION_WORDS = new Set(["не", "нет", "not", "no", "emas", "yoq"]);
 
-// true, если текст — короткая отметка вида «ПРОДАНО», «✅ Продано!»,
-// «sold out», «продано за 50000». Длинные тексты и отрицания («не продано»)
-// не считаются — иначе обычный пост/комментарий мог бы заморозить объект.
 export function isSoldKeyword(text) {
     const tokens = String(text || "")
         .toLowerCase()
@@ -406,10 +318,8 @@ export function isSoldKeyword(text) {
     return tokens.some((t) => SOLD_WORDS.has(t));
 }
 
-const COLUMN_MISSING = "42703"; // Postgres: undefined_column
+const COLUMN_MISSING = "42703";
 
-// Карточка по посту Telegram: { table, id, title, isRent, isSold } или null.
-// Если колонки is_sold ещё нет (SQL не выполнен) — читаем без неё.
 export async function findListingByTelegramMessage(supabase, chatId, messageId) {
     for (const table of ["cardss", "commercials"]) {
         const query = (columns) => supabase
@@ -440,9 +350,6 @@ export async function findListingByTelegramMessage(supabase, chatId, messageId) 
     return null;
 }
 
-// Карточка, на пост которой ответили. У альбома отвечать могут на любое
-// из фото, а в карточке записан id одного сообщения (с подписью) — его
-// находим через bot_pending_albums по media_group_id.
 export async function findListingForReply(supabase, chatId, repliedMsg) {
     if (!repliedMsg) return null;
 
@@ -463,7 +370,6 @@ export async function findListingForReply(supabase, chatId, repliedMsg) {
     return null;
 }
 
-// Замораживает объявление. { ok: true } или { ok: false, missingColumn, error }.
 export async function markListingSold(supabase, table, id) {
     const { error } = await supabase
         .from(table)
@@ -476,7 +382,6 @@ export async function markListingSold(supabase, table, id) {
     return { ok: true };
 }
 
-// Текст ответа в канал после попытки пометить объявление проданным.
 export function soldReplyText(listing, result) {
     const word = listing.isRent ? "сдан" : "продан";
 

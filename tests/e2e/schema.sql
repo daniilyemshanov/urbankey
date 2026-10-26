@@ -10,7 +10,6 @@ create function auth.uid() returns uuid language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claim.sub', true),''),
                   (nullif(current_setting('request.jwt.claims', true),'')::jsonb ->> 'sub'))::uuid $$;
 create table public.profiles(id uuid primary key, role text default 'user');
--- is_admin: дословно как в supabase/security_hardening.sql
 create or replace function public.is_admin() returns boolean language sql security definer set search_path = public stable as $$
   select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'); $$;
 revoke all on function public.is_admin() from public;
@@ -41,7 +40,6 @@ create table public.commercial_pages(id integer generated always as identity pri
  type_ru text,type_en text,type_uz text,class_ru text,class_en text,class_uz text,purpose_ru text,purpose_en text,purpose_uz text,
  price numeric,images text[],video text,amenities jsonb,is_rent boolean,area numeric,ceiling_height numeric,floor integer,is_draft boolean);
 
--- RLS как в supabase/*.sql
 alter table cardss enable row level security; alter table commercials enable row level security;
 alter table villas enable row level security; alter table commercial_pages enable row level security;
 alter table profiles enable row level security;
@@ -58,7 +56,6 @@ create policy villas_update_own_card on villas for update to authenticated
 create policy commercial_pages_select_all on commercial_pages for select to anon,authenticated using(true);
 create policy commercial_pages_write_admin on commercial_pages for all to authenticated using(is_admin()) with check(is_admin());
 
--- колоночные GRANT как в user_listings_and_leads.sql: owner_phone закрыт
 grant usage on schema public to anon, authenticated;
 revoke select on cardss from anon, authenticated;
 grant select (id,title_ru,title_en,title_uz,description_ru,description_en,description_uz,bedrooms_ru,bedrooms_en,bedrooms_uz,
@@ -78,19 +75,14 @@ create view commercials_public as select id,title_ru,title_en,title_uz,descripti
  status_ru,status_en,status_uz,delivery_date,image,created_by,boosted_until,is_rent from commercials;
 grant select on cardss_public, commercials_public to anon, authenticated;
 
--- ДАННЫЕ. Идентификаторы:
 insert into profiles values ('aaaaaaaa-0000-0000-0000-000000000001','admin'),('bbbbbbbb-0000-0000-0000-000000000002','user');
--- Существующие объекты из Telegram: бот всегда ставит is_draft=true — как в проде.
--- Они должны оставаться публичными (is_draft ничего не скрывает).
 insert into cardss(title_ru,owner_phone,tg_chat_id,tg_message_id) values ('TG villa A','+998901',1,1),('TG villa B','+998902',1,2);
 insert into villas(card_id,slug,title_ru,is_draft) values (1,'a-1','TG villa A',true),(2,'b-2','TG villa B',true);
 insert into commercials(title_ru,tg_chat_id,tg_message_id) values ('TG office C',1,3);
 insert into commercial_pages(commercial_id,slug,title_ru,is_draft) values (1,'c-1','TG office C',true);
--- 1 объект, созданный пользователем (is_draft не задаётся -> NULL, как у старых/ручных записей)
 insert into cardss(title_ru,created_by,owner_phone) values ('User villa D','bbbbbbbb-0000-0000-0000-000000000002','+998903');
 insert into villas(card_id,slug,title_ru) values (3,'d-3','User villa D');
 
--- как service_role в Supabase: обходит RLS (бот пишет именно этим ключом)
 grant usage on schema public to service_role;
 grant all on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;

@@ -1,40 +1,5 @@
-// Общая цепочка ИИ-провайдеров для разбора объявлений — один и тот же
-// список используется в api/listingParser.js (а через него — в
-// api/telegram-webhook.js, api/finalize-albums.js и server/bot.js).
-//
-// Порядок: Anthropic (Claude Haiku) -> Gemini -> Groq -> OpenRouter ->
-// Mistral -> SambaNova -> Cloudflare Workers AI. Провайдер без ключа в
-// окружении пропускается, так что без ANTHROPIC_API_KEY цепочка работает
-// ровно как раньше. Haiku стоит первым ради качества извлечения; при любой
-// ошибке (ключ, лимит, таймаут, пустой/невалидный ответ) управление
-// переходит к бесплатным провайдерам ниже.
-// (OpenAI и Cerebras сознательно не используются.)
-//
-// Что делает цепочка надёжной:
-//   • ответ каждого провайдера ПРОВЕРЯЕТСЯ вызывающим кодом (callback
-//     `validate`) ДО того, как цепочка остановится. Раньше первый ответивший
-//     провайдер возвращался как есть — даже `{}`, массив или JSON с неверными
-//     типами, и до следующего провайдера дело не доходило;
-//   • повторы ограничены: на провайдера не больше `maxAttempts` попыток
-//     (по умолчанию 2), на всю цепочку — общий лимит времени `budgetMs`
-//     (по умолчанию 25 с, AI_TOTAL_BUDGET_MS). Бесконечных повторов нет;
-//   • временные сбои (429/5xx/таймаут/сеть) повторяются с паузой, постоянные
-//     (401/403/404/400) — нет, цепочка сразу идёт дальше;
-//   • при невалидном JSON/нарушении схемы повтор получает короткую подсказку,
-//     что именно было не так;
-//   • ошибки разных слоёв различаются в логе полем `class`
-//     (model | parse | validation) — см. api/_aiLog.js;
-//   • в логи не попадают ключи: ключ Gemini передаётся заголовком, а не в URL,
-//     и любой текст ошибки проходит через redactSecrets.
-//
-// Если ни один провайдер не дал валидный ответ — { ok: false, attempts },
-// вызывающий код откатывается на регулярный парсер (parseListing) и не
-// теряет объявление.
-
 import { ErrorClass, logEvent, shortBody, redactSecrets } from "./_aiLog.js";
 
-// Конфигурация читается при каждом вызове (а не один раз при загрузке
-// модуля), чтобы изменения окружения и тесты работали предсказуемо.
 function readConfig() {
     const env = process.env;
     const num = (value, fallback) => {
@@ -43,7 +8,6 @@ function readConfig() {
     };
 
     return {
-        // Модель задаётся ANTHROPIC_MODEL; значение по умолчанию — только запасное.
         anthropic: { key: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || "claude-haiku-5-5" },
         gemini: { key: env.GEMINI_API_KEY, model: env.GEMINI_MODEL || "gemini-3.6-flash" },
         groq: { key: env.GROQ_API_KEY, model: env.GROQ_MODEL || "llama-3.3-70b-versatile" },
@@ -61,14 +25,11 @@ function readConfig() {
     };
 }
 
-// 529 — "overloaded" у Anthropic: временная перегрузка, повтор уместен.
 const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504, 529]);
 const DEFAULT_RETRY_DELAYS_MS = [800, 1800];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Паузы между повторами одного провайдера (мс). Можно переопределить
-// переменной AI_RETRY_DELAYS_MS="800,1800" (в тестах — "0,0").
 function readRetryDelays() {
     const raw = process.env.AI_RETRY_DELAYS_MS;
     if (!raw) return DEFAULT_RETRY_DELAYS_MS;
@@ -76,7 +37,6 @@ function readRetryDelays() {
     return list.length ? list : DEFAULT_RETRY_DELAYS_MS;
 }
 
-// Ошибка одного обращения к провайдеру. kind: http | timeout | network | empty | json
 class AiCallError extends Error {
     constructor(kind, message, { status = null, retryable = false } = {}) {
         super(message);
@@ -87,11 +47,8 @@ class AiCallError extends Error {
     }
 }
 
-// Класс ошибки для лога: сетевые/HTTP/пустые ответы — это модель,
-// невалидный JSON — разбор.
 const classOfCallError = (e) => (e.kind === "json" ? ErrorClass.PARSE : ErrorClass.MODEL);
 
-// Модели иногда оборачивают JSON в ```-фенсы или добавляют текст вокруг.
 export function cleanJsonText(text) {
     const raw = String(text || "").trim();
     const noFence = raw.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
@@ -136,16 +93,6 @@ async function failOnHttpError(res, label) {
     });
 }
 
-// ---------------------------------------------------------------------
-// Адаптеры провайдеров. Каждый делает ОДНО обращение и либо возвращает
-// разобранный JSON, либо бросает AiCallError. Решение о повторе принимает
-// цепочка ниже.
-// ---------------------------------------------------------------------
-
-// Anthropic Messages API. JSON получаем через принудительный вызов
-// инструмента (tool_choice) со схемой ответа: модель возвращает готовый
-// объект в tool_use.input, без markdown-фенсов и лишнего текста. Если
-// схемы нет или модель всё же ответила текстом — разбираем текст как JSON.
 const ANTHROPIC_MAX_TOKENS = 2048;
 const ANTHROPIC_TOOL_NAME = "save_listing";
 
@@ -174,7 +121,6 @@ async function callAnthropic(cfg, { systemPrompt, jsonSchema, userText }, timeou
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                // ключ в заголовке — так он не попадает в URL и логи
                 "x-api-key": cfg.anthropic.key,
                 "anthropic-version": "2023-06-01",
             },
@@ -218,7 +164,6 @@ async function callGemini(cfg, { systemPrompt, geminiResponseSchema, userText },
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                // ключ в заголовке, а не в ?key=... — так он не попадает в URL и логи
                 "x-goog-api-key": cfg.gemini.key,
             },
             body: JSON.stringify({
@@ -252,9 +197,6 @@ async function callGemini(cfg, { systemPrompt, geminiResponseSchema, userText },
     return parseModelJson(raw);
 }
 
-// Groq/OpenRouter/Mistral/SambaNova говорят по OpenAI-совместимому
-// /chat/completions, но без строгой json_schema — просим json_object и
-// подчищаем ответ cleanJsonText.
 async function callOpenAICompatible({ providerName, baseUrl, apiKey, model, systemPrompt, userText, extraHeaders = {} }, timeoutMs) {
     const label = providerName.toUpperCase();
 
@@ -291,8 +233,6 @@ async function callOpenAICompatible({ providerName, baseUrl, apiKey, model, syst
     return parseModelJson(raw);
 }
 
-// Cloudflare Workers AI — свой формат: /accounts/{id}/ai/run/{model},
-// ответ { success, result: { response } }.
 async function callCloudflare(cfg, { systemPrompt, userText }, timeoutMs) {
     const res = await fetchWithTimeout(
         `https://api.cloudflare.com/client/v4/accounts/${cfg.cloudflare.accountId}/ai/run/${cfg.cloudflare.model}`,
@@ -379,22 +319,10 @@ export function isGeminiConfigured() {
     return Boolean(process.env.GEMINI_API_KEY);
 }
 
-// Список имён настроенных провайдеров (без ключей) — для логов.
 export function configuredProviders() {
     return buildProviders(readConfig()).map((p) => p.name);
 }
 
-// Публичная функция цепочки.
-//
-//   validate(raw) -> { ok: true, value } | { ok: false, reason }
-//     Проверка по смыслу/схеме. Если не передана — принимается любой JSON-объект
-//     (старое поведение, нужно только для обратной совместимости).
-//
-// Возвращает { ok, provider, data, attempts }:
-//   data     — value из validate (или сырой объект), если ok;
-//   attempts — журнал попыток [{ provider, attempt, outcome, class, reason, status, ms }].
-//   skipProviders — имена провайдеров, которые для ЭТОГО вызова пропускаем
-//     (например, ai-search не тратит платный Anthropic на каждый поисковый запрос).
 export async function runListingAiChain({
     systemPrompt,
     geminiResponseSchema,
@@ -456,7 +384,6 @@ export async function runListingAiChain({
                     return { ok: true, provider: provider.name, data: verdict.value, attempts: attemptsLog };
                 }
 
-                // JSON валиден, но не прошёл проверку по смыслу
                 Object.assign(record, {
                     outcome: "validation_error",
                     class: ErrorClass.VALIDATION,
@@ -484,7 +411,6 @@ export async function runListingAiChain({
                 attemptsLog.push(record);
                 logEvent("AI_ATTEMPT", record);
 
-                // постоянная ошибка (401/403/400/404...) — повторять бессмысленно
                 if (!err.retryable) break;
 
                 if (err.kind === "json") {

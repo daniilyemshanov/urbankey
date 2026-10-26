@@ -45,8 +45,6 @@
 
 
 
-/* ===== SWIPER HEIGHT FIX ===== */
-
 :global(.swiper-wrapper) {
 
     align-items: stretch;
@@ -511,8 +509,6 @@
 
 
 
-
-/* ARROWS */
 
 :global(.swiper-button-next),
 :global(.swiper-button-prev) {

@@ -42,8 +42,6 @@ const TurnstileWidget = ({ onVerify, onExpire, className }) => {
 
     const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-    // держим последние колбэки в ref, чтобы не пересоздавать виджет
-    // из-за того, что родитель передаёт новую функцию на каждый ре-рендер
     const onVerifyRef = useRef(onVerify);
     const onExpireRef = useRef(onExpire);
 
@@ -65,7 +63,6 @@ const TurnstileWidget = ({ onVerify, onExpire, className }) => {
 
                 if (cancelled || !containerRef.current || !window.turnstile) return;
 
-                // на случай StrictMode/повторного маунта в тот же контейнер
                 if (widgetIdRef.current) {
                     return;
                 }
@@ -102,8 +99,6 @@ const TurnstileWidget = ({ onVerify, onExpire, className }) => {
 
         };
 
-    // ВАЖНО: зависим только от siteKey, а не от onVerify/onExpire —
-    // иначе виджет пересоздаётся при каждом ре-рендере родителя
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [siteKey]);
 

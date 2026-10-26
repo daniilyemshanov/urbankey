@@ -24,7 +24,6 @@ test("isSoldKeyword: не срабатывает на обычный текст,
     }
 });
 
-// Минимальный фейк supabase-клиента: таблицы -> строки, цепочки select/eq/maybeSingle/update.
 function fakeSupabase(tables, { missingSoldColumn = false } = {}) {
     const updates = [];
     const from = (name) => {
@@ -106,7 +105,6 @@ test("markListingSold: ставит флаг; без колонки даёт п�
 });
 
 test("страница проданного объекта не существует (404), живого — существует", async () => {
-    // проданная карточка отфильтрована во view cardss_public, а villas осталась
     const sb = fakeSupabase({
         villas: [{ card_id: 1 }, { card_id: 2 }],
         cardss_public: [{ id: 1 }],
@@ -114,9 +112,9 @@ test("страница проданного объекта не существу
         commercials_public: [{ id: 10 }],
     });
     assert.equal(await propertyExists(sb, 1), true);
-    assert.equal(await propertyExists(sb, 2), false);   // продан
-    assert.equal(await propertyExists(sb, 3), false);   // нет страницы вообще
+    assert.equal(await propertyExists(sb, 2), false);
+    assert.equal(await propertyExists(sb, 3), false);
     assert.equal(await commercialExists(sb, 10), true);
-    assert.equal(await commercialExists(sb, 11), false); // продан
+    assert.equal(await commercialExists(sb, 11), false);
     assert.equal(await commercialExists(sb, 12), false);
 });

@@ -1,10 +1,3 @@
-// /api/exchange-rate — публичный (только чтение) курс USD/UZS ЦБ РУз.
-// Запасной источник для сайта: если в Supabase (таблица exchange_rates) курса
-// ещё нет — cron не настроен или SQL не применён, — кнопка смены валюты
-// иначе молча ничего не пересчитывает. К cbu.uz из браузера обращаться нельзя
-// (CSP connect-src), поэтому запрос идёт через сервер и кэшируется на CDN.
-// Ничего не записывает и секретов не требует.
-
 import { fetchCbuUsdRate } from "./_exchangeRate.js";
 
 export default async function handler(req, res) {

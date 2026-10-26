@@ -1,7 +1,3 @@
-// Настоящий api/telegram-webhook.js целиком: Telegram-апдейт -> разбор -> запись
-// в БД (Postgres+PostgREST, ключ service_role) -> чтение как посетитель (anon).
-// Telegram API и перевод подменены, БД настоящая. Только локально.
-
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -14,8 +10,8 @@ delete process.env.TELEGRAM_WEBHOOK_SECRET;
 process.env.AI_RETRY_DELAYS_MS = "0,0";
 
 const realFetch = globalThis.fetch;
-const telegram = [];       // что бот отправил в Telegram
-let aiQueue = [];          // заготовленные ответы Gemini
+const telegram = [];
+let aiQueue = [];
 globalThis.fetch = async (url, init) => {
     const u = String(url);
     if (u.includes("api.telegram.org")) {
@@ -54,7 +50,6 @@ const replies = () => telegram.map((t) => decodeURIComponent(t.body)).join("\n")
 
 const FULL = "🔥 Продам 2-комнатная квартира\n📍 Юнусабад, ул. Навои 12\n5/9 этаж, 68 м², 2 санузла\nС мебелью, балкон, лифт. Без ремонта.\nЦена: 85 000$\nТел: +998 90 123 45 67";
 
-// 1. Новый пост (ИИ не настроен -> регулярный разбор)
 delete process.env.GEMINI_API_KEY;
 let r = await send(channelPost(501, FULL));
 ok("webhook отвечает 200", r.code === 200);
@@ -70,7 +65,6 @@ ok("перевод about на en/uz выполнен до записи", page.ab
 ok("бот ответил администратору без ошибки", telegram.length > 0 && !/❌/.test(replies()), replies().slice(0, 80).replace(/\n/g, " "));
 ok("секреты (токен бота) не попали в логи", !logs.join("\n").includes("FAKE_TELEGRAM_TOKEN"));
 
-// 2. Правка поста: цена обновляется, а пропавшая в новой версии — не стирается
 await send(editedPost(501, "🔥 Продам 2-комнатная квартира\n5/9 этаж, 68 м²\nЦена: 90 000$"));
 card = await cardByTg(501);
 ok("правка поста обновила цену", card.price === "90 000$", card.price);
@@ -79,7 +73,6 @@ card = await cardByTg(501);
 ok("правка без цены НЕ стирает цену в базе", card.price === "90 000$", JSON.stringify(card.price));
 ok("но заголовок обновился", /обновлено/.test(card.title_ru), card.title_ru);
 
-// 3. Пост через ИИ
 process.env.GEMINI_API_KEY = "AIza_FAKE_E2E_KEY_0123456789abcdef";
 aiQueue = [{
     title_ru: "3-комнатная квартира у метро", title_en: "3-room apartment near metro", title_uz: "Metro yaqinida 3 xonali kvartira",
@@ -98,19 +91,16 @@ ok("ИИ: выдуманный \"Паркинг\" отброшен, подтве
 ok("ИИ: число из слова (\"трёхкомнатная\") сохранено", card.bedrooms_ru === "3 спальни");
 ok("ИИ: цена и площадь на странице", Number(page.price) === 120000 && Number(page.square) === 90);
 
-// 4. Недоступный ИИ: объявление не теряется
-aiQueue = [];   // fake fetch отвечает 500 на каждый запрос к Gemini
+aiQueue = [];
 await send(channelPost(503, "Продам 2-комнатная квартира\n5/9 этаж, 68 м²\nЦена: 85 000$"));
 card = await cardByTg(503);
 ok("ИИ недоступен: объявление всё равно опубликовано (резервный разбор)", !!card && card.price === "85 000$");
 ok("в логе видно причину и класс ошибки", logs.some((l) => l.startsWith("LISTING_PARSE") && l.includes("fallback_to_regex")) && logs.some((l) => l.startsWith("AI_ATTEMPT") && l.includes('"class":"model"')));
 delete process.env.GEMINI_API_KEY;
 
-// 5. "Продано" не публикуется (прежнее правило сохранено)
 await send(channelPost(504, "ПРОДАНО! 2-комнатная квартира 85 000$"));
 ok("пост \"ПРОДАНО\" не публикуется (как и раньше)", (await cardByTg(504)) === null);
 
-// 6. Без ключей/телефонов в логах
 const all = logs.join("\n");
 ok("телефон из постов не попал в логи", !/998 ?90 ?123/.test(all));
 ok("ключи не попали в логи", !all.includes("AIza_FAKE_E2E_KEY") && !all.includes("FAKE_TELEGRAM_TOKEN"));

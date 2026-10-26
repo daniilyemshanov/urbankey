@@ -14,7 +14,6 @@ const Journey = () => {
 
         const fetchCount = async () => {
 
-            // view не содержат проданных; если view недоступна — читаем таблицы
             const countOf = async (view, table) => {
                 const res = await supabase.from(view).select("id", { count: "exact", head: true })
                 if (!res.error) return res

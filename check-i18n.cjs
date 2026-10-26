@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const localesPath = "./src/locales/ru"; // поменяй если у тебя другой путь
+const localesPath = "./src/locales/ru";
 
 const files = fs.readdirSync(localesPath)
     .filter(file => file.endsWith(".json"));

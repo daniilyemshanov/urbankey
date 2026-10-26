@@ -6,14 +6,6 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import { localizedPath } from "../utils/lang";
 import s from "./AiSearchBar.module.css";
 
-// Крупная строка ИИ-поиска — единая точка входа что на главной (Hero),
-// что над каталогом (Find). Жмёшь "Найти" — переходим на отдельную
-// страницу каталога (/Properties?q=...), точь-в-точь как поиск на
-// Uzum открывает отдельную страницу результатов, а не выпадающую
-// панель. Сам разбор запроса через ИИ и применение фильтров
-// происходит уже там (src/components/Catalog.jsx, см. useSearchParams
-// эффект) — один источник правды для вызова ИИ, чтобы логика не
-// расходилась между несколькими местами на сайте.
 const AiSearchBar = ({ className = "" }) => {
 
     const { t, i18n } = useTranslation();

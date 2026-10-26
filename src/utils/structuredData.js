@@ -1,15 +1,7 @@
-// Хелперы для построения JSON-LD (schema.org). Данные берутся только из реальных
-// полей проекта/объекта — никаких выдуманных значений (рейтинги, отзывы и т.п. не добавляем,
-// т.к. на сайте нет соответствующих данных).
-
 import { parsePrice } from "./currency.js";
 
 const SITE_ORIGIN = "https://urbankey.uz";
 
-/**
- * Organization + RealEstateAgent — один объект, размещается на главной странице.
- * Использует только реальные контакты компании.
- */
 export const buildOrganizationJsonLd = () => ({
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
@@ -29,11 +21,6 @@ export const buildOrganizationJsonLd = () => ({
     },
 });
 
-/**
- * BreadcrumbList для страниц объектов недвижимости.
- * @param {{name: string, path: string}[]} items - path относительный, без языкового префикса и origin
- * @param {string} lang
- */
 export const buildBreadcrumbJsonLd = (items, lang) => ({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -45,9 +32,6 @@ export const buildBreadcrumbJsonLd = (items, lang) => ({
     })),
 });
 
-// Offer только из реальной цены объявления: число + валюта, определённые теми же
-// правилами, что и в каталоге (parsePrice). Цена за м², пустая или нечитаемая
-// цена — Offer не выводим, чтобы не заявить неверную сумму.
 const buildOffer = (rawPrice) => {
     const parsed = parsePrice(rawPrice);
     if (!parsed || parsed.perSqm) return undefined;
@@ -72,10 +56,6 @@ const buildListing = ({ name, description, url, images, price }) => {
     return data;
 };
 
-/**
- * Страница объявления о жилье: schema.org RealEstateListing (страница объявления
- * с предложением). Только поля, которые есть в данных и видны на странице.
- */
 export const buildResidenceJsonLd = ({ villa, lang, url }) =>
     buildListing({
         name: villa?.title?.[lang] || villa?.title?.ru,
@@ -85,9 +65,6 @@ export const buildResidenceJsonLd = ({ villa, lang, url }) =>
         price: villa?.price,
     });
 
-/**
- * Страница объявления о коммерческом объекте.
- */
 export const buildCommercialJsonLd = ({ page, lang, url }) =>
     buildListing({
         name: page?.title?.[lang] || page?.title?.ru,

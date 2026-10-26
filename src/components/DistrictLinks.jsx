@@ -1,6 +1,3 @@
-// Ссылки на страницы районов (квартиры и коммерция). Обычные <a>-ссылки в HTML —
-// так роботы находят страницы районов, а посетители быстро переходят между ними.
-
 import { Link } from "react-router-dom";
 import { TASHKENT_DISTRICTS } from "../utils/districts";
 import { getDistrictPage, districtPagePath } from "../utils/districtPages";

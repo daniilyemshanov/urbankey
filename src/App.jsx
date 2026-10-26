@@ -15,9 +15,6 @@ import LeadPopup from "./components/LeadPopup";
 import LanguageLayout from "./components/LanguageLayout";
 import LegacyRedirect from "./components/LegacyRedirect";
 
-// Непубличные страницы (вход, профиль, админка, добавление объявлений) грузятся
-// отдельными чанками: публичные страницы для поиска не тащат этот код.
-// Публичные страницы, кроме главной, тоже отдельными чанками: главная не тянет их код.
 const AboutUs = lazy(() => import("./pages/AboutUs"));
 const Properties = lazy(() => import("./pages/Properties"));
 const DistrictListings = lazy(() => import("./pages/DistrictListings"));
@@ -93,8 +90,6 @@ const App = () => {
 
       <Suspense fallback={null}>
       <Routes>
-        {/* Публичные, индексируемые страницы — живут под языковым префиксом /ru /en /uz,
-            это даёт каждому языку собственный URL для hreflang и убирает дубли контента. */}
         <Route path="/:lang" element={<LanguageLayout />}>
           <Route index element={<Home />} />
           <Route path="AboutUs" element={<AboutUs />} />
@@ -107,9 +102,6 @@ const App = () => {
           <Route path="commercial/:id" element={<CommercialPage />} />
         </Route>
 
-        {/* Совместимость со старыми "голыми" ссылками без языкового префикса.
-            Основной 301/308-редирект настроен на уровне Vercel (vercel.json),
-            эти маршруты — клиентский fallback (dev-режим, прямые заходы мимо edge). */}
         <Route path="/" element={<LegacyRedirect />} />
         <Route path="/AboutUs" element={<LegacyRedirect />} />
         <Route path="/Properties" element={<LegacyRedirect />} />
@@ -118,8 +110,6 @@ const App = () => {
         <Route path="/property/:id" element={<LegacyRedirect />} />
         <Route path="/commercial/:id" element={<LegacyRedirect />} />
 
-        {/* Служебные/приватные страницы — не индексируются (см. robots.txt),
-            мультиязычные URL им не нужны, оставляем как есть. */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route

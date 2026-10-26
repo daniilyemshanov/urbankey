@@ -1,17 +1,5 @@
-// Помощник для автоперевода текстов объявления через /api/translate.
-//
-// Пользователь пишет объявление один раз на удобном ему языке (ru/uz/en),
-// а это функция переводит указанные поля на оставшиеся языки и
-// возвращает объект { [fieldId]: { ru, en, uz } } — готовый для вставки
-// в cardss/villas/commercials/commercial_pages, где каждое текстовое
-// поле хранится сразу на 3 языках (title_ru/title_en/title_uz и т.п.)
-
 export const SUPPORTED_LISTING_LANGS = ["ru", "en", "uz"];
 
-// fields: { fieldId: text }
-// возвращает: { fieldId: { ru, en, uz } } — на исходном языке всегда
-// оригинальный текст, на остальных — перевод (или тот же текст, если
-// переводчик оказался недоступен, чтобы объявление в любом случае ушло)
 export const translateFields = async (source, fields) => {
 
     const targets = SUPPORTED_LISTING_LANGS.filter((l) => l !== source);
@@ -52,16 +40,12 @@ export const translateFields = async (source, fields) => {
     } catch (err) {
 
         console.error("translateFields error:", err);
-        // сеть/сервис перевода недоступны — объявление всё равно должно
-        // публиковаться, просто без реального перевода (как раньше)
         return buildFallback();
 
     }
 
 };
 
-// достаёт значение поля из результата перевода с fallback на исходный
-// текст, если поле было пустым/необязательным и не отправлялось на перевод
 export const pickLangValue = (results, id, rawText) => {
 
     const r = results[id];

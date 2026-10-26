@@ -1,8 +1,3 @@
--- UrbanKey: надёжная очередь Telegram -> сайт.
--- Выполнить один раз в Supabase SQL Editor.
--- Скрипт идемпотентный.
-
--- 1. Гарантируем структуру очереди альбомов.
 ALTER TABLE bot_pending_albums
     ADD COLUMN IF NOT EXISTS images text[] NOT NULL DEFAULT '{}',
     ADD COLUMN IF NOT EXISTS videos text[] NOT NULL DEFAULT '{}',
@@ -24,8 +19,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS bot_pending_albums_media_group_id_uidx
 CREATE INDEX IF NOT EXISTS bot_pending_albums_finalize_idx
     ON bot_pending_albums (processed, processing, updated_at);
 
--- 2. Идемпотентность обычных Telegram-постов.
--- Удаляем старые дубли, оставляя самую раннюю запись.
 DELETE FROM cardss a
 USING cardss b
 WHERE a.ctid > b.ctid
@@ -50,8 +43,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS commercials_telegram_message_uidx
     ON commercials (tg_chat_id, tg_message_id)
     WHERE tg_chat_id IS NOT NULL AND tg_message_id IS NOT NULL;
 
--- 3. Атомарное добавление фото альбома.
--- p_message_id защищает от повторной доставки одного webhook Telegram.
 ALTER TABLE bot_pending_albums
     ADD COLUMN IF NOT EXISTS source_message_ids text[] NOT NULL DEFAULT '{}';
 
@@ -99,8 +90,6 @@ BEGIN
 END;
 $$;
 
--- 4. Атомарное добавление видео. Видео пишем и в videos, и в legacy video,
--- чтобы старый код/данные продолжили работать.
 CREATE OR REPLACE FUNCTION append_album_video(
     p_media_group_id text,
     p_video text,
@@ -148,9 +137,6 @@ BEGIN
 END;
 $$;
 
--- 5. Атомарный claim очереди.
--- Позволяет параллельным cron-запускам не обработать один альбом дважды.
--- Зависшие lock'и старше p_stale_lock_seconds автоматически возвращаются в очередь.
 CREATE OR REPLACE FUNCTION claim_pending_album(
     p_media_group_id text,
     p_settle_seconds integer DEFAULT 20,
@@ -183,8 +169,6 @@ BEGIN
 END;
 $$;
 
--- 6. Если старые записи зависли в processing после предыдущей версии бота,
--- сразу возвращаем их в очередь.
 UPDATE bot_pending_albums
 SET processing = false,
     locked_at = NULL
@@ -192,8 +176,3 @@ WHERE processed = false
   AND processing = true
   AND (locked_at IS NULL OR locked_at < now() - interval '10 minutes');
 
--- Проверка:
--- SELECT media_group_id, processed, processing, attempts, last_error, updated_at
--- FROM bot_pending_albums
--- ORDER BY updated_at DESC
--- LIMIT 20;

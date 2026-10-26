@@ -1,7 +1,3 @@
-// Извлечение фактов из объявлений: разные форматы, отсутствующие
-// характеристики, ловушки (цена за м², "без мебели", кириллица и \b).
-// Без сети и БД. Запуск: npm run test:listing
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -28,8 +24,6 @@ const table = (fn, rows) => {
     }
 };
 
-// ---- комнаты -------------------------------------------------------------
-
 test("комнаты: распространённые форматы", () => {
     table(extractRooms, [
         ["Продам 2-комнатная квартира", "2"],
@@ -53,8 +47,8 @@ test("комнаты: распространённые форматы", () => {
 test("комнаты: нет данных — пустая строка, ничего не выдумывается", () => {
     table(extractRooms, [
         ["Квартира в центре, рядом метро", ""],
-        ["Студия", ""],           // студия без числа — не 1 и не 0
-        ["Цена 85к$", ""],        // "85к" — тысячи, а не 85 комнат
+        ["Студия", ""],
+        ["Цена 85к$", ""],
         ["", ""],
         [null, ""],
     ]);
@@ -70,8 +64,6 @@ test("санузлы", () => {
         ["5/9 этаж", ""],
     ]);
 });
-
-// ---- этаж и этажность ----------------------------------------------------
 
 test("этаж: форматы 5/9, 5 из 9, раздельные поля", () => {
     table(extractFloorInfo, [
@@ -90,10 +82,10 @@ test("этаж: форматы 5/9, 5 из 9, раздельные поля", ()
 
 test("этаж: только этаж, только этажность, словами", () => {
     table(extractFloorInfo, [
-        ["квартира на 5 этаже", { floor: "5", totalFloors: "" }],     // раньше не находилось (\b + кириллица)
+        ["квартира на 5 этаже", { floor: "5", totalFloors: "" }],
         ["5 этаж", { floor: "5", totalFloors: "" }],
         ["пятый этаж", { floor: "5", totalFloors: "" }],
-        ["в 9-этажном доме", { floor: "", totalFloors: "9" }],        // здание, а не этаж квартиры
+        ["в 9-этажном доме", { floor: "", totalFloors: "9" }],
         ["9-этажный дом", { floor: "", totalFloors: "9" }],
         ["Этажность: 16", { floor: "", totalFloors: "16" }],
     ]);
@@ -103,11 +95,9 @@ test("этаж: нет данных / противоречие не приним
     table(extractFloorInfo, [
         ["просторная квартира", { floor: "", totalFloors: "" }],
         ["", { floor: "", totalFloors: "" }],
-        ["9/5 этаж", { floor: "9", totalFloors: "" }], // этаж выше этажности — этажность не берём
+        ["9/5 этаж", { floor: "9", totalFloors: "" }],
     ]);
 });
-
-// ---- площадь --------------------------------------------------------------
 
 test("площадь: форматы и единицы", () => {
     table(extractArea, [
@@ -131,8 +121,6 @@ test("площадь: общая важнее кухни и жилой; цена
     assert.equal(extractArea("Квартира без указания площади"), "");
 });
 
-// ---- цена и валюта --------------------------------------------------------
-
 test("цена: пробелы и разные обозначения валют", () => {
     const usd = (input) => {
         const i = extractPriceInfo(input);
@@ -143,7 +131,7 @@ test("цена: пробелы и разные обозначения валют
     assert.deepEqual(usd("85 000 usd"), ["85 000$", 85000, "USD"]);
     assert.deepEqual(usd("USD 85 000"), ["85 000$", 85000, "USD"]);
     assert.deepEqual(usd("$85,000"), ["85 000$", 85000, "USD"]);
-    assert.deepEqual(usd("85.000$"), ["85 000$", 85000, "USD"]);     // точка — разделитель тысяч
+    assert.deepEqual(usd("85.000$"), ["85 000$", 85000, "USD"]);
     assert.deepEqual(usd("85 тыс. $"), ["85 000$", 85000, "USD"]);
     assert.deepEqual(usd("1,2 млн $"), ["1 200 000$", 1200000, "USD"]);
     assert.deepEqual(usd("долларов 85000"), ["", null, null].map((x, i) => (i === 0 ? extractPriceInfo("долларов 85000").raw : x)));
@@ -154,9 +142,8 @@ test("цена: сумы, курс и итог в долларах", () => {
     assert.deepEqual([i.raw, i.amount, i.currency], ["850 000 000 сум", 850000000, "UZS"]);
 
     const both = extractPriceInfo("Цена: 8 659 000 000 сум/12000=722.000$");
-    assert.deepEqual([both.raw, both.currency], ["722 000$", "USD"]); // итог в $ важнее сумов
+    assert.deepEqual([both.raw, both.currency], ["722 000$", "USD"]);
 
-    // "сумма" — не валюта
     assert.equal(extractPriceInfo("общая сумма 85 000").currency, null);
 });
 
@@ -167,7 +154,6 @@ test("цена: за м² сохраняется как есть, итогово
     assert.equal(perSqm.amount, 1400);
     assert.equal(perSqm.perSqmRaw, "1 400$ за м²");
 
-    // если есть и итоговая цена, и цена за м² — выбирается итоговая
     const both = extractPriceInfo("Цена 85 000$ (1400$ за м²)");
     assert.equal(both.raw, "85 000$");
     assert.equal(both.perSqm, false);
@@ -180,7 +166,6 @@ test("цена: за м² сохраняется как есть, итогово
 test("цена: число для страницы не вводит сайт в заблуждение", () => {
     assert.equal(priceNumberForPage(extractPriceInfo("85 000$")), 85000);
     assert.equal(priceNumberForPage(extractPriceInfo("850 млн сум")), 850000000);
-    // 5 млн сум сайт принял бы за доллары (порог 10 млн) — такое число не записываем
     assert.equal(priceNumberForPage(extractPriceInfo("5 000 000 сум")), null);
     assert.equal(priceNumberForPage(extractPriceInfo("нет цены")), null);
 });
@@ -193,15 +178,13 @@ test("parseAmountToken", () => {
     assert.equal(parseAmountToken("abc"), null);
 });
 
-// ---- аренда / продажа / тип ------------------------------------------------
-
 test("аренда и продажа: слова с кириллицей (раньше \\b не срабатывал)", () => {
     assert.equal(detectIsRent("Сдам квартиру"), true);
     assert.equal(detectIsRent("Сдаю 2-комнатную"), true);
     assert.equal(detectIsRent("Сдаётся офис"), true);
     assert.equal(detectIsRent("В аренду помещение"), true);
     assert.equal(detectIsRent("Продам квартиру"), false);
-    assert.equal(detectIsRent("Сдан в эксплуатацию дом, продаётся квартира"), false); // "сдан" ≠ "сдам"
+    assert.equal(detectIsRent("Сдан в эксплуатацию дом, продаётся квартира"), false);
     assert.equal(detectIsSold("ПРОДАНО"), true);
     assert.equal(detectIsSold("Продан!"), true);
     assert.equal(detectIsSold("Продам квартиру"), false);
@@ -210,15 +193,12 @@ test("аренда и продажа: слова с кириллицей (ран
 test("тип жилья", () => {
     assert.equal(detectType("Продам частный дом").ru, "Дом");
     assert.equal(detectType("Продам дом на участке").ru, "Дом");
-    assert.equal(detectType("Квартира в 9-этажном доме").ru, "Квартира");  // "доме" — здание
+    assert.equal(detectType("Квартира в 9-этажном доме").ru, "Квартира");
     assert.equal(detectType("Продам 2-комнатную квартиру в ЖК Dream House").ru, "Квартира");
     assert.equal(detectType("Новостройка, 3 комнаты").ru, "Новостройка");
-    // вилла/коттедж/пентхаус — не отдельные типы
     assert.equal(detectType("Продам виллу").ru, "Квартира");
     assert.equal(detectType("Пентхаус в центре").ru, "Квартира");
 });
-
-// ---- преимущества ----------------------------------------------------------
 
 test("преимущества: только подтверждённые, отрицания не считаются", () => {
     const names = (t) => extractAmenities(t).map((a) => a.ru);
@@ -233,8 +213,6 @@ test("преимущества: только подтверждённые, от�
     assert.ok(!names("вид на море").includes("Вид на город"));
 });
 
-// ---- заголовок --------------------------------------------------------------
-
 test("заголовок: эмодзи, хештеги, глагол сделки", () => {
     assert.equal(cleanTitle("🔥 Продам 2-комнатная квартира"), "2-комнатная квартира");
     assert.equal(cleanTitle("Сдаётся — офис в центре"), "Офис в центре");
@@ -243,10 +221,8 @@ test("заголовок: эмодзи, хештеги, глагол сделк�
     assert.ok(cleanTitle("А".repeat(200)).length <= 91);
 });
 
-// ---- подтверждение чисел текстом (проверка ответа ИИ) ------------------------
-
 test("число подтверждается цифрой или словом", () => {
-    assert.equal(isNumberSupported("двухкомнатная квартира", 2, "count"), true);     // раньше терялось
+    assert.equal(isNumberSupported("двухкомнатная квартира", 2, "count"), true);
     assert.equal(isNumberSupported("трёхкомнатная", 3, "count"), true);
     assert.equal(isNumberSupported("пятый этаж", 5, "count"), true);
     assert.equal(isNumberSupported("5/9 этаж", 9, "count"), true);
@@ -256,8 +232,6 @@ test("число подтверждается цифрой или словом",
     assert.equal(isNumberSupported("цена 1,2 млн $", 1200000, "amount"), true);
     assert.equal(isNumberSupported("цена 85 000$", 90000, "amount"), false);
 });
-
-// ---- подписи и полный разбор ---------------------------------------------------
 
 test("подписи количества склоняются", () => {
     assert.equal(countLabelsFor("bedrooms", 1).ru, "1 спальня");
@@ -331,13 +305,12 @@ test("parseListing: аренда в сумах — валюта не подме�
     assert.equal(p.isRent, true);
     assert.equal(p.price, "5 000 000 сум");
     assert.equal(p.currency, "UZS");
-    assert.equal(p.priceNumber, null); // 5 млн сайт принял бы за $ — не записываем
+    assert.equal(p.priceNumber, null);
 });
 
 test("parseListing: цена за м² сохраняется как цена «за м²», а не итоговая", () => {
     const p = parseListing("Квартира 68 м²\n1400$ за 1м²");
     assert.equal(p.price, "1 400$ за м²");
-    // в числовую колонку страницы цена за м² не попадает
     assert.equal(p.priceNumber, null);
     assert.equal(p.pricePerSqm, "1 400$ за м²");
     assert.equal(p.area, "68");

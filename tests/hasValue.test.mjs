@@ -1,5 +1,3 @@
-// Пустые поля не показываем (src/utils/hasValue.js). Запуск: npm run test:seo
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasValue } from "../src/utils/hasValue.js";

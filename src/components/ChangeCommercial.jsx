@@ -15,7 +15,6 @@ import {
   ak as s
 } from "./admin/AdminKit";
 
-// Поля с тремя языками: ключ формы → ключ объекта из контекста
 const TRI = ["title", "description", "district", "address", "class", "landmark"];
 
 const ChangeCommercial = () => {

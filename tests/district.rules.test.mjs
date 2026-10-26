@@ -1,6 +1,3 @@
-// Правила района для постов из Telegram (api/_districtRules.js), страницы районов
-// (src/utils/districtPages.js) и ориентиры (src/utils/landmarks.js). Запуск: npm run test:seo
-
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyDistrictRules, districtPromptAddendum } from "../api/_districtRules.js";

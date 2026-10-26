@@ -7,9 +7,6 @@ import "swiper/css"
 import "swiper/css/navigation"
 import "swiper/css/pagination"
 
-// `media` — массив { src, type }, type: "image" | "video". Оставлен
-// пропс `images` для обратной совместимости: если передали просто
-// массив строк, оборачиваем их в { src, type: "image" } сами.
 const GalleryModal = ({ images, media, activeIndex, onClose }) => {
 
     const items = media || (images || []).map((src) => ({ src, type: "image" }));

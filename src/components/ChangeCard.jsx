@@ -97,7 +97,6 @@ const ChangeCard = () => {
       is_rent: data.dealType === "rent"
     };
 
-    // Этаж — только если такие колонки есть в базе
     if (cardId?.hasFloorColumns) {
       updatedCard.floor = data.floor;
       updatedCard.total_floors = data.total_floors;

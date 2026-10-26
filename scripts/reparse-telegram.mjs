@@ -1,30 +1,3 @@
-// Повторный разбор старых постов канала через тот же парсер (Haiku → цепочка → regex),
-// что и новые посты. Источник текста — экспорт Telegram Desktop (result.json).
-//
-// Запуск (из корня проекта, Node 20.6+):
-//
-//   # 1. Пробный прогон: ничего не пишет в БД, показывает "было → стало", кэширует ответы ИИ
-//   node --env-file=.env scripts/reparse-telegram.mjs --file result.json
-//
-//   # 2. Запись (использует кэш из шага 1 — ИИ второй раз не вызывается, деньги не тратятся)
-//   node --env-file=.env scripts/reparse-telegram.mjs --file result.json --apply
-//
-//   # Откат из резервной копии
-//   node --env-file=.env scripts/reparse-telegram.mjs --rollback backups/reparse-XXXX.json
-//
-// Флаги:
-//   --only 847,852     только эти id постов (tg_message_id)
-//   --limit 5          только первые N постов (удобно для проверки на малом числе)
-//   --offline          без БД и без Supabase: только разбор и вывод (для проверки парсера)
-//   --fresh            игнорировать кэш, разобрать заново
-//   --allow-regex      разрешить запись результатов запасного regex-парсера (по умолчанию такие посты пропускаются,
-//                      чтобы сбой ИИ не испортил карточки)
-//   --concurrency 2    параллельных запросов к ИИ (по умолчанию 2)
-//   --chat-id -100...  tg_chat_id карточек (по умолчанию -100<id канала из экспорта>)
-//
-// Нужны переменные: ANTHROPIC_API_KEY (или другой ключ ИИ), VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY.
-// Фото, видео, ссылки (link), slug страниц, tg_* поля и избранное НЕ меняются.
-
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +9,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CACHE_FILE = path.join(ROOT, "scripts", ".reparse-cache.json");
 const BACKUP_DIR = path.join(ROOT, "backups");
 
-// ---------- аргументы ----------
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
 const opt = (name, def = null) => {
@@ -52,7 +24,6 @@ const CONCURRENCY = Math.max(1, Number(opt("concurrency", 2)) || 2);
 const LIMIT = Number(opt("limit", 0)) || 0;
 const ONLY = opt("only") ? new Set(opt("only").split(",").map((s) => Number(s.trim()))) : null;
 
-// ---------- вспомогательное ----------
 const BOT_REPLY = /^(✅|⚠️|❌|✏️|ℹ️)/;
 
 function flattenText(t) {
@@ -68,7 +39,7 @@ function loadPosts(file) {
     for (const m of data.messages || []) {
         if (m.type !== "message") continue;
         const text = flattenText(m.text).trim();
-        if (!text || BOT_REPLY.test(text)) continue; // ответы самого бота и пустые сообщения
+        if (!text || BOT_REPLY.test(text)) continue;
         if (text.length < 40) continue;
         posts.push({ id: m.id, date: m.date, text });
     }
@@ -105,7 +76,6 @@ function diffRows(oldRow, newRow) {
     return lines;
 }
 
-// ---------- разбор одного поста (то же, что processPost в webhook) ----------
 async function parsePost(post) {
     const parsed = await getParsedListing(post.text);
 
@@ -118,7 +88,6 @@ async function parsePost(post) {
     return parsed;
 }
 
-// ---------- откат ----------
 async function rollback(file, supabase) {
     const backup = readJson(file, null);
     if (!backup?.items) throw new Error(`Не удалось прочитать ${file}`);
@@ -136,7 +105,6 @@ async function rollback(file, supabase) {
     console.log(`Откат выполнен: восстановлено строк — ${ok}`);
 }
 
-// ---------- main ----------
 async function main() {
     let supabase = null;
 
@@ -167,7 +135,6 @@ async function main() {
     console.log(`Канал ${channelId} (chat_id ${chatId}). Постов с текстом: ${allPosts.length}, в работе: ${posts.length}`);
     console.log(APPLY ? "РЕЖИМ: ЗАПИСЬ В БД\n" : "РЕЖИМ: пробный прогон (в БД ничего не пишется)\n");
 
-    // 1. разбор (с кэшем)
     const cache = FRESH ? {} : readJson(CACHE_FILE, {});
     let aiCalls = 0;
 
@@ -176,7 +143,6 @@ async function main() {
         if (cache[key]) { post.parsed = cache[key]; return; }
         post.parsed = await parsePost(post);
         aiCalls++;
-        // результат запасного regex-парсера (ИИ не ответил) в кэш не кладём — при следующем запуске попробуем снова
         if (OFFLINE || post.parsed.diagnostics?.source === "regex") return;
         cache[key] = post.parsed;
         process.stdout.write(".");
@@ -184,7 +150,6 @@ async function main() {
     if (aiCalls) console.log(`\nРазобрано заново: ${aiCalls}`);
     if (!OFFLINE) fs.writeFileSync(CACHE_FILE, JSON.stringify(cache));
 
-    // 2. сопоставление с БД и план изменений
     const plan = [];
     const stats = { updated: 0, same: 0, notFound: 0, sold: 0, typeChanged: 0, fallback: 0, errors: 0 };
 
@@ -203,7 +168,6 @@ async function main() {
         const wantTable = parsed.isCommercial ? "commercials" : "cardss";
         const { row: cardRow } = buildCardRow(parsed, { image: "", videoUrl: "", tgChatId: chatId, tgMessageId: post.id });
 
-        // поля, которые не трогаем
         for (const k of ["image", "video", "tg_chat_id", "tg_message_id"]) delete cardRow[k];
         const cardUpdate = omitEmpty(cardRow);
 
@@ -217,7 +181,6 @@ async function main() {
             continue;
         }
 
-        // поиск карточки: сначала в ожидаемой таблице, потом в другой
         const find = async (table) => {
             const { data } = await supabase.from(table).select("*").eq("tg_chat_id", chatId).eq("tg_message_id", post.id).maybeSingle();
             return data ? { table, row: data } : null;
@@ -235,7 +198,6 @@ async function main() {
 
         const card = hit;
 
-        // страница объекта
         const { data: pageOld } = await supabase.from(pageTable).select("*").eq(linkField, card.row.id).maybeSingle();
         let pageUpdate = null;
 
@@ -266,12 +228,10 @@ async function main() {
 
     if (OFFLINE) return;
 
-    // 3. запись
     if (APPLY && plan.length) {
         fs.mkdirSync(BACKUP_DIR, { recursive: true });
         const backupFile = path.join(BACKUP_DIR, `reparse-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 
-        // резервная копия ДО записи
         fs.writeFileSync(backupFile, JSON.stringify({
             createdAt: new Date().toISOString(),
             items: plan.map((p) => ({

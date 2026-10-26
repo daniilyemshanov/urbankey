@@ -28,7 +28,6 @@ const readMoreLabels = {
 };
 
 
-// Почему объявление показано как похожее (см. utils/similarListings.js).
 const REASON_LABELS = {
     district: { ru: "Тот же район", en: "Same district", uz: "Shu tuman" },
     rooms: { ru: (n) => `${n} комн.`, en: (n) => `${n} rooms`, uz: (n) => `${n} xona` },
@@ -59,19 +58,12 @@ const Feautured = ({ data, commercial, items }) => {
         deleteCommercial
     } = useContext(MyContext);
 
-    // isAdmin в контексте никогда не существовал (всегда был undefined) —
-    // из-за этого кнопка "Удалить" тут не отображалась вообще никогда.
-    // Считаем так же, как в Catalog.jsx/CommercialSection.jsx.
     const isAdmin = profile?.role === "admin";
 
 
 
     useEffect(() => {
 
-        // Раньше здесь всегда грузились ЖИЛЫЕ объекты (getCards/properties),
-        // даже на странице коммерческой недвижимости — из-за этого "похожие
-        // объекты" под коммерческим объявлением на самом деле были виллами.
-        // Теперь берём правильный источник в зависимости от типа страницы.
         if (commercial) {
             getCommercials();
         } else {
@@ -108,12 +100,6 @@ const Feautured = ({ data, commercial, items }) => {
 
     const list = items || (commercial ? commercials : properties);
 
-    // Самый надёжный источник "какой объект сейчас открыт" — id из самого URL
-    // (/property/:id, /commercial/:id), а не поля из связанных таблиц:
-    // villa.id — это id строки в таблице villas, а не в cardss (откуда properties).
-    // commercialPage.id (если страница открыта через getCommercialById) — это id
-    // строки в commercial_pages, а не в commercials. Оба поля ненадёжны (могут
-    // быть не тем id или не заполнены), поэтому берём id прямо из адресной строки.
     const { id: routeId } = useParams();
     const routeIdNum = routeId !== undefined ? Number(routeId) : undefined;
 
@@ -123,17 +109,13 @@ const Feautured = ({ data, commercial, items }) => {
             ? (data?.commercial_id ?? data?.id)
             : (data?.card_id ?? data?.id);
 
-    // Строка «Расположение» всех объявлений — по ней определяется район квартир.
     const locations = useVillaLocations();
 
-    // Открытый объект в списке (у него те же поля, что у кандидатов).
     const currentItem = useMemo(
         () => (list || []).find((item) => String(item.id) === String(currentId)),
         [list, currentId]
     );
 
-    // 7 самых похожих: район, комнаты, цена, площадь, этаж (коммерция: район, тип,
-    // класс, площадь, цена). Аренда и продажа не смешиваются.
     const similar = useMemo(() => rankSimilar({
         current: { ...(data || {}), ...(currentItem || {}) },
         candidates: list || [],

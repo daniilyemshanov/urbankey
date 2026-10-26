@@ -361,7 +361,6 @@ const Connect = () => {
 
                 </motion.div>
 
-                {/* honeypot: скрыто от людей через CSS, боты обычно заполняют всё подряд */}
                 <input
                     type="text"
                     tabIndex={-1}

@@ -57,3 +57,13 @@ svg {
 body {
   background: var(--black);
 }
+
+main[data-ssr-seo] {
+  margin-top: 70px !important;
+}
+
+@media (min-width: 577px) {
+  main[data-ssr-seo] {
+    margin-top: 100px !important;
+  }
+}

@@ -5,7 +5,9 @@ import { injectHeroPreload } from "../api/spa.js";
 test("preload героя добавляется перед </head> и не трогает остальной head", () => {
     const html = '<html><head><title>T</title><meta name="description" content="d" /></head><body></body></html>';
     const out = injectHeroPreload(html);
-    assert.match(out, /<link rel="preload" as="image" href="\/c3383124-8cd3-4f72-9ab0-7fd2f40c9fcc\.webp" fetchpriority="high" \/>\s*<\/head>/);
+    assert.match(out, /<link rel="preload" as="image" href="\/hero-poster\.webp" fetchpriority="high" \/>/);
+    assert.ok(!out.includes("c3383124"));
+    assert.match(out, /fetchpriority="high" \/>\s*<\/head>/);
     assert.ok(out.includes("<title>T</title>") && out.includes('name="description" content="d"'));
 });
 

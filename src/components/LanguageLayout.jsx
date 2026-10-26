@@ -1,7 +1,3 @@
-// Обёртка для локализованных маршрутов /:lang/*.
-// Синхронизирует сегмент языка в URL с react-i18next и <html lang="">,
-// чтобы у RU/EN/UZ версий страниц были разные индексируемые URL (нужно для hreflang).
-
 import { useEffect } from "react";
 import { Outlet, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -24,8 +20,6 @@ const LanguageLayout = () => {
     }, [lang, valid, i18n]);
 
     if (!valid) {
-        // Неизвестный первый сегмент (/мусор) — это несуществующая страница,
-        // а не повод редиректить на /ru: показываем 404 (сервер тоже отдаёт 404).
         return <NotFound />;
     }
 

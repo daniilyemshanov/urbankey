@@ -36,11 +36,8 @@ const PropertyPage = () => {
     }, [id]);
 
 
-    // Объект не найден / ошибка загрузки — нормальная страница 404 (noindex).
     if (villaStatus === "notfound" || villaStatus === "error") return <Error />;
 
-    // Пока грузится — и пока в состоянии лежит ДРУГОЙ объект
-    // (первый рендер после смены id) — показываем загрузку.
     if (villaStatus !== "ready" || !villa || String(villa.card_id) !== String(id)) {
         return <DetailLoading />;
     }

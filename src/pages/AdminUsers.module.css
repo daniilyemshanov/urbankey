@@ -28,8 +28,6 @@
     font-size: 16px;
 }
 
-/* ===== SEARCH ===== */
-
 .searchBox {
     display: flex;
     align-items: center;
@@ -85,8 +83,6 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
-
-/* ===== LIST ===== */
 
 .list {
     display: flex;
@@ -146,8 +142,6 @@
     margin: 0;
 }
 
-/* ===== ROLE BADGE ===== */
-
 .roleBadge {
     flex-shrink: 0;
 }
@@ -176,8 +170,6 @@
     font-size: 12px;
     white-space: nowrap;
 }
-
-/* ===== ACTION BUTTONS ===== */
 
 .grantBtn,
 .revokeBtn {
@@ -218,16 +210,12 @@
     cursor: not-allowed;
 }
 
-/* ===== EMPTY STATE ===== */
-
 .empty {
     text-align: center;
     color: #777;
     padding: 40px 0;
     font-size: 14px;
 }
-
-/* ===== RESPONSIVE ===== */
 
 @media (max-width: 640px) {
     .userRow {

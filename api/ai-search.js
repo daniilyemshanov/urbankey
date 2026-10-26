@@ -1,23 +1,3 @@
-// /api/ai-search — серверная точка для ИИ-поиска по каталогу.
-//
-// Человек пишет свободным текстом ("3-комнатная до $80k в Юнусабаде",
-// "сниму офис в центре с ремонтом") — этот эндпоинт разбирает запрос
-// через ту же цепочку провайдеров (api/aiProviders.js), что и разбор
-// объявлений бота, в СТРУКТУРИРОВАННЫЕ фильтры (категория/тип/сделка/
-// цена/спальни) + остаток текста как ключевые слова. Дальше
-// src/components/AiSearchBar.jsx переходит на отдельную страницу
-// каталога (/Properties?q=...) — точь-в-точь как поиск на Uzum
-// открывает отдельную страницу результатов, а не выпадающую панель —
-// и src/components/Catalog.jsx уже там применяет эти фильтры к
-// имеющимся объявлениям (см. useSearchParams эффект и штатный
-// fuzzy-поиск, src/utils/search.js, для остатка текста). Сам вызов ИИ
-// живёт только здесь — на клиенте эта цепочка не дублируется.
-//
-// Если ни один провайдер не ответил — возвращаем ok:false, фронт в
-// этом случае просто использует исходный текст запроса как обычный
-// текстовый fuzzy-поиск (никакого падения UX, ИИ тут — бонус, а не
-// обязательное звено).
-
 import { runListingAiChain } from "./aiProviders.js";
 
 const RESIDENTIAL_TYPE_LABELS = {
@@ -27,10 +7,7 @@ const RESIDENTIAL_TYPE_LABELS = {
 };
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX = 15; // запросов в минуту с одного IP — поиск не
-// набирается на клавиатуре построчно (в отличие от /api/translate,
-// который дёргается на каждое поле объявления), одного запроса на
-// клик "Найти" достаточно, лимит просто выше, чем на пару опечаток.
+const RATE_LIMIT_MAX = 15;
 const rateLimitStore = new Map();
 
 const isRateLimited = (ip) => {
@@ -70,11 +47,6 @@ const isAllowedOrigin = (req) => {
 
 const SUPPORTED_LANGS = ["ru", "en", "uz"];
 const MAX_QUERY_LENGTH = 300;
-
-// Тот же словарь типов жилья используется чуть выше (toRussianType) и
-// в src/components/Catalog.jsx (RESIDENTIAL_TYPE_LABELS) — Вилла/
-// Коттедж/Резиденция/Пентхаус сознательно нет, в Ташкенте такого
-// жилья у агентства не бывает.
 
 const LANG_NAME = { ru: "русском", en: "английском", uz: "узбекском" };
 
@@ -169,8 +141,6 @@ export default async function handler(req, res) {
             jsonSchema: JSON_SCHEMA,
             geminiResponseSchema: GEMINI_SCHEMA,
             userText: safeQuery,
-            // Публичный эндпоинт: платный Haiku здесь не используем (расход
-            // кредитов зависел бы от посетителей), только бесплатные провайдеры.
             skipProviders: ["anthropic"]
         });
 
@@ -180,10 +150,6 @@ export default async function handler(req, res) {
 
         const data = result.data || {};
 
-        // "type" приводим к КАНОНИЧЕСКОМУ написанию на нужном языке —
-        // фильтру на фронте (Catalog.jsx) нужно точное совпадение со
-        // значением, которое реально хранится у объявлений, а модель
-        // иногда чуть перефразирует регистр/формулировку.
         const canonical = RESIDENTIAL_TYPE_LABELS[safeLang] || RESIDENTIAL_TYPE_LABELS.ru;
         let normalizedType = null;
         if (data.type) {

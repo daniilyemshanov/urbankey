@@ -6,9 +6,6 @@ import { parsePrice } from "./utils/currency";
 
 export const MyContext = createContext();
 
-// Цена за м² хранится текстом в карточке ("1800$ за м2"), а на странице объекта
-// колонка price числовая и пометку «за м²» хранить не может. Если у карточки
-// цена за м² — страница показывает именно её текст.
 const perSqmPriceText = async (table, id) => {
     try {
         const { data } = await supabase
@@ -23,16 +20,6 @@ const perSqmPriceText = async (table, id) => {
     }
 };
 
-// Публичные "safe" наборы колонок cardss/commercials (без owner_phone/
-// owner_telegram) — те же самые, что перечислены в
-// supabase/user_listings_and_leads.sql в GRANT SELECT (...) и в
-// определениях view cardss_public / commercials_public.
-// Используются как запасной вариант, если по какой-то причине сама
-// view ещё не создана в базе (миграция user_listings_and_leads.sql не
-// применена) — тогда идём напрямую в таблицу, но всё равно запрашиваем
-// только этот безопасный список колонок, а не "*", чтобы не упереться
-// в column-level REVOKE (если он уже применён) и не потянуть по ошибке
-// owner_phone/owner_telegram.
 const CARD_PUBLIC_COLUMNS =
     "id, title_ru, title_en, title_uz, description_ru, description_en, description_uz, " +
     "bedrooms_ru, bedrooms_en, bedrooms_uz, bathrooms_ru, bathrooms_en, bathrooms_uz, " +
@@ -45,13 +32,6 @@ const COMMERCIAL_PUBLIC_COLUMNS =
     "floor, ceiling, area, price, discount_price, discount, " +
     "status_ru, status_en, status_uz, delivery_date, image, created_by, boosted_until, is_rent";
 
-// true, если ошибка supabase означает "такой таблицы/view не существует"
-// (PostgREST/Postgres 42P01) — то есть SQL-миграция ещё не накатана
-// Объект виден на сайте, если он есть в публичном view (проданные —
-// is_sold — в view не попадают, см. sql/add_sold_flag.sql). Страницы
-// villas / commercial_pages читаются напрямую, поэтому без этой проверки
-// проданный объект остался бы доступен по прямой ссылке. Если проверить
-// не удалось (ошибка/нет view) — страницу не прячем.
 const isListingVisible = async (view, id) => {
 
     const { data, error } = await supabase
@@ -73,9 +53,6 @@ const isMissingRelation = (error) =>
     );
 
 
-// Достаём имя файла из публичной ссылки Supabase Storage, чтобы можно
-// было удалить сам файл, а не только запись о нём в базе. Ссылки имеют
-// вид https://<project>.supabase.co/storage/v1/object/public/images/<file>
 const extractStorageFileName = (url) => {
 
     if (!url || typeof url !== "string") return null;
@@ -85,9 +62,6 @@ const extractStorageFileName = (url) => {
     return match ? decodeURIComponent(match[1]) : null;
 };
 
-// Удаляет файлы из бакета "images" по списку публичных ссылок. Не
-// бросает исключение при ошибке — отсутствие файла или сбой в Storage не
-// должны мешать удалению самого объявления, просто логируем.
 const deleteImagesFromStorage = async (urls) => {
 
     const fileNames = (urls || [])
@@ -105,8 +79,6 @@ const deleteImagesFromStorage = async (urls) => {
 };
 
 
-// id объекта в URL — положительное целое. "abc", "-1", "1e3" — заведомо
-// несуществующий объект (не отправляем такой запрос в базу вообще).
 const parseListingId = (raw) => {
     const str = String(raw ?? "");
     return /^[1-9]\d{0,14}$/.test(str) ? Number(str) : null;
@@ -129,14 +101,9 @@ export const MyProvider = ({ children }) => {
 
     const [villa, setVilla] = useState(null);
 
-    // Состояние загрузки detail-страниц: "idle" | "loading" | "ready" |
-    // "notfound" | "error". Нужно, чтобы страница отличала "ещё грузим"
-    // от "объекта нет" и не показывала данные предыдущего объекта.
     const [villaStatus, setVillaStatus] = useState("idle");
     const [commercialStatus, setCommercialStatus] = useState("idle");
 
-    // Счётчики запросов: ответ устаревшего запроса (пользователь уже
-    // перешёл на другой объект) игнорируется.
     const villaRequest = useRef(0);
     const commercialRequest = useRef(0);
 
@@ -223,8 +190,6 @@ export const MyProvider = ({ children }) => {
                 .select("*");
 
 
-            // view cardss_public ещё не создана (миграция не применена) —
-            // читаем напрямую из cardss, тем же безопасным списком колонок
             if (error && isMissingRelation(error)) {
 
                 ({ data, error } = await supabase
@@ -291,7 +256,6 @@ export const MyProvider = ({ children }) => {
                 image: item.image,
 
                 price: item.price,
-                // этаж жилья (опциональные колонки cardss_public; пусто, если их нет)
                 floor: item.floor ?? null,
                 totalFloors: item.total_floors ?? null,
 
@@ -394,7 +358,6 @@ export const MyProvider = ({ children }) => {
                 image: item.image,
 
                 price: item.price,
-                // этаж жилья (опциональные колонки cardss_public; пусто, если их нет)
                 floor: item.floor ?? null,
                 totalFloors: item.total_floors ?? null,
 
@@ -693,8 +656,6 @@ export const MyProvider = ({ children }) => {
 
             link: data.link,
 
-            // Колонки этажа есть не всегда (sql/optional_add_card_floor.sql).
-            // hasFloorColumns — признак, что админке можно их показывать/писать.
             hasFloorColumns: "floor" in data,
 
             floor: data.floor ?? "",
@@ -755,7 +716,6 @@ export const MyProvider = ({ children }) => {
 
                 image: data.image,
 
-                // Аренда / Продажа (булево). Если поле не передали — не трогаем.
                 ...(typeof data.is_rent === "boolean" ? { is_rent: data.is_rent } : {})
 
             })
@@ -768,8 +728,6 @@ export const MyProvider = ({ children }) => {
         }
 
 
-        // Страница коммерции (commercial_pages) хранит свой is_rent —
-        // держим в синхроне с карточкой.
         if (typeof data.is_rent === "boolean") {
 
             const { error: pageRentError } = await supabase
@@ -1108,9 +1066,6 @@ export const MyProvider = ({ children }) => {
 
     }
 
-    // Упрощённая страница коммерции из commercials_public (когда у объекта
-    // нет строки commercial_pages). requestId передаётся из getCommercialById,
-    // чтобы не плодить второй счётчик запросов.
     const getCommercial = async (id, requestId = ++commercialRequest.current) => {
 
         const commercialId = parseListingId(id);
@@ -1211,12 +1166,6 @@ export const MyProvider = ({ children }) => {
     };
 
 
-    // ===== АДМИНКА: список объектов вместе с проданными =====
-    // Публичные view (cardss_public / commercials_public) проданные строки
-    // скрывают. Сами таблицы закрыты по колонкам (revoke select + grant только
-    // на «безопасные» колонки, см. supabase/user_listings_and_leads.sql), поэтому
-    // читаем ТОЛЬКО разрешённые колонки + is_sold, а is_rent (на таблице он не
-    // выдан) подмешиваем из публичной view.
     const getAdminListings = async (kind) => {
         const isCommercial = kind === "commercial";
 
@@ -1238,7 +1187,6 @@ export const MyProvider = ({ children }) => {
             return [];
         }
 
-        // is_rent — только из view; если колонки там нет, считаем «Продажа»
         const rentById = new Map();
 
         if (!pub.error) {
@@ -1263,7 +1211,6 @@ export const MyProvider = ({ children }) => {
     };
 
 
-    // Продано / вернуть на сайт. Возвращает true при успехе.
     const setListingSold = async (kind, id, isSold) => {
         const table = kind === "commercial" ? "commercials" : "cardss";
 
@@ -1275,8 +1222,6 @@ export const MyProvider = ({ children }) => {
             })
             .eq("id", id);
 
-        // sold_at — вспомогательная колонка; если на неё нет права записи,
-        // повторяем только с is_sold, чтобы статус всё равно сменился.
         if (error) {
             ({ error } = await supabase
                 .from(table)
@@ -1296,7 +1241,6 @@ export const MyProvider = ({ children }) => {
                 : "Объект возвращён на сайт"
         );
 
-        // обновляем публичные списки, чтобы они сразу отразили изменение
         if (kind === "commercial") {
             getCommercials();
         } else {
@@ -1342,7 +1286,6 @@ export const MyProvider = ({ children }) => {
             updateData.type_uz = data.type.uz;
         }
 
-        // Этаж: только если колонки есть в базе (форма передаёт floor лишь тогда)
         if (data.floor !== undefined) {
             const toNum = (v) => (v === "" || v == null ? null : Number(v) || null);
             updateData.floor = toNum(data.floor);
@@ -1350,7 +1293,6 @@ export const MyProvider = ({ children }) => {
         }
 
 
-        // Аренда / Продажа (булево). Если поле не передали — не трогаем.
         if (typeof data.is_rent === "boolean") {
             updateData.is_rent = data.is_rent;
         }
@@ -1371,8 +1313,6 @@ export const MyProvider = ({ children }) => {
         }
 
 
-        // Страница объекта (villas) хранит свой is_rent — держим в синхроне
-        // с карточкой, иначе в каталоге будет одно, а на странице другое.
         if (typeof data.is_rent === "boolean") {
 
             const { error: villaRentError } = await supabase
@@ -1464,7 +1404,6 @@ export const MyProvider = ({ children }) => {
             amenities: page.amenities || []
         };
 
-        // Страница наследует Продажа/Аренда от своего объекта каталога
         if (page.commercial_id) {
             const { data: parent } = await supabase
                 .from("commercials")
@@ -1498,9 +1437,6 @@ export const MyProvider = ({ children }) => {
     const deleteCard = async (id) => {
 
 
-        // сначала узнаём, какое фото было у карточки — чтобы удалить сам
-        // файл из Storage, а не оставить его висеть мусором после удаления
-        // записи из базы
         const { data: cardRow } = await supabase
             .from("cardss")
             .select("image")
@@ -1559,9 +1495,6 @@ export const MyProvider = ({ children }) => {
             return false;
         }
 
-        // текстовые поля теперь приходят уже переведённые на все 3 языка
-        // (см. src/utils/autoTranslate.js + AddProperty.jsx) — просто
-        // раскладываем { ru, en, uz } по колонкам _ru/_en/_uz
         const slugBase = (lang) =>
             (lang.ru || lang.en || lang.uz || "listing")
                 .toLowerCase()
@@ -1604,9 +1537,6 @@ export const MyProvider = ({ children }) => {
                 return false;
             }
 
-            // отдельная "богатая" страница объекта (галерея, преимущества,
-            // подробное описание) — без неё страница коммерции была бы
-            // почти пустой, т.к. CommercialPage берёт детали именно отсюда
             const { error: pageError } = await supabase
                 .from("commercial_pages")
                 .insert([{
@@ -1633,8 +1563,6 @@ export const MyProvider = ({ children }) => {
                 }]);
 
             if (pageError) {
-                // некритично — базовая карточка коммерции уже создана и
-                // видна в каталоге, просто без расширенной страницы
                 console.error("CREATE USER COMMERCIAL PAGE ERROR:", pageError);
             }
 
@@ -1661,9 +1589,6 @@ export const MyProvider = ({ children }) => {
 
         }
 
-        // kind === "residential" — создаём карточку + виллу к ней,
-        // так же, как это делает админ через CreateCard + CreateVilla,
-        // только одним шагом и без дублирования на 3 языка вручную
         const { data: card, error: cardError } = await supabase
             .from("cardss")
             .insert([{
@@ -1719,8 +1644,6 @@ export const MyProvider = ({ children }) => {
             console.error("CREATE USER VILLA ERROR:", villaError);
             toast.error(villaError.message || t("listingCreateError"));
 
-            // карточка уже создана, но без виллы — подчищаем, чтобы не
-            // оставлять "битую" карточку без деталей объекта
             await supabase.from("cardss").delete().eq("id", card.id);
 
             return false;
@@ -1756,10 +1679,6 @@ export const MyProvider = ({ children }) => {
     };
 
 
-    // Полные данные СВОЕГО объявления (включая owner_phone/telegram) —
-    // для формы редактирования. Обычный select их не отдаст (см.
-    // cardss_public / колоночные GRANT), поэтому используем RPC
-    // get_my_listing_full (security definer + проверка created_by внутри).
     const getMyListingFull = async (kind, id) => {
 
         const { data, error } = await supabase.rpc("get_my_listing_full", {
@@ -1783,11 +1702,6 @@ export const MyProvider = ({ children }) => {
     };
 
 
-    // Редактирование уже опубликованного объявления пользователем —
-    // те же 2 таблицы, что и при создании (cardss+villas или
-    // commercials+commercial_pages), только update вместо insert.
-    // RLS (_update_own политики) уже проверяет владельца на уровне базы,
-    // так что здесь просто передаём id, который взяли из своего же списка.
     const updateUserProperty = async (kind, id, data) => {
 
         if (!user) {
@@ -2039,7 +1953,6 @@ export const MyProvider = ({ children }) => {
 
         const requestId = ++villaRequest.current;
 
-        // Не показываем данные предыдущего объекта, пока грузится новый.
         setVilla(null);
         setVillaStatus("loading");
 
@@ -2068,9 +1981,6 @@ export const MyProvider = ({ children }) => {
             if (error) throw error;
 
 
-            // Строки страницы нет — такого объекта нет.
-            // is_draft на видимость не влияет: объявления из Telegram
-            // публикуются сразу, как и раньше.
             if (!data) {
 
                 setVillaStatus("notfound");
@@ -2191,7 +2101,6 @@ export const MyProvider = ({ children }) => {
         try {
 
 
-            // Страница наследует Продажа/Аренда от своей карточки
             let inheritedRent = null;
 
             if (data.card_id) {
@@ -2480,7 +2389,6 @@ export const MyProvider = ({ children }) => {
             .upload(
                 fileName,
                 file,
-                // имя файла уникально (Date.now), перезаписи нет — можно кэшировать на год
                 { cacheControl: "31536000" }
             );
 
@@ -2810,16 +2718,13 @@ export const MyProvider = ({ children }) => {
 
     };
 
-    // Ручная активация буста ("объявление в топе") — вызывается админом
-    // после того как оплата подтверждена вне сайта (Payme/Click/перевод).
-    // kind: "residential" | "commercial", days: сколько дней держать в топе.
     const setBoost = async (kind, id, days) => {
 
         const table = kind === "commercial" ? "commercials" : "cardss";
 
         const boosted_until = days
             ? new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-            : null; // null — снять буст досрочно
+            : null;
 
         const { error } = await supabase
             .from(table)

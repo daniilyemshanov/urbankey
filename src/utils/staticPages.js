@@ -1,11 +1,5 @@
-// Тексты общих страниц для серверного HTML (api/spa.js): title, description,
-// <h1> и абзац, которые роботы видят без выполнения JavaScript.
-// Title/description совпадают с ключами seo* в src/locales/*/translation.json
-// (их показывает React через <Seo>); при правке меняйте ОБА места.
-
 export const STATIC_PAGES = ["home", "Properties", "AboutUs", "Services", "ContactUs"];
 
-// Путь страницы без языкового префикса ("" = главная, адрес вида /ru)
 export const staticBasePath = (page) => (page === "home" ? "" : `/${page}`);
 
 const PAGES = {

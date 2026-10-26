@@ -1,12 +1,3 @@
-// Подбор похожих объявлений: район, комнаты, цена, площадь, этаж.
-// Чистые функции без обращения к сети — удобно проверять отдельно.
-//
-// Жильё:     район +6, комнаты +5 (±1 комната +2), цена ±10% +4 / ±25% +2 / ±40% +1,
-//            площадь ±10% +2 / ±25% +1, этаж: разница ≤1 +2, ≤3 +1.
-// Коммерция: район +6, тип +5, класс +3, площадь ±20% +2, цена ±25% +2.
-// Аренда и продажа не смешиваются. В ответе у каждого объекта список причин
-// («Тот же район», «2 комн.» …) — их показывает карточка.
-
 import { detectDistrict } from "./districts.js";
 
 const num = (v) => {
@@ -87,7 +78,6 @@ function scoreCommercial(cur, cand) {
     return { score, reasons };
 }
 
-// current — открытый объект, candidates — все объекты того же вида (жильё или коммерция).
 export function rankSimilar({ current, candidates, currentId, kind = "residential", locations = {}, limit = 7 }) {
     if (!current || !Array.isArray(candidates)) return [];
 
@@ -107,7 +97,6 @@ export function rankSimilar({ current, candidates, currentId, kind = "residentia
 
     return candidates
         .filter((item) => String(item.id) !== String(currentId ?? current.id))
-        // аренда и продажа не смешиваются
         .filter((item) => cur.rent == null || item.is_rent == null || Boolean(cur.rent) === Boolean(item.is_rent))
         .map((item) => {
             const cand = describe(item);

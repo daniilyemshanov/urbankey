@@ -67,7 +67,7 @@ const scoreWordAgainstField = (word, fieldWords, fieldText) => {
         }
     }
 
-    return best * 0.6; // опечатка ценится ниже точного совпадения
+    return best * 0.6;
 };
 
 

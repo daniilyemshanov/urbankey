@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 
-/* Хук статуса сети. reconnected на короткое время становится true сразу
-   после возврата онлайн — удобно, чтобы показать баннер "Подключение
-   восстановлено" и затем скрыть его. */
 export function useOnlineStatus() {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [justReconnected, setJustReconnected] = useState(false);

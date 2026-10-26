@@ -1,71 +1,3 @@
-// /api/telegram-webhook — принимает посты из Telegram-канала через
-// webhook вместо long-polling. Работает как обычная serverless-функция
-// на том же хостинге (Vercel), что и сайт — не нужен отдельный сервер
-// и не нужно ничего запускать руками в терминале.
-//
-// Файл специально самодостаточный (без импорта из ../server/*) — Vercel
-// не всегда корректно трассирует и включает в бандл функции файлы вне
-// папки api/ в проектах без фреймворк-пресета (Vite/"Other"), из-за
-// этого раньше падало с "Cannot find module '.../server/listingParser.js'".
-// Импорт из api/aiProviders.js (соседний файл в этой же папке) — не та
-// же проблема, Vercel такие относительные импорты внутри api/ трассирует
-// нормально. Вся ОСТАЛЬНАЯ логика разбора поста (regex-парсер,
-// переводы и т.п.) по-прежнему продублирована и здесь, и в
-// server/listingParser.js (для polling-версии бота в server/bot.js) —
-// при правках этой части меняйте оба файла одинаково.
-//
-// КАК ПОДКЛЮЧИТЬ (один раз, после деплоя):
-//   1. В Vercel -> Settings -> Environment Variables добавьте:
-//        PARSER_BOT_TOKEN         — токен вашего Telegram-бота
-//        SUPABASE_SERVICE_KEY     — service_role ключ Supabase (НЕ тот,
-//                                    что в VITE_SUPABASE_KEY на фронте!)
-//        VITE_SUPABASE_URL        — уже должен быть настроен
-//        TELEGRAM_WEBHOOK_SECRET  — придумайте любую случайную строку
-//        ANTHROPIC_API_KEY        — необязательно. Если задан, Claude Haiku
-//                                    (модель — ANTHROPIC_MODEL, по умолчанию
-//                                    "claude-haiku-5-5") идёт ПЕРВЫМ в цепочке;
-//                                    при любой ошибке работают остальные
-//                                    провайдеры и regex-парсер.
-//        GEMINI_API_KEY           — необязательно, но рекомендуется. Если
-//                                    задан, разбор поста идёт через Google
-//                                    Gemini (умнее и гибче под любой формат
-//                                    текста, при этом бесплатный). Ключ
-//                                    берётся на https://aistudio.google.com/apikey
-//                                    без карты. Если не задан или запрос не
-//                                    удался — автоматически используется
-//                                    старый regex-парсер, работа не
-//                                    остановится.
-//        GEMINI_MODEL             — необязательно, по умолчанию
-//                                    "gemini-3.6-flash".
-//        GROQ_API_KEY             — необязательно, запасной вариант №1
-//                                    (если Gemini не настроен/не ответил).
-//                                    Ключ на https://console.groq.com/keys
-//        OPENROUTER_API_KEY       — необязательно, запасной вариант №2.
-//                                    Ключ на https://openrouter.ai/keys
-//        MISTRAL_API_KEY          — необязательно, запасной вариант №3.
-//                                    Ключ на https://console.mistral.ai/api-keys
-//        SAMBANOVA_API_KEY        — необязательно, запасной вариант №4.
-//                                    Ключ на https://cloud.sambanova.ai/apis
-//        CLOUDFLARE_ACCOUNT_ID    — необязательно, запасной вариант №5
-//                                    (последний в цепочке), вместе с
-//                                    CLOUDFLARE_API_TOKEN. Account ID и
-//                                    токен — в Cloudflare Dashboard →
-//                                    Workers AI → Use REST API.
-//        CLOUDFLARE_API_TOKEN     — см. CLOUDFLARE_ACCOUNT_ID выше.
-//   2. Выполните sql/add_draft_flag.sql и sql/add_webhook_support.sql
-//      в Supabase (один раз).
-//   3. Скажите Telegram, куда слать посты (тоже один раз, с вашего
-//      компьютера, curl или в браузере):
-//
-//      https://api.telegram.org/bot<PARSER_BOT_TOKEN>/setWebhook?url=https://ВАШ-ДОМЕН/api/telegram-webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>&allowed_updates=["channel_post","edited_channel_post"]
-//
-//      (замените <PARSER_BOT_TOKEN>, ВАШ-ДОМЕН и <TELEGRAM_WEBHOOK_SECRET>
-//       на реальные значения; можно просто открыть эту ссылку в браузере)
-//
-//   После этого никакой терминал не нужен — Telegram сам стучится в
-//   /api/telegram-webhook при каждом новом посте, и это работает всегда,
-//   пока задеплоен сайт.
-
 import { createClient } from "@supabase/supabase-js";
 import { processPhoto } from "./_telegramPhotos.js";
 import {
@@ -86,10 +18,6 @@ import {
     markListingSold,
     soldReplyText,
 } from "./_listingDb.js";
-
-// Разбор поста (регулярки + ИИ + проверка + перевод) вынесен в
-// api/listingParser.js — единый модуль для webhook, finalize-albums и
-// server/bot.js. Здесь раньше жила отдельная, устаревшая копия.
 
 
 
@@ -133,11 +61,6 @@ async function replyToChannel(msg, text) {
 }
 
 
-// Telegram сам сжимает любое фото, отправленное как обычное "Photo" —
-// это ограничение самого Telegram, а не бота. Если фото отправлено как
-// файл ("Отправить как файл", без сжатия) — оно приходит как
-// msg.document с mime_type вида image/*, без потери качества.
-// Предпочитаем такой вариант, если он есть.
 function getBestImageFileId(msg) {
 
     if (msg.document?.mime_type?.startsWith("image/")) {
@@ -152,9 +75,6 @@ function getBestImageFileId(msg) {
 }
 
 
-// Telegram Bot API не даёт боту скачать файл больше 20 МБ (жёсткое
-// ограничение самого Telegram, не наше) — если видео тяжелее, просто
-// пропускаем его (возвращаем null), не ломая создание объекта.
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 function getVideoInfo(msg) {
@@ -220,10 +140,6 @@ async function bot_getFile(fileId) {
 }
 
 
-// Загрузка ОДНОГО фото (одиночный пост, редактирование поста). Для
-// альбомов webhook фото больше не скачивает — только регистрирует file_id
-// (см. handleAlbumMessage), а скачивает и грузит их api/finalize-albums.js
-// пулом из 4 воркеров. Возвращает URL или "" при ошибке — как и раньше.
 async function uploadPhoto(fileId) {
 
     const result = await processPhoto({
@@ -307,7 +223,6 @@ async function processPost(mainMsg, images, videoUrl) {
 }
 
 
-// Ответ «ПРОДАНО» на пост: объявление убирается с сайта и замораживается.
 async function processSoldReply(msg) {
 
     const listing = await findListingForReply(supabase, msg.chat.id, msg.reply_to_message);
@@ -334,10 +249,8 @@ async function processEditedPost(msg) {
 
     const text = msg.caption || msg.text || "";
 
-    // Правка самого сообщения «ПРОДАНО» — это не объявление, ничего не делаем.
     if (msg.reply_to_message && isSoldKeyword(text)) return;
 
-    // Проданный объект заморожен: правки поста на сайт больше не попадают.
     const existing = await findListingByTelegramMessage(supabase, msg.chat.id, msg.message_id);
     if (existing?.isSold) {
         await replyToChannel(msg, `🔒 Объект «${existing.title}» продан и заморожен — изменения на сайт не применены.`);
@@ -414,19 +327,12 @@ async function processEditedPost(msg) {
 }
 
 
-// Ждёт, пока список фото альбома в bot_pending_albums перестанет расти
-// (два замера подряд с одинаковым количеством), вместо того чтобы ждать
-// фиксированное время — большие альбомы (7-8 фото) с реальной сетевой
-// задержкой на скачивание/загрузку каждого фото могут не укладываться в
-// произвольно выбранную паузу. Потолок в 9 секунд — на случай, если
-// какое-то фото так и не долетит, чтобы не ждать вечно.
 async function handleAlbumMessage(msg) {
 
     const groupId = String(msg.media_group_id);
     const text = msg.caption || msg.text || "";
     const ownFileId = getBestImageFileId(msg);
 
-    // проверяем, не обработана ли уже эта группа (чтобы не создать вторую карточку)
     const { data: existing } = await supabase
         .from("bot_pending_albums")
         .select("processed")
@@ -439,16 +345,6 @@ async function handleAlbumMessage(msg) {
 
     if (ownFileId) {
 
-        // Фото здесь НЕ скачиваем и НЕ грузим в Storage. Раньше каждое фото
-        // альбома (до 10 штук) обрабатывалось в отдельном параллельном вызове
-        // функции без какого-либо лимита: десяток одновременных
-        // getFile+download+upload упирались в таймаут serverless-функции,
-        // Telegram при таймауте присылал апдейт повторно, а
-        // array_append в БД не идемпотентен — фото терялись или
-        // дублировались. Теперь вебхук только регистрирует file_id
-        // (быстро: один атомарный и идемпотентный RPC, без сети наружу), а
-        // скачивание и загрузку делает api/finalize-albums.js пулом из 4
-        // воркеров и пишет итоговый массив images одним INSERT.
         const { error: rpcError } = await supabase.rpc(
             "append_album_photo",
             {
@@ -459,8 +355,6 @@ async function handleAlbumMessage(msg) {
         );
 
         if (rpcError) {
-            // не маскируем: код 42P10 здесь означает, что не выполнена
-            // миграция sql/fix_album_pipeline.sql
             console.log(
                 `APPEND ALBUM PHOTO ERROR grp=${groupId} message_id=${msg.message_id} file_id=${ownFileId}:`,
                 rpcError
@@ -483,9 +377,6 @@ async function handleAlbumMessage(msg) {
             const videoUrl = await uploadVideo(videoInfo.fileId);
 
             if (videoUrl) {
-                // upsert, а не update: если строки группы ещё нет (видео
-                // прилетело раньше всех фото), update молча затронул бы 0
-                // строк и видео терялось
                 const { error: videoSaveError } = await supabase
                     .from("bot_pending_albums")
                     .upsert(
@@ -501,22 +392,9 @@ async function handleAlbumMessage(msg) {
     }
 
     if (!text.trim()) {
-        // текста в этом сообщении нет — фото (если было) уже сохранено
-        // функцией выше, просто ждём сообщение с текстом
         return;
     }
 
-    // Раньше именно этот запрос дальше сам ждал, пока долетят остальные
-    // фото альбома, и сам же создавал объект — для больших альбомов
-    // (7-8 фото) это оказалось ненадёжно. Теперь просто сохраняем текст
-    // и данные о сообщении — объект создаст отдельная задача по
-    // расписанию (api/finalize-albums.js, дёргается Vercel Cron), когда
-    // увидит, что в группу какое-то время не добавлялись новые фото.
-    // upsert, а не update: сообщение с подписью может быть обработано
-    // РАНЬШЕ, чем зарегистрировано любое фото группы (параллельные вызовы
-    // функции не упорядочены). Тогда update затронул бы 0 строк, подпись
-    // терялась навсегда, и альбом никогда не публиковался. Строка группы
-    // создаётся/дополняется атомарно; photo_file_ids upsert не трогает.
     const { error: saveError, data: saveData } = await supabase
         .from("bot_pending_albums")
         .upsert(
@@ -562,13 +440,6 @@ export default async function handler(req, res) {
 
         if (editedMsg) {
 
-            // Если подпись у альбома добавили/поменяли уже ПОСЛЕ отправки
-            // фото (через "редактировать" в Telegram) — это прилетает как
-            // edited_channel_post, а не обычным сообщением. Если для этой
-            // группы ещё нет обработанной карточки — сохраняем подпись
-            // туда же, куда обычно (bot_pending_albums), чтобы
-            // finalize-albums её подхватил. Если карточка уже есть —
-            // работает как обычное редактирование (см. processEditedPost).
             if (editedMsg.media_group_id) {
 
                 const groupId = String(editedMsg.media_group_id);
@@ -606,7 +477,6 @@ export default async function handler(req, res) {
 
         const text = msg.caption || msg.text || "";
 
-        // Ответ словом ПРОДАНО на пост с объявлением — не новое объявление.
         if (msg.reply_to_message && isSoldKeyword(text)) {
             await processSoldReply(msg);
             return res.status(200).json({ ok: true });
@@ -642,8 +512,6 @@ export default async function handler(req, res) {
     } catch (e) {
 
         console.log("WEBHOOK HANDLER EXCEPTION:", e);
-        // всё равно отвечаем 200, чтобы Telegram не долбил повторно
-        // одним и тем же апдейтом до бесконечности
         return res.status(200).json({ ok: true });
     }
 }

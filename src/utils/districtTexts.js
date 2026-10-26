@@ -1,13 +1,3 @@
-// Свои тексты для страниц районов. Если для района/вида/языка текст задан здесь,
-// он показывается вместо шаблона из districtPages.js (и на странице, и в HTML для роботов).
-// Абзацы разделяются переводом строки (\n). Оставьте пусто — будет шаблон.
-//
-// Ключи районов: yunusabad, chilanzar, mirzo, shaykhantakhur, yakkasaray, mirabad,
-// sergeli, yashnabad, uchtepa, almazar, bektemir, yangihayot.
-//
-// Тексты написаны нейросетью: перед публикацией проверьте факты (расположение района,
-// метро, инфраструктура).
-
 export const DISTRICT_TEXTS = {
   yunusabad: {
     apartments: {

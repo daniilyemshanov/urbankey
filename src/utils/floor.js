@@ -1,7 +1,3 @@
-// Подпись этажа для карточек: "5/9 этаж" / "5/9 qavat" / "5/9 floor".
-// Возвращает "" если этажа нет — тогда карточка ничего не показывает
-// (никаких подстановок и фиктивных значений).
-
 const WORD = { ru: "этаж", uz: "qavat", en: "floor" };
 
 function toInt(value) {
@@ -19,10 +15,6 @@ export function formatFloor(floor, totalFloors, language = "ru") {
     return total ? `${f}/${total} ${word}` : `${f} ${word}`;
 }
 
-// Этаж из свободного текста (описание объявления): "Этаж 5 из 9", "5/9 этаж",
-// "5-й этаж", "5 qavat", "floor 5 of 9". Нужен для карточек, у которых в базе
-// нет колонок floor/total_floors (SQL optional_add_card_floor.sql не применён),
-// но этаж записан в тексте. Ничего не выдумывает: нет совпадения — null.
 export function floorFromText(text) {
     const src = String(text || "");
     if (!src) return null;
@@ -40,8 +32,6 @@ export function floorFromText(text) {
     return null;
 }
 
-// Подпись этажа для карточки жилья: из колонок floor/total_floors, а если их
-// нет — из текста описания. "" — этажа нигде нет (тогда пункт не показывается).
 export function residentialFloorLabel(item, language = "ru") {
     const fromColumns = formatFloor(item?.floor, item?.totalFloors, language);
     if (fromColumns) return fromColumns;
@@ -57,8 +47,6 @@ export function residentialFloorLabel(item, language = "ru") {
     return formatFloor(f, total, language);
 }
 
-// Пункт "этаж" в карточке жилья: { kind: "floor", label } или { kind: "empty",
-// label: "" }. Значка ванны больше нет; данных нет — пункт просто не рисуется.
 export function residentialFloorSlot(item, language = "ru") {
     const label = residentialFloorLabel(item, language);
     return label ? { kind: "floor", label } : { kind: "empty", label: "" };

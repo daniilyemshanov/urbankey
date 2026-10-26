@@ -1,7 +1,3 @@
-// Курс USD/UZS: разбор ответа ЦБ, проверка, сохранение последнего рабочего
-// курса при сбоях и защита endpoint обновления. ЦБ и Supabase подменены —
-// сеть не нужна. Запуск: npm run test:fx
-
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -16,12 +12,11 @@ const realLog = console.log;
 
 let logs;
 let cbuCalls;
-let cbuBehavior;   // () => Response | Error | function(init)
+let cbuBehavior;
 
 const json = (body, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-// Ответ в формате ЦБ (поля по документации cbu.uz: Ccy, Nominal, Rate, Date)
 const cbuRecord = (over = {}) => ({
     id: 69, Code: "840", Ccy: "USD",
     CcyNm_RU: "Доллар США", CcyNm_UZ: "AQSH dollari", CcyNm_EN: "US Dollar",
@@ -51,7 +46,6 @@ after(() => {
     console.log = realLog;
 });
 
-// Подделка Supabase-клиента: хранит одну строку и считает записи.
 function fakeSupabase({ row = null, readError = null, writeError = null } = {}) {
     const state = { row, upserts: [], reads: 0 };
     return {
@@ -82,8 +76,6 @@ const NOW = new Date("2026-10-12T04:00:00Z");
 const stored = (over = {}) => ({ rate: "12100.5", rate_date: "2026-10-11", fetched_at: "2026-10-11T01:00:00Z", ...over });
 const fast = { fetchOptions: { retryDelayMs: 0, timeoutMs: 200 } };
 
-// ---- разбор ответа ЦБ ------------------------------------------------------------------
-
 test("парсер: типичный ответ ЦБ (массив, строки, ДД.ММ.ГГГГ)", () => {
     assert.deepEqual(parseCbuUsdResponse([cbuRecord()]), { rate: 12108.12, rateDate: "2026-10-12" });
 });
@@ -113,10 +105,10 @@ test("парсер: некорректные ответы отклоняются
     bad([]);
     bad({});
     bad("<html>Service unavailable</html>");
-    bad([cbuRecord({ Ccy: "EUR", Code: "978" })]);        // нет USD
-    assert.equal(code([cbuRecord({ Rate: "0" })]), "out_of_range");    // ноль никогда не принимается
+    bad([cbuRecord({ Ccy: "EUR", Code: "978" })]);
+    assert.equal(code([cbuRecord({ Rate: "0" })]), "out_of_range");
     assert.equal(code([cbuRecord({ Rate: 0 })]), "out_of_range");
-    assert.equal(code([cbuRecord({ Rate: "-12000" })]), "bad_format"); // отрицательное — не число по формату
+    assert.equal(code([cbuRecord({ Rate: "-12000" })]), "bad_format");
     assert.equal(code([cbuRecord({ Rate: "abc" })]), "bad_format");
     assert.equal(code([cbuRecord({ Rate: null })]), "bad_format");
     assert.equal(code([cbuRecord({ Rate: "12.65" })]), "out_of_range");
@@ -135,8 +127,6 @@ test("вспомогательные парсеры чисел и дат", () =>
     assert.equal(parseCbuDate("2026-13-01"), null);
     assert.equal(parseCbuDate(20260101), null);
 });
-
-// ---- получение курса ------------------------------------------------------------------
 
 test("fetch: корректный ответ ЦБ; запрос идёт на официальный адрес с таймаутом", async () => {
     let seenInit;
@@ -168,8 +158,6 @@ test("fetch: ЦБ недоступен — ограниченное число �
 });
 
 test("fetch: таймаут ЦБ прерывает запрос", async () => {
-    // AbortSignal.timeout в Node не удерживает event loop (в проде его держит сокет
-    // настоящего fetch), поэтому в подделке держим цикл живым сами.
     cbuBehavior = (init) => new Promise((_, reject) => {
         const keepAlive = setTimeout(() => {}, 2000);
         init.signal.addEventListener("abort", () => {
@@ -190,8 +178,6 @@ test("fetch: ответ не JSON (страница с ошибкой) — bad_f
 
     await assert.rejects(fetchCbuUsdRate({ retryDelayMs: 0, attempts: 1 }), (e) => e.code === "bad_format");
 });
-
-// ---- сохранение последнего курса ---------------------------------------------------
 
 test("update: первый успешный курс записывается (одна строка, pair=USD_UZS)", async () => {
     const sb = fakeSupabase({ row: null });
@@ -246,7 +232,7 @@ test("update: если курса ещё нет и ЦБ недоступен —
 });
 
 test("update: резкий скачок курса (>20%) отклоняется; порог настраивается", async () => {
-    cbuBehavior = () => json([cbuRecord({ Rate: "16000.00" })]);   // +32% к 12100.5
+    cbuBehavior = () => json([cbuRecord({ Rate: "16000.00" })]);
     const sb = fakeSupabase({ row: stored() });
 
     const r = await updateExchangeRate({ supabase: sb, now: NOW, ...fast });
@@ -306,8 +292,6 @@ test("update: в логах нет секретов", async () => {
     assert.ok(!logs.join("\n").includes(process.env.SUPABASE_SERVICE_KEY));
     delete process.env.SUPABASE_SERVICE_KEY;
 });
-
-// ---- защита endpoint --------------------------------------------------------------------
 
 const SECRET = "cron-secret-FAKE-0123456789abcdef";
 

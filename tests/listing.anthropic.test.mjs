@@ -1,8 +1,3 @@
-// Провайдер Anthropic (Claude Haiku) в цепочке ИИ: корректный ответ, порядок
-// провайдеров, резервное переключение, отсутствующий ключ, таймаут,
-// пустые/невалидные ответы, секреты в логах. fetch подменён — реальных
-// запросов к Anthropic нет, кредиты не расходуются. Запуск: npm run test:anthropic
-
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -23,9 +18,9 @@ const ENV_KEYS = [
 const FAKE_ANTHROPIC_KEY = "sk-ant-api03-FAKE_KEY_FOR_TESTS_0123456789abcdefghij";
 const FAKE_GEMINI_KEY = "AIzaSyFAKE_KEY_FOR_TESTS_0123456789abcd";
 
-let script;   // очередь ответов по провайдерам
-let calls;    // журнал запросов
-let logs;     // перехваченные console.log
+let script;
+let calls;
+let logs;
 
 const providerOf = (url) =>
     url.includes("anthropic.com") ? "anthropic" : url.includes("googleapis") ? "gemini" : "other";
@@ -81,7 +76,6 @@ after(() => {
 const useAnthropic = () => { process.env.ANTHROPIC_API_KEY = FAKE_ANTHROPIC_KEY; };
 const useGemini = () => { process.env.GEMINI_API_KEY = FAKE_GEMINI_KEY; };
 
-// Зависший запрос, который уважает AbortSignal (как настоящий fetch).
 const hang = (init) => new Promise((_, reject) => {
     init.signal?.addEventListener("abort", () => {
         const e = new Error("aborted");
@@ -127,8 +121,6 @@ const runChain = (extra = {}) => runListingAiChain({
     validate: (raw) => validateAiListing(raw, POST),
     ...extra,
 });
-
-// ---- корректный ответ и вид запроса --------------------------------------------
 
 test("anthropic: корректный ответ принимается; запрос соответствует Messages API", async () => {
     useAnthropic();
@@ -180,8 +172,6 @@ test("anthropic: без jsonSchema ответ-текст с JSON (в ```-фен�
     assert.equal(body.tools, undefined, "без схемы инструмент не передаётся");
     assert.match(body.system, /валидным JSON-объектом/);
 });
-
-// ---- порядок провайдеров и резервное переключение --------------------------------
 
 test("порядок: Anthropic первый, затем остальные; без ключа Anthropic его нет в списке", () => {
     useAnthropic(); useGemini();
@@ -237,8 +227,6 @@ test("529 (перегрузка Anthropic) повторяется, затем у
     assert.equal(chain.provider, "anthropic");
     assert.equal(calls.length, 2);
 });
-
-// ---- таймаут, пустые и невалидные ответы -----------------------------------------
 
 test("таймаут Anthropic: запрос прерывается, цепочка идёт к Gemini", async () => {
     useAnthropic(); useGemini();
@@ -325,8 +313,6 @@ test("валидный JSON не по смыслу ({}): validation -> повт�
     assert.equal(chain.attempts[0].class, "validation");
 });
 
-// ---- секреты ------------------------------------------------------------------------
-
 test("ключ Anthropic не попадает в логи, даже если провайдер вернул его в теле ошибки", async () => {
     useAnthropic();
     script.anthropic = [{ status: 400, body: `{"error":"bad request for x-api-key ${FAKE_ANTHROPIC_KEY}"}` }];
@@ -337,8 +323,6 @@ test("ключ Anthropic не попадает в логи, даже если п
     assert.ok(!all.includes(FAKE_ANTHROPIC_KEY), "ключ Anthropic в логе");
     assert.ok(all.includes("[REDACTED]"));
 });
-
-// ---- без потери объявлений ---------------------------------------------------------
 
 test("getParsedListing: Haiku успешно -> данные из ответа, провайдер anthropic в диагностике", async () => {
     useAnthropic();
@@ -379,10 +363,6 @@ test("getParsedListing: Haiku вернул мусор -> Gemini подхваты
     assert.equal(p.diagnostics.provider, "gemini");
     assert.equal(p.bedrooms, "2");
 });
-
-// ---- цены в сумах и долларах, аренда: ответ Haiku проходит текущий конвейер --------
-// (проверяется совместимость конвейера с ответами такого вида; качество самой модели
-// без реальных запросов не измеряется)
 
 test("пост с ценой в $ и в сумах: в базу идёт долларовая цена", async () => {
     const post = "Продам 3-комнатная квартира, Чиланзар, 75 м², 3/9 этаж\nЦена: 90 000$ (1 080 000 000 сум)";
@@ -428,8 +408,6 @@ test("выдуманная моделью цена, которой нет в т�
     assert.equal(p.price, "85 000$", "берётся цена из текста, а не выдуманная");
     assert.ok(p.diagnostics.rejected.some((r) => r.field === "price"));
 });
-
-// ---- ai-search не тратит платный Haiku ----------------------------------------------
 
 test("ai-search: Anthropic пропускается (публичный эндпоинт не расходует кредиты)", async () => {
     useAnthropic(); useGemini();

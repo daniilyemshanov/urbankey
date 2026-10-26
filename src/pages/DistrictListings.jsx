@@ -1,7 +1,3 @@
-// Страница района: квартиры (kind="apartments") или коммерция (kind="commercial").
-// Тексты — src/utils/districtPages.js. Список объявлений — обычный Catalog,
-// у которого категория и район заданы адресом страницы.
-
 import { useParams } from "react-router-dom";
 import Catalog from "../components/Catalog";
 import DistrictLinks from "../components/DistrictLinks";

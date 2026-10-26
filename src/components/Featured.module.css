@@ -434,7 +434,6 @@
     opacity: 1 !important;
 }
 
-/* «Почему похоже»: район, комнаты, цена... */
 .reasons {
     display: flex;
     flex-wrap: wrap;

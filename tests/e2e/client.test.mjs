@@ -1,5 +1,3 @@
-// Клиентская проверка detail-страниц: настоящие Context/страницы/supabase-js в jsdom
-// против локального PostgREST (RLS, без миграций). Тяжёлый UI — заглушки.
 import fs from "fs";
 import { JSDOM } from "jsdom";
 const T = JSON.parse(fs.readFileSync(process.env.E2E_TOKENS || "./tokens.json"));
@@ -16,7 +14,6 @@ globalThis.ResizeObserver = globalThis.ResizeObserver || class { observe() {} un
 globalThis.IntersectionObserver = globalThis.IntersectionObserver || class { observe() {} unobserve() {} disconnect() {} };
 dom.window.scrollTo = () => {}; globalThis.scrollTo = () => {};
 
-// считаем реальные запросы к БД
 const realFetch = globalThis.fetch; const hits = [];
 globalThis.fetch = (u, i) => { hits.push(String(u)); return realFetch(u, i); };
 
@@ -53,7 +50,6 @@ const settle = async (cond, ms = 4000) => waitFor(() => { if (!cond()) throw new
 let fail = 0; const ok = (n, c, e = "") => { console.log((c ? "PASS " : "FAIL ") + n + (e ? "  " + e : "")); if (!c) fail++; cleanupNeeded = true; };
 let cleanupNeeded = false;
 
-// --- жильё
 mount("/ru/property/1");
 ok("property/1: сразу после монтирования — состояние загрузки, не пустая страница", loadingShown() && !detail() && !is404());
 await settle(() => detail() === "TG villa A");
@@ -82,14 +78,12 @@ ok("property/abc: 404 без запроса к БД", is404() && hits.filter(u =
 await act(async () => { nav("/ru/property/-1"); }); await settle(() => is404());
 ok("property/-1: 404", is404());
 
-// гонка: быстро 1 → 2 → 1, итог должен соответствовать ПОСЛЕДНЕМУ запросу
 await act(async () => { nav("/ru/property/1"); nav("/ru/property/2"); nav("/ru/property/1"); });
 await settle(() => detail() === "TG villa A");
 await new Promise(r => setTimeout(r, 600));
 ok("гонка 1→2→1: итоговое состояние = последний объект, устаревший ответ не затёр", detail() === "TG villa A", `detail=${detail()}`);
 cleanup();
 
-// --- коммерция
 mount("/ru/commercial/1");
 ok("commercial/1: сначала загрузка", loadingShown() && !detail());
 await settle(() => detail() === "TG office C");

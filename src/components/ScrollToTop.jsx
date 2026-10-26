@@ -6,8 +6,6 @@ const ScrollToTop = () => {
 
     const { pathname } = useLocation();
 
-    // Смена языка меняет только префикс (/ru/AboutUs -> /en/AboutUs),
-    // это та же страница, поэтому позицию прокрутки не сбрасываем.
     const pageKey = stripLangPrefix(pathname) || "/";
 
     useEffect(() => {

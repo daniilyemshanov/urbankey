@@ -1,13 +1,7 @@
-// Строка «Расположение» страниц жилья (villas.location_*) для всех объявлений.
-// Нужна, чтобы определять район квартиры («Яккасарайский район, ул. …»): в карточках
-// (cardss_public) такого поля нет. Запрос выполняется один раз на сессию, результат
-// общий для каталога и блока «Похожие объявления». Ошибка не критична — тогда район
-// определяется по названию и описанию.
-
 import { useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
-let cache = null;      // { [card_id]: [location_ru, location_en, location_uz] }
+let cache = null;
 let inflight = null;
 
 function load() {

@@ -37,15 +37,6 @@ const BEDROOM_OPTIONS = [1, 2, 3, 4, 5];
 const PAGE_SIZE = 9;
 
 
-// Категории жилья — тот же словарь, что и в бэкенд-парсере
-// (api/listingParser.js, TYPE_DICT/detectType), на всех 3 языках. Вилла/
-// Коттедж/Резиденция/Пентхаус убраны по прямому запросу — такого жилья
-// в Ташкенте нет.
-// Фильтр по типу берёт эти значения СТАТИЧЕСКИ, а не только из уже
-// существующих объявлений в базе — иначе "Дом"/"Новостройка" не
-// появлялись бы в выпадающем списке, пока не создастся хотя бы одно
-// такое объявление (а появляться они должны сразу, до первого
-// реального объявления этого типа).
 const RESIDENTIAL_TYPE_LABELS = {
     ru: ["Квартира", "Дом", "Новостройка"],
     en: ["Apartment", "House", "New building"],
@@ -53,8 +44,6 @@ const RESIDENTIAL_TYPE_LABELS = {
 };
 
 
-// presetCategory/presetKind/presetDistrict задаются страницей района
-// (pages/DistrictListings.jsx); на обычной странице каталога их нет.
 const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = null } = {}) => {
 
     const {
@@ -69,8 +58,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
 
     const isAdmin = profile?.role === "admin";
 
-    // Строка «Расположение» страниц жилья (villas.location_*): по ней определяем
-    // район квартиры точнее, чем по тексту объявления (общий хук, один запрос на сессию).
     const villaLocations = useVillaLocations();
 
     const [deletingId, setDeletingId] = useState(null);
@@ -119,14 +106,9 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     const [category, setCategory] = useState(presetCategory || "all");
     const [type, setType] = useState("all");
     const [dealType, setDealType] = useState("all");
-    // Район хранится в URL (?district=<key>): ссылка открывается сразу с выбранным
-    // районом, он переживает обновление страницы и новую вкладку. Значение
-    // валидируется по справочнику; мусор = "нет фильтра". Остальные параметры
-    // (например q) не трогаем.
     const district = presetDistrict || parseDistrictKey(searchParams.get(DISTRICT_PARAM)) || "all";
 
     const setDistrict = (value) => {
-        // На странице района смена района = переход на страницу другого района.
         if (presetCategory) {
             const picked = parseDistrictKey(value);
             navigate(picked
@@ -179,8 +161,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             floorLabel: residentialFloorLabel(item, lang),
             link: localizedPath(`/property/${item.id}`, i18n.language),
             boostedUntil: item.boostedUntil || item.boosted_until,
-            // у жилья отдельной колонки "район" нет: сначала строка «Расположение»
-            // (villas.location_*), потом название и описание
             districtKey: detectDistrict([
                 ...(villaLocations[item.id] || []),
                 item.district?.ru, item.district?.en, item.district?.uz,
@@ -215,7 +195,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             raw: item
         }));
 
-        // название района на текущем языке — чтобы искался и текстовым поиском
         return [...residential, ...commercial].map((item) => ({
             ...item,
             districtName: item.districtKey ? districtLabel(item.districtKey, lang) : ""
@@ -233,10 +212,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
 
         const observed = new Set(scoped.map((i) => i.typeLabel).filter(Boolean));
 
-        // Для "Все" и "Жильё" сначала фиксированный словарь (в нужном
-        // порядке), затем — то, что реально встретилось в данных, но в
-        // словарь не входит (старые/нестандартные значения жилья, а для
-        // "Все" ещё и типы коммерции вроде "Коммерция").
         if (category === "residential" || category === "all") {
 
             const canonical = RESIDENTIAL_TYPE_LABELS[lang] || RESIDENTIAL_TYPE_LABELS.ru;
@@ -250,8 +225,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     }, [items, category, lang]);
 
 
-    // Районы, в которых реально есть объявления выбранной категории, со
-    // счётчиками — чтобы не предлагать районы, где ничего нет.
     const availableDistricts = useMemo(() => {
 
         const scoped =
@@ -270,20 +243,13 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
 
     }, [items, category, lang]);
 
-    // Район из URL остаётся выбранным, даже если в нём сейчас нет объявлений:
-    // тогда показывается пустой результат, а не весь каталог под чужим URL.
     const activeDistrict = district;
 
-    // Если выбранного района нет в списке (прямая ссылка на пустой район) —
-    // добавляем его в select, чтобы значение не расходилось с отображением.
     const districtOptions =
         activeDistrict !== "all" && !availableDistricts.some((d) => d.key === activeDistrict)
             ? [...availableDistricts, { key: activeDistrict, label: districtLabel(activeDistrict, lang), count: 0 }]
             : availableDistricts;
 
-    // Переключение вкладки категории: как и раньше, район сбрасывается, если
-    // в новой категории в нём нет объявлений. Не срабатывает на «Все» и пока
-    // данные грузятся, иначе прямая ссылка потеряла бы параметр.
     useEffect(() => {
         if (
             !loading && category !== "all" && district !== "all" &&
@@ -294,7 +260,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [category]);
 
-    // Неизвестное значение ?district= убираем из адресной строки.
     useEffect(() => {
         const raw = searchParams.get(DISTRICT_PARAM);
         if (raw !== null && !parseDistrictKey(raw)) setDistrict("all");
@@ -331,10 +296,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
                     ])
                     : 1;
 
-                // Цена в валюте отображения — именно в ней человек вводит границы
-                // и видит цены на карточках. null — сравнить нельзя (нет цены или
-                // нет курса для перевода): такие объявления при фильтре по цене
-                // скрываются, а в сортировке идут в конец.
                 return { ...item, searchScore: score, priceValue: priceInCurrency(item.price, currency, rate, parseFloat(String(item.area ?? "").replace(",", "."))) };
             })
             .filter((item) => {
@@ -371,9 +332,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             result = [...result].sort((a, b) => Number(b.id) - Number(a.id));
         }
 
-        // Платные объявления "в топе" — поднимаем над остальными, не ломая
-        // при этом выбранную сортировку внутри каждой группы (Array.sort
-        // стабильна, поэтому относительный порядок сохраняется)
         const isBoosted = (item) => {
             const until = item.boostedUntil || item.boosted_until;
             return Boolean(until) && new Date(until).getTime() > Date.now();
@@ -434,17 +392,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     };
 
 
-    // ИИ-поиск: человек пишет запрос свободным текстом в БОЛЬШУЮ строку
-    // поиска на главной (Hero) или над каталогом (Find) — она переходит
-    // сюда через URL-параметр ?q=, эффект ниже его подхватывает.
-    // Эндпоинт /api/ai-search разбирает запрос в структурные фильтры
-    // (category/type/dealType/price/bedrooms) через ту же цепочку
-    // провайдеров, что и разбор объявлений бота, и мы применяем их к
-    // уже существующим ручным фильтрам. Остаток текста (keywords)
-    // уходит в обычный текстовый search — та же fuzzy-логика, что и
-    // при ручном наборе. Если ИИ не смог разобрать (нет ключей/сеть
-    // легла) — просто продолжаем работать как обычный текстовый поиск,
-    // без ошибок в интерфейсе.
     const runAiSearch = async (queryOverride) => {
 
         const query = (queryOverride ?? search).trim();
@@ -468,9 +415,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
             if (f.category) setCategory(f.category);
             if (f.type) setType(f.type);
             if (f.dealType) setDealType(f.dealType);
-            // ИИ-поиск возвращает цены в долларах, а поля фильтра — в валюте
-            // отображения. Без курса переводить в сумы нечем — тогда ценовой
-            // фильтр не применяем, чтобы не показать заведомо неверную выборку.
             const aiMin = usdToCurrency(f.minPrice, currency, rate);
             const aiMax = usdToCurrency(f.maxPrice, currency, rate);
             if (aiMin != null) setMinPrice(String(aiMin));
@@ -490,20 +434,12 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     };
 
 
-    // Большая строка поиска на главной (Hero) и над каталогом (Find)
-    // передаёт запрос через URL: /Properties?q=.... Подхватываем его
-    // здесь один раз и сразу чистим параметр, чтобы повторный переход
-    // на эту же страницу (например, по логотипу) не запускал поиск
-    // заново. Эффект перезапускается при каждом изменении searchParams
-    // — значит сработает и повторно, если Find-бар уже на этой же
-    // странице выставит новый ?q= без полного перехода.
     useEffect(() => {
 
         const q = searchParams.get("q");
 
         if (q && q.trim()) {
             runAiSearch(q);
-            // убираем только q — выбранный район в URL должен сохраниться
             const next = new URLSearchParams(searchParams);
             next.delete("q");
             setSearchParams(next, { replace: true });
@@ -513,8 +449,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     }, [searchParams]);
 
 
-    // Чипы районов: на странице района ведут на страницы районов той же категории,
-    // на обычном каталоге — как раньше, на ?district=.
     const chipPath = (key) =>
         presetCategory
             ? (key ? districtPagePath(presetKind || "apartments", key, lang) : localizedPath("/Properties", lang))
@@ -523,9 +457,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
     return (
         <section className={s.catalog} id='discover'>
 
-            {/* Пустая выборка по району — не страница для индекса (soft 404).
-                Только когда каталог в целом загружен и не пуст: при сбое загрузки
-                основной каталог noindex получить не должен. */}
             {!loading && items.length > 0 && activeDistrict !== "all" && filtered.length === 0 && (
                 <meta name="robots" content="noindex, follow" />
             )}
@@ -566,8 +497,6 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
                 </div>
 
 
-                {/* Районы: обычные ссылки на этот же каталог с выбранным районом
-                    (не отдельные страницы). Только районы, где есть объявления. */}
                 {availableDistricts.length > 0 && (
                     <nav className={s.districtNav} aria-label={t("catalog.district")}>
                         <Link

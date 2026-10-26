@@ -1,30 +1,8 @@
-// Официальный курс USD/UZS (Центральный банк Узбекистана): получение,
-// проверка и сохранение. Файл начинается с "_", поэтому Vercel не
-// превращает его в endpoint; точка входа — api/update-exchange-rate.js.
-//
-// Формат ответа ЦБ (https://cbu.uz/ru/arkhiv-kursov-valyut/veb-masteram/):
-// JSON-массив записей с полями Ccy (код валюты), Nominal (количество
-// единиц), Rate (курс в сумах) и Date (дата курса, "ДД.ММ.ГГГГ"), например
-//   [{"Ccy":"USD","Nominal":"1","Rate":"12088.98","Date":"28.05.2025", ...}]
-// Парсер терпим к вариациям: запись может прийти не в массиве, числа — строкой
-// или числом (в т.ч. с запятой/пробелами), дата — "ДД.ММ.ГГГГ" или "ГГГГ-ММ-ДД",
-// записей может быть несколько (берём USD).
-//
-// Правила безопасности курса:
-//   • ноль, отрицательное, нечисло и значения вне разумного диапазона не
-//     записываются никогда;
-//   • резкий скачок относительно сохранённого курса (по умолчанию > 20 %)
-//     считается подозрительным и отклоняется (FX_MAX_CHANGE_PCT);
-//   • курс с датой СТАРШЕ сохранённой не перезаписывает более свежий;
-//   • при любой неудаче сохранённый курс остаётся как есть.
-
 import { logEvent, redactSecrets } from "./_aiLog.js";
 
 export const PAIR = "USD_UZS";
 export const CBU_USD_URL = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/USD/";
 
-// Сумов за 1 USD. Границы заведомо шире любого реального курса — их цель
-// поймать мусор (0, 1, 12.65, 12650000), а не оценивать рынок.
 export const RATE_MIN = 1000;
 export const RATE_MAX = 100000;
 
@@ -33,7 +11,6 @@ const DEFAULT_ATTEMPTS = 2;
 const DEFAULT_MAX_CHANGE_PCT = 20;
 const MAX_FUTURE_DAYS = 3;
 
-// Ошибка с машинным кодом: по ней endpoint отвечает, а лог различает причины.
 export class RateError extends Error {
     constructor(code, message) {
         super(message || code);
@@ -42,7 +19,6 @@ export class RateError extends Error {
     }
 }
 
-// "12088.98" | 12088.98 | "12 088,98" -> 12088.98; иначе null
 export function parseRateNumber(value) {
     if (typeof value === "number") return Number.isFinite(value) ? value : null;
     if (typeof value !== "string") return null;
@@ -54,7 +30,6 @@ export function parseRateNumber(value) {
     return Number.isFinite(n) ? n : null;
 }
 
-// "28.05.2025" | "2025-05-28" -> "2025-05-28" (проверяется календарная корректность); иначе null
 export function parseCbuDate(value) {
     if (typeof value !== "string") return null;
     const text = value.trim();
@@ -77,7 +52,6 @@ export function parseCbuDate(value) {
     return valid ? `${y}-${m}-${d}` : null;
 }
 
-// Достаёт USD из ответа ЦБ. Возвращает { rate, rateDate } или бросает RateError.
 export function parseCbuUsdResponse(payload) {
     const list = Array.isArray(payload) ? payload : (payload && typeof payload === "object" ? [payload] : []);
 
@@ -93,7 +67,6 @@ export function parseCbuUsdResponse(payload) {
     const rawRate = parseRateNumber(record.Rate);
     if (rawRate == null) throw new RateError("bad_format", "поле Rate отсутствует или не число");
 
-    // Nominal — за сколько единиц валюты указан курс. Нет поля — считаем 1.
     let nominal = 1;
     if (record.Nominal != null && record.Nominal !== "") {
         nominal = parseRateNumber(record.Nominal);
@@ -114,8 +87,6 @@ export function parseCbuUsdResponse(payload) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Один запрос к ЦБ с таймаутом; при сбое — ограниченное число повторов.
-// Бросает RateError("cbu_unavailable" | "bad_format" | "out_of_range").
 export async function fetchCbuUsdRate({
     url = CBU_USD_URL,
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -158,7 +129,6 @@ export async function fetchCbuUsdRate({
     throw lastError || new RateError("cbu_unavailable");
 }
 
-// Сравнение с уже сохранённым курсом. Бросает RateError("implausible_change" | "date_in_future").
 export function assertPlausible(next, previous, { now = new Date(), maxChangePct } = {}) {
     const limit = Number.isFinite(maxChangePct) && maxChangePct > 0 ? maxChangePct : DEFAULT_MAX_CHANGE_PCT;
 
@@ -174,8 +144,6 @@ export function assertPlausible(next, previous, { now = new Date(), maxChangePct
         }
     }
 }
-
-// ---- хранилище (Supabase, таблица exchange_rates; см. sql/add_exchange_rates.sql) ----
 
 export async function loadStoredRate(supabase) {
     const { data, error } = await supabase
@@ -205,9 +173,6 @@ export async function saveRate(supabase, { rate, rateDate }, now = new Date()) {
     if (error) throw new RateError("storage_error", redactSecrets(error.message || "ошибка записи").slice(0, 160));
 }
 
-// Полный цикл: прочитать сохранённое -> получить у ЦБ -> проверить -> записать.
-// Не бросает. Любая неудача оставляет сохранённый курс нетронутым.
-// Возвращает { ok, status, rate?, rateDate?, kept? }.
 export async function updateExchangeRate({
     supabase,
     now = new Date(),
@@ -219,7 +184,6 @@ export async function updateExchangeRate({
     try {
         previous = await loadStoredRate(supabase);
     } catch (e) {
-        // Без чтения нельзя применить защиту от скачка — писать вслепую не будем.
         logEvent("FX_RATE", { ok: false, code: e.code || "storage_error", reason: e.message });
         return { ok: false, status: "storage_error", kept: null };
     }

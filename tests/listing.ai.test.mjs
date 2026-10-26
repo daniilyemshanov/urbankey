@@ -1,6 +1,3 @@
-// Цепочка ИИ-провайдеров, проверка ответа модели, слияние с регулярным
-// разбором и резервный путь. fetch подменён — ни сети, ни ключей не нужно.
-
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -20,9 +17,9 @@ const ENV_KEYS = [
 const FAKE_GEMINI_KEY = "AIzaSyFAKE_KEY_FOR_TESTS_0123456789abcd";
 const FAKE_GROQ_KEY = "gsk_FAKEGROQKEYFORTESTS0123456789abcd";
 
-let script;   // { gemini: [...], groq: [...] } — очередь ответов на каждого провайдера
-let calls;    // журнал запросов { provider, url, headers, body }
-let logs;     // перехваченные console.log
+let script;
+let calls;
+let logs;
 
 const providerOf = (url) => (url.includes("googleapis") ? "gemini" : url.includes("groq.com") ? "groq" : "other");
 
@@ -72,7 +69,6 @@ const POST = [
     "Тел: +998 90 123 45 67",
 ].join("\n");
 
-// Хороший ответ модели для POST
 const goodAi = (over = {}) => ({
     title_ru: "2-комнатная квартира в Юнусабаде",
     title_en: "2-room apartment in Yunusabad",
@@ -103,8 +99,6 @@ const goodAi = (over = {}) => ({
     ...over,
 });
 
-// ---- validateAiListing -------------------------------------------------------
-
 test("validate: хороший ответ принимается и приводится к схеме", () => {
     const v = validateAiListing(goodAi(), POST, parseListing(POST));
     assert.equal(v.ok, true);
@@ -134,8 +128,8 @@ test("validate: типы приводятся, диапазоны проверя
     assert.equal(v.value.bedrooms, 2);
     assert.equal(v.value.area, 68.5);
     assert.equal(v.value.floor, 5);
-    assert.equal(v.value.total_floors, 9);          // из "5/9"
-    assert.equal(v.value.bathrooms, null);          // 99 санузлов — вне диапазона
+    assert.equal(v.value.total_floors, 9);
+    assert.equal(v.value.bathrooms, null);
     assert.equal(v.value.ceiling_height, null);
     assert.equal(v.value.price_number, null);
     assert.ok(v.issues.length >= 3);
@@ -146,8 +140,6 @@ test("validate: русские поля на английском при рус�
     assert.equal(v.ok, false);
     assert.match(v.reason, /не на русском/);
 });
-
-// ---- цепочка: повторы и переход между провайдерами ----------------------------
 
 test("пустой ответ Gemini -> повтор -> успех со второй попытки", async () => {
     useGemini();
@@ -270,11 +262,8 @@ test("без настроенных провайдеров: ok=false сразу,
     assert.deepEqual(configuredProviders(), []);
 });
 
-// ---- секреты --------------------------------------------------------------------
-
 test("секреты не попадают в логи; ключ Gemini передаётся заголовком, а не в URL", async () => {
     useGemini(); useGroq();
-    // ошибка с ключом внутри текста, тело ответа с ключом, сетевая ошибка с URL и ключом
     script.gemini = [
         { status: 400, body: `{"error":"bad request for key=${FAKE_GEMINI_KEY}"}` },
     ];
@@ -300,8 +289,6 @@ test("redactSecrets маскирует типичные форматы", () => {
     const out = redactSecrets("url https://x?key=abc123def456&a=1 header Bearer abcdefghijklmnop token bot123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAA env gsk_SECRET_VALUE_0123456789");
     assert.ok(!/abc123def456|abcdefghijklmnop|AAAAAAAAAAAA|SECRET_VALUE/.test(out), out);
 });
-
-// ---- слияние: проверка чисел и описания ----------------------------------------
 
 test("\"двухкомнатная\": число слова принимается (раньше терялось)", () => {
     const text = "Продам двухкомнатная квартира, 68 м², цена 85 000$";
@@ -389,8 +376,6 @@ test("явные слова \"сдам\" главнее оценки модел�
     assert.equal(buildParsedFromAi(v.value, parseListing(text), text).isRent, true);
 });
 
-// ---- getParsedListing целиком ----------------------------------------------------
-
 test("getParsedListing: успех ИИ -> диагностика с провайдером и числом попыток", async () => {
     useGemini();
     script.gemini = [geminiOk(goodAi())];
@@ -403,7 +388,6 @@ test("getParsedListing: успех ИИ -> диагностика с прова�
     assert.equal(p.diagnostics.provider, "gemini");
     assert.ok(["ai", "ai+regex"].includes(p.diagnostics.source));
     assert.ok(logs.some((l) => l.startsWith("LISTING_PARSE") && l.includes('"provider":"gemini"')));
-    // форма результата, которую читают webhook/finalize/bot
     assert.ok(p.type.ru && typeof p.locationLine === "string" && p.commercialFields);
     assert.ok(!logs.join("\n").includes("998 90 123"), "телефон из поста не должен попасть в лог");
 });

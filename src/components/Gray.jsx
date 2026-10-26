@@ -12,8 +12,6 @@ const Gray = () => {
 
     const { t } = useTranslation()
 
-    // Официальный курс ЦБ РУз и дата, на которую он установлен. Нет сохранённого
-    // курса — подпись не показывается (никаких подставных цифр).
     const { rate, rateDate } = useCurrency() ?? {}
     const rateNote = getRateNoteParams({ rate, date: rateDate })
 

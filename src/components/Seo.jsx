@@ -1,15 +1,10 @@
-/* Переиспользуемый компонент SEO/OG-тегов.
-   React 19 умеет сам поднимать <title>/<meta>/<link>, отрендеренные
-   в любом месте дерева компонентов, в <head> документа — отдельный
-   пакет (react-helmet) для этого не нужен. */
-
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { DEFAULT_LANG, SUPPORTED_LANGS, stripLangPrefix } from "../utils/lang";
 
 const SITE_NAME = "UrbanKey";
-const FALLBACK_IMAGE = "/image%20(16).webp"; // пробел в URL кодируем: og:image должен быть валидным URL
+const FALLBACK_IMAGE = "/image%20(16).webp";
 const SITE_ORIGIN = "https://urbankey.uz";
 
 const OG_LOCALES = { ru: "ru_RU", en: "en_US", uz: "uz_UZ" };
@@ -26,16 +21,6 @@ const DEFAULT_DESCRIPTION = {
     uz: "UrbanKey — Toshkentda ko'chmas mulk tanlash va sotish: kvartiralar, tijorat obyektlari.",
 };
 
-/**
- * @param {string} [title] - заголовок страницы (без названия сайта, оно добавится само)
- * @param {string} [description]
- * @param {string} [image] - абсолютный или относительный (от корня) URL картинки
- * @param {boolean} [noIndex]
- * @param {object|object[]} [jsonLd] - один объект или массив объектов schema.org для JSON-LD
- */
-// Описание для сниппета: одна строка до ~160 символов, обрезка по слову
-// (та же логика, что в api/_seoMeta.js, чтобы после гидрации description не
-// расходился с серверным и не был «простынёй» из полного текста объявления).
 const shortDescription = (text, max = 160) => {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (clean.length <= max) return clean;
@@ -55,15 +40,10 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
         ? (image.startsWith("http") ? image : `${SITE_ORIGIN}${image}`)
         : `${SITE_ORIGIN}${FALLBACK_IMAGE}`;
 
-    // Canonical: без query-строки (фильтры каталога, utm-метки и т.п. не должны создавать дубли)
-    // и всегда абсолютный, с текущим языковым префиксом.
     const canonicalUrl = `${SITE_ORIGIN}${pathname}`;
 
-    // Путь без языкового сегмента — нужен, чтобы построить ссылки на остальные языковые версии.
     const basePath = stripLangPrefix(pathname);
 
-    // Серверные теги (api/spa.js, data-ssr-seo) нужны роботам без JS; когда React
-    // нарисовал свои, убираем серверные, чтобы в <head> не было дублей.
     useEffect(() => {
         document.querySelectorAll("[data-ssr-seo]").forEach((el) => el.remove());
     }, []);
@@ -78,7 +58,6 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
 
             <link rel="canonical" href={canonicalUrl} />
 
-            {/* hreflang: у каждой RU/EN/UZ версии страницы — собственный индексируемый URL */}
             {SUPPORTED_LANGS.map((code) => (
                 <link
                     key={code}

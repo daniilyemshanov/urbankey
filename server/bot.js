@@ -1,12 +1,3 @@
-// server/bot.js — long-polling версия бота, для запуска на своём
-// компьютере или VPS (`npm run bot`). Работает, только пока запущен этот
-// процесс — если это не подходит, используйте api/telegram-webhook.js
-// (serverless-версия на Vercel, работает всегда без единого запущенного
-// процесса — см. инструкцию в начале того файла).
-//
-// Вся логика разбора поста и перевода вынесена в api/listingParser.js
-// и используется в обеих версиях бота, чтобы не расходиться местами.
-
 import "dotenv/config";
 
 import TelegramBot from "node-telegram-bot-api";
@@ -38,10 +29,6 @@ const bot = new TelegramBot(
 );
 
 
-// ⚠️ Боту нужен service_role ключ (он должен обходить RLS, чтобы вставлять
-// строки без авторизованного пользователя). Держите его ТОЛЬКО тут, в
-// server/.env, под именем SUPABASE_SERVICE_KEY — без префикса VITE_,
-// чтобы Vite не зашил его в бандл сайта.
 const SUPABASE_KEY =
     process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_KEY;
 
@@ -66,12 +53,6 @@ bot.on("polling_error", (err) => {
 
 
 
-// Telegram сам сжимает любое фото, отправленное как обычное "Photo"
-// (уменьшает и переупаковывает JPEG с потерей качества) — это
-// ограничение самого Telegram, бот тут ничего не решает. Если фото
-// отправлено как файл ("Отправить как файл", без сжатия) — оно приходит
-// как msg.document с mime_type вида image/*, без потери качества.
-// Предпочитаем такой вариант, если он есть.
 function getBestImageFileId(msg) {
 
     if (msg.document?.mime_type?.startsWith("image/")) {
@@ -86,8 +67,6 @@ function getBestImageFileId(msg) {
 }
 
 
-// Telegram Bot API не даёт боту скачать файл больше 20 МБ — жёсткое
-// ограничение самого Telegram. Если видео тяжелее, просто пропускаем его.
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 function getVideoInfo(msg) {
@@ -158,10 +137,6 @@ async function uploadPhoto(fileId) {
 
         const buffer = Buffer.from(await response.arrayBuffer());
 
-        // подстраховка: если это всё-таки не картинка (например, Telegram
-        // отдал HTML-страницу с ошибкой вместо файла, а response.ok был
-        // true из-за редиректа) — не льём мусор в Storage под видом jpeg.
-        // JPEG всегда начинается с байтов FF D8, PNG — 89 50 4E 47.
         const looksLikeImage =
             buffer.length > 100 &&
             ((buffer[0] === 0xff && buffer[1] === 0xd8) ||
@@ -204,8 +179,6 @@ async function createDraftPage(table, linkIdField, cardId, parsed, images, video
 
 
 
-// Память о недавно созданных записях: chatId:messageId -> { table, id }.
-// Живёт, пока запущен процесс (сбрасывается при рестарте).
 const recentPosts = new Map();
 
 function rememberPost(chatId, messageId, table, id) {
@@ -224,14 +197,10 @@ function rememberPost(chatId, messageId, table, id) {
 
 
 
-// Группировка альбомов (несколько фото в одном посте) — тут можно
-// использовать простую задержку через setTimeout, т.к. процесс живёт
-// постоянно (в отличие от serverless-версии, где для этого нужна база).
 const pendingGroups = new Map();
 
 function handleIncomingPost(msg) {
 
-    // Ответ словом ПРОДАНО на пост с объявлением — не новое объявление.
     if (msg.reply_to_message && isSoldKeyword(msg.caption || msg.text || "")) {
         processSoldReply(msg);
         return;
@@ -286,9 +255,6 @@ async function processPost(mainMsg, allMsgs) {
             await fillMissingTranslations(parsed.commercialFields, ["district", "address", "landmark"]);
         }
 
-        // собираем и грузим ВСЕ фото альбома (не только первое) — они пойдут
-        // в галерею детальной страницы; для самой карточки (image) по-прежнему
-        // используется только первое, как и раньше
         const fileIds = allMsgs.map(getBestImageFileId).filter(Boolean);
 
         const uploaded = [];
@@ -383,7 +349,6 @@ async function replyToChannel(msg, text) {
 
 
 
-// Ответ «ПРОДАНО» на пост: объявление убирается с сайта и замораживается.
 async function processSoldReply(msg) {
 
     try {
@@ -416,10 +381,8 @@ bot.on("edited_channel_post", async (msg) => {
 
     try {
 
-        // Правка самого сообщения «ПРОДАНО» — это не объявление.
         if (msg.reply_to_message && isSoldKeyword(msg.caption || msg.text || "")) return;
 
-        // Проданный объект заморожен: правки поста на сайт больше не попадают.
         const existing = await findListingByTelegramMessage(supabase, msg.chat.id, msg.message_id);
         if (existing?.isSold) {
             await replyToChannel(msg, `🔒 Объект «${existing.title}» продан и заморожен — изменения на сайт не применены.`);

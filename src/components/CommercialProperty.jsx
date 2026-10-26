@@ -77,8 +77,6 @@ const CommercialProperty = ({ data }) => {
             <div className={s.all}>
 
 
-                {/* LEFT */}
-
 
                 <motion.div
                     className={s.swiperWrapper}
@@ -181,8 +179,6 @@ const CommercialProperty = ({ data }) => {
 
 
 
-
-                {/* RIGHT */}
 
 
 

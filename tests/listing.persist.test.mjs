@@ -1,8 +1,3 @@
-// Сохранение в Supabase (на поддельном клиенте): безопасный откат, повторы,
-// различение ошибок БД, сборка строк карточки и страницы, совместимость
-// формы результата разбора с потребителями, утилиты отображения этажа.
-// Проверка на настоящей БД с RLS — tests/e2e/persist.mjs.
-
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -29,7 +24,6 @@ beforeEach(() => {
     logs = [];
     console.log = (...a) => { logs.push(a.join(" ")); };
     delete process.env.CARD_FLOOR_COLUMNS;
-    // перевод: Google Translate подменён
     globalThis.fetch = async (url) => {
         if (String(url).includes("translate.googleapis.com")) {
             return new Response(JSON.stringify([[["translated", "src"]]]), { status: 200 });
@@ -39,7 +33,6 @@ beforeEach(() => {
 });
 after(() => { globalThis.fetch = realFetch; console.log = realLog; });
 
-// Поддельный клиент Supabase: каждый insert берёт следующий шаг из очереди.
 function fakeSupabase(steps = []) {
     const inserts = [];
     return {
@@ -62,8 +55,6 @@ function fakeSupabase(steps = []) {
 const POST = "Продам 2-комнатная квартира\n📍 Юнусабад, ул. Навои 12\n5/9 этаж, 68 м², 2 санузла\nС мебелью, балкон\nЦена: 85 000$\nТел: +998 90 123 45 67";
 const CTX = { image: "https://x/y.webp", videoUrl: "", tgChatId: 5, tgMessageId: 9 };
 
-// ---- классификация ---------------------------------------------------------------
-
 test("классификация ошибок БД: временная / данные / дубликат", () => {
     assert.equal(classifyDbError({ message: "fetch failed" }).transient, true);
     assert.equal(classifyDbError({ status: 503, message: "x" }).transient, true);
@@ -73,8 +64,6 @@ test("классификация ошибок БД: временная / дан�
     assert.equal(classifyDbError({ code: "42703", message: "column does not exist" }).dataRelated, true);
     assert.equal(classifyDbError({ code: "42501", message: "permission denied" }).dataRelated, false);
 });
-
-// ---- insertCardRow ----------------------------------------------------------------
 
 test("успешная запись: один запрос, без деградации", async () => {
     const sb = fakeSupabase([{ data: { id: 5 } }]);
@@ -141,8 +130,6 @@ test("в логах БД нет секретов", async () => {
     delete process.env.SUPABASE_SERVICE_KEY;
 });
 
-// ---- insertPageRow / savePage -----------------------------------------------------
-
 test("страница объекта: откат урезанным набором при ошибке данных", async () => {
     const sb = fakeSupabase([{ error: { code: "22P02", message: "invalid" } }, {}]);
     const payload = buildPagePayload(parseListing(POST), { table: "villas", linkIdField: "card_id", cardId: 3, images: ["a"], videoUrl: "" });
@@ -174,8 +161,6 @@ test("savePage: страница создаётся, location переведён
     assert.equal(p.location_en, "translated");
     assert.equal(p.location_uz, "translated");
 });
-
-// ---- сборка строк ----------------------------------------------------------------------
 
 test("карточка жилья: правильные подписи, цена и тип; публикуется сразу", () => {
     const { table, row } = buildCardRow(parseListing(POST), CTX);
@@ -236,7 +221,6 @@ test("страница: сумма в сумах < 10 млн не записыв
     const big = buildPagePayload(parseListing("Продам\nЦена: 850 млн сум"), { table: "villas", linkIdField: "card_id", cardId: 1, images: [], videoUrl: "" });
     assert.equal(big.price, 850000000);
 
-    // результат старого формата (без поля priceNumber) по-прежнему разбирается
     const legacy = buildPagePayload({ ...parseListing("Продам\nЦена: 85 000$"), priceNumber: undefined }, { table: "villas", linkIdField: "card_id", cardId: 1, images: [], videoUrl: "" });
     assert.equal(legacy.price, 85000);
 });
@@ -256,8 +240,6 @@ test("страница коммерции", () => {
     assert.equal(p.area, 120);
     assert.equal(p.ceiling_height, 3.2);
 });
-
-// ---- совместимость формы результата ------------------------------------------------------
 
 test("любой путь разбора даёт форму, пригодную для сборки строк (type, locationLine и т.д.)", () => {
     const ai = {
@@ -283,14 +265,11 @@ test("residentialCardFields и omitEmpty: правка поста не зати�
     assert.deepEqual(omitEmpty({ ...fields, price: "", title_ru: "Новое", is_rent: false, n: 0 }), { title_ru: "Новое", is_rent: false, n: 0 });
 });
 
-// ---- отображение ----------------------------------------------------------------------------
-
 test("проверка отображения: нормальная цена без замечаний, \"за м²\" и конфликт фиксируются", () => {
     assert.deepEqual(checkCardDisplay({ price: "85 000$" }), []);
     assert.deepEqual(checkCardDisplay({ price: "850 000 000 сум" }), []);
     assert.deepEqual(checkCardDisplay({ price: "" }), []);
 
-    // цена за м² — допустимое значение: сайт распознаёт пометку и не клеит "2" из "м2"
     assert.deepEqual(checkCardDisplay({ price: "1400$ за 1м²" }), []);
     assert.deepEqual(checkCardDisplay({ price: "1 800$ за м2" }), []);
 
@@ -308,13 +287,10 @@ test("утилиты этажа для карточек", () => {
     assert.equal(formatFloor("abc", 9, "ru"), "");
 
     assert.deepEqual(residentialFloorSlot({ floor: 5, totalFloors: 9 }, "ru"), { kind: "floor", label: "5/9 этаж" });
-    // ванн в карточках больше нет: нет этажа — пункт пустой и не рисуется
     assert.deepEqual(residentialFloorSlot({ bathrooms: { ru: "2 ванные", en: "2 bathrooms" } }, "ru"), { kind: "empty", label: "" });
     assert.deepEqual(residentialFloorSlot({}, "ru"), { kind: "empty", label: "" });
-    // этаж берётся из текста описания, если колонок нет
     assert.deepEqual(residentialFloorSlot({ description: { ru: "Квартира. Этаж 5 из 9." } }, "ru"), { kind: "floor", label: "5/9 этаж" });
     assert.equal(residentialFloorSlot({ floor: 3, bathrooms: { ru: "1 ванная" } }, "ru").kind, "floor");
-    // комнаты вместо спален
     assert.equal(roomsLabel("2 спальни", "ru"), "2 комнаты");
     assert.equal(roomsLabel("5 спален", "ru"), "5 комнат");
     assert.equal(roomsLabel("1 спальня", "ru"), "1 комната");

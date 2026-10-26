@@ -71,7 +71,6 @@ const CreateVilla = () => {
 
         getCards();
 
-        // /admin/CreateVilla/:id — карточка выбрана заранее
         if (id) {
             setVilla(prev => ({ ...prev, card_id: id }));
         }

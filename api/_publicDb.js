@@ -1,11 +1,3 @@
-// Общие хелперы для публичных serverless-функций (sitemap, spa).
-// Файл начинается с "_", поэтому Vercel не превращает его в endpoint.
-//
-// Используется ТОЛЬКО anon-ключ — ровно то, что доступно любому
-// посетителю сайта. Флаг is_draft НЕ учитывается: объявления из Telegram
-// публикуются сразу (как и раньше), страница считается существующей, если
-// у объекта есть строка страницы (villas / commercial_pages).
-
 import { createClient } from "@supabase/supabase-js";
 import { detectDistrict } from "../src/utils/districts.js";
 
@@ -13,11 +5,6 @@ export const SITE_ORIGIN = "https://urbankey.uz";
 export const LANGS = ["ru", "en", "uz"];
 export const DEFAULT_LANG = "ru";
 
-// timeoutMs: жёсткий предел на КАЖДЫЙ запрос к Supabase. Без него зависшая
-// база подвесит функцию до лимита Vercel (по умолчанию 10 с), и каждая
-// страница объекта ответит 504. По таймауту supabase-js возвращает error,
-// а вызывающий код решает, что делать (spa — пропустить проверку,
-// sitemap — вернуть 503).
 export function getSupabase({ timeoutMs = 4000 } = {}) {
     const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
     const key = process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -35,23 +22,15 @@ export function getSupabase({ timeoutMs = 4000 } = {}) {
     });
 }
 
-// postgrest-js по умолчанию повторяет упавший запрос до 3 раз с паузами
-// 1/2/4 с. Для SEO-проверок это вредно: ответ нужен быстро, в пределах
-// таймаута. Отключаем повторы на конкретном запросе.
 export function noRetry(query) {
     return typeof query.retry === "function" ? query.retry(false) : query;
 }
 
-// id объектов — положительные целые (bigint identity). Всё остальное
-// ("abc", "-1", "1e3", "0123abc") — заведомо несуществующий объект.
 export function parseListingId(raw) {
     if (typeof raw !== "string" || !/^[1-9]\d{0,17}$/.test(raw)) return null;
     return Number(raw);
 }
 
-// Страница жилья существует, если для карточки есть строка в villas —
-// ровно то условие, по которому клиент (Context.getVilla) показывает объект.
-// Возвращает true / false / null (null — не удалось проверить: ошибка БД).
 export async function propertyExists(supabase, id) {
     const { data, error } = await noRetry(
         supabase
@@ -68,8 +47,6 @@ export async function propertyExists(supabase, id) {
     }
     if (!data) return false;
 
-    // Проданное объявление (is_sold) отфильтровано во view cardss_public —
-    // его страница больше не существует и должна отдавать 404, а не 200.
     const { data: card, error: cardError } = await noRetry(
         supabase
             .from("cardss_public")
@@ -79,7 +56,6 @@ export async function propertyExists(supabase, id) {
     );
 
     if (cardError) {
-        // view ещё нет — проверить нечем, не прячем живую страницу
         if (cardError.code === "42P01") return true;
         console.error("propertyExists(card) failed:", cardError.message);
         return null;
@@ -87,10 +63,6 @@ export async function propertyExists(supabase, id) {
     return Boolean(card);
 }
 
-// Страница коммерции — зеркало Context.getCommercialById:
-//  • есть строка commercial_pages → страница существует;
-//  • строки нет → клиент показывает упрощённую страницу из
-//    commercials_public, значит существует, если объект есть там.
 export async function commercialExists(supabase, id) {
     const { data: page, error } = await noRetry(
         supabase
@@ -104,9 +76,6 @@ export async function commercialExists(supabase, id) {
         console.error("commercialExists(page) failed:", error.message);
         return null;
     }
-    // Проданное (is_sold) отфильтровано во view commercials_public, поэтому
-    // даже при наличии строки commercial_pages страница считается
-    // существующей, только если объект есть во view.
     const { data: base, error: baseError } = await noRetry(
         supabase
             .from("commercials_public")
@@ -123,9 +92,6 @@ export async function commercialExists(supabase, id) {
     return Boolean(base);
 }
 
-// Данные для превью ссылки (название, описание, обложка) из публичных view —
-// тех же, что видит любой посетитель. Возвращает null при любой ошибке:
-// тогда страница просто отдаётся с общими тегами, как раньше.
 export async function getListingMeta(supabase, kind, id) {
     const view = kind === "property" ? "cardss_public" : "commercials_public";
     try {
@@ -148,11 +114,6 @@ export async function getListingMeta(supabase, kind, id) {
     }
 }
 
-// Какие районы имеют хотя бы одно опубликованное объявление.
-// Район определяется ТОЙ ЖЕ функцией, что и в каталоге (src/utils/districts.js),
-// по тем же полям, поэтому серверный и клиентский результат совпадают.
-// Возвращает { apartments: Set, commercial: Set } или null, если проверить не
-// удалось (ошибка БД/таймаут): тогда вызывающий код ничего не скрывает.
 export async function getDistrictsWithListings(supabase) {
     try {
         const [homes, commercials, villas] = await Promise.all([
@@ -171,7 +132,6 @@ export async function getDistrictsWithListings(supabase) {
                     )
                     .limit(2000)
             ),
-            // строка «Расположение» страницы жилья — самый точный источник района квартиры
             noRetry(
                 supabase
                     .from("villas")
@@ -184,7 +144,6 @@ export async function getDistrictsWithListings(supabase) {
             return null;
         }
 
-        // Нет доступа к villas — не страшно: район определится по названию и описанию.
         const locationByCard = new Map();
         if (!villas.error) {
             for (const v of villas.data || []) {

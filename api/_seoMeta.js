@@ -1,11 +1,3 @@
-// Мета-теги для страниц объектов, которые вставляются в HTML на сервере.
-// ЗАЧЕМ: Telegram, WhatsApp, Facebook и часть поисковиков не выполняют JS,
-// поэтому раньше у любой ссылки на объявление было одно и то же превью.
-// Файл начинается с "_", поэтому Vercel не превращает его в endpoint.
-//
-// Теги помечены data-ssr-seo="1": после загрузки React (Seo.jsx) сам
-// создаёт такие же теги и удаляет эти, чтобы дублей в DOM не оставалось.
-
 import { SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 import { getDistrictPage, districtBasePath } from "../src/utils/districtPages.js";
 import { getStaticPage, staticBasePath } from "../src/utils/staticPages.js";
@@ -28,7 +20,6 @@ export function escapeHtml(value) {
         .replace(/"/g, "&quot;");
 }
 
-// Описание для сниппета: одна строка, до ~160 символов, обрезка по слову.
 export function shortDescription(text, max = 160) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (clean.length <= max) return clean;
@@ -43,12 +34,11 @@ function absoluteImage(url) {
     return `${SITE_ORIGIN}${url.startsWith("/") ? "" : "/"}${encodeURI(url)}`;
 }
 
-// meta: { title: {ru,en,uz}, description: {ru,en,uz}, image } — только реальные данные объекта
 export function buildListingHead({ kind, id, lang, meta }) {
     const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
     const rawTitle = pick(meta?.title);
     const title = rawTitle ? `${rawTitle} — ${SITE_NAME}` : null;
-    if (!title) return null; // нечего подставлять — оставляем оболочку как есть
+    if (!title) return null;
 
     const description = shortDescription(pick(meta?.description)) || DEFAULT_DESCRIPTION[lang];
     const image = absoluteImage(meta?.image);
@@ -78,7 +68,6 @@ export function buildListingHead({ kind, id, lang, meta }) {
     return { lines: lines.join("\n  "), lang };
 }
 
-// Убирает из оболочки общие title/description/og/twitter и вставляет свои.
 export function injectHead(html, head) {
     if (!head) return html;
     let out = html
@@ -86,14 +75,11 @@ export function injectHead(html, head) {
         .replace(/<meta\s+name="description"[^>]*>\s*/gi, "")
         .replace(/<meta\s+property="og:[^"]*"[^>]*>\s*/gi, "")
         .replace(/<meta\s+name="twitter:[^"]*"[^>]*>\s*/gi, "");
-    if (!/<\/head>/i.test(out)) return html; // нестандартная оболочка — не рискуем
+    if (!/<\/head>/i.test(out)) return html;
     out = out.replace(/<html lang="[a-z]{2}"/i, `<html lang="${head.lang}"`);
     return out.replace(/<\/head>/i, () => `  ${head.lines}\n</head>`);
 }
 
-// ── Страницы без объекта в БД: районы и общие страницы ─────────────────────────
-// Серверный <head> для роботов без JS. Теги помечены data-ssr-seo="1" —
-// после загрузки React (Seo.jsx) создаёт свои и удаляет эти.
 function buildPageHead({ page, basePath, lang }) {
     const title = `${page.title} — ${SITE_NAME}`;
     const description = shortDescription(page.description);
@@ -120,9 +106,6 @@ function buildPageHead({ page, basePath, lang }) {
         `<meta ${a} name="twitter:image" content="${escapeHtml(FALLBACK_IMAGE)}" />`,
     ];
 
-    // Видимый текст страницы (h1 + абзац) прямо в HTML: React при старте заменяет
-    // содержимое #root своим (createRoot), поэтому дублей у посетителей нет.
-    // Цвет светлый: до загрузки React фон сайта тёмный (--black), тема применяется позже.
     const paragraphs = String(page.intro).split(/\n+/).map((t) => `<p>${escapeHtml(t)}</p>`).join("");
     const body = `<main ${a} style="max-width:1440px;margin:0 auto;padding:120px 20px 0;font-family:sans-serif;color:#f5f5f5">` +
         `<h1>${escapeHtml(page.h1)}</h1>${paragraphs}</main>`;
@@ -130,22 +113,19 @@ function buildPageHead({ page, basePath, lang }) {
     return { lines: lines.join("\n  "), lang, body };
 }
 
-// /:lang/Properties/apartments|commercial/:district
 export function buildDistrictHead({ kind, key, lang }) {
     const page = getDistrictPage(kind, key, lang);
     return page ? buildPageHead({ page, basePath: districtBasePath(kind, key), lang }) : null;
 }
 
-// /:lang, /:lang/Properties, /:lang/AboutUs, /:lang/Services, /:lang/ContactUs
 export function buildStaticHead({ page: pageKey, lang }) {
     const page = getStaticPage(pageKey, lang);
     return page ? buildPageHead({ page, basePath: staticBasePath(pageKey), lang }) : null;
 }
 
-// Вставляет готовый HTML внутрь пустого <div id="root"></div>.
 export function injectRootContent(html, body) {
     if (!body) return html;
     const re = /<div id="root">\s*<\/div>/i;
-    if (!re.test(html)) return html; // нестандартная оболочка — не рискуем
+    if (!re.test(html)) return html;
     return html.replace(re, () => `<div id="root">${body}</div>`);
 }

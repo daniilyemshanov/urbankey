@@ -74,7 +74,6 @@
 
     .button {
         right: 16px;
-        /* над кнопкой телеграма, которая уже поднята над BottomNav */
         bottom: calc(16px + 64px + 64px + 12px + env(safe-area-inset-bottom));
         width: 56px;
         height: 56px;

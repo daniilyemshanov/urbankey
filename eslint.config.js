@@ -6,6 +6,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+  { rules: { 'no-empty': ['error', { allowEmptyCatch: true }] } },
   {
     files: ['**/*.{js,jsx}'],
     ignores: ['api/**', 'server/**'],
@@ -20,9 +21,6 @@ export default defineConfig([
     },
   },
   {
-    // /api — Vercel serverless-функции, /server — отдельные node-скрипты
-    // (бот и т.д.). Оба выполняются в Node, а не в браузере, поэтому им
-    // нужны globals.node (process, console, Buffer...), а не globals.browser.
     files: ['api/**/*.js', 'server/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {

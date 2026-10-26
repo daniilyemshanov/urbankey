@@ -140,10 +140,6 @@ const BottomNav = () => {
                 )}
             </nav>
 
-            {/* Drawer по долгому тапу на профиль/аватар — язык, валюта, тема,
-                выход, плюс страницы, которых нет на панели (О компании,
-                Сервисы, Контакты), чтобы они не терялись, когда последняя
-                вкладка занята "Моими объявлениями" */}
             <div className={drawerOpen ? `${s.drawerOverlay} ${s.drawerOpen}` : s.drawerOverlay} onClick={() => setDrawerOpen(false)}>
                 <div className={s.drawer} onClick={(e) => e.stopPropagation()}>
                     <div className={s.drawerHandle} />

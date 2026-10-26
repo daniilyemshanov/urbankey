@@ -1,8 +1,3 @@
-// Опциональные колонки этажа жилья (sql/optional_add_card_floor.sql).
-// Запускать ПОСЛЕ применения SQL к ТЕСТОВОЙ БД. Проверяет, что бот при
-// CARD_FLOOR_COLUMNS=1 пишет этаж/этажность, публичный view их отдаёт, а
-// карточка (residentialFloorSlot) показывает "5/9 этаж" со значком этажа.
-
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -35,11 +30,9 @@ const { data: card } = await anon.from("cardss_public").select("*").eq("id", res
 ok("публичный view отдаёт floor и total_floors", card.floor === 5 && card.total_floors === 9, `${card.floor}/${card.total_floors}`);
 ok("owner_phone по-прежнему не раскрывается", !("owner_phone" in card));
 
-// то, что делает getCards на клиенте
 const item = { floor: card.floor ?? null, totalFloors: card.total_floors ?? null, bathrooms: { ru: card.bathrooms_ru } };
 ok("карточка: значок этажа и подпись «5/9 этаж»", JSON.stringify(residentialFloorSlot(item, "ru")) === JSON.stringify({ kind: "floor", label: "5/9 этаж" }));
 
-// существующие карточки (без этажа) продолжают работать (без этажа пункт не рисуется)
 const { data: all } = await anon.from("cardss_public").select("*").order("id");
 const old = all.find((c) => c.floor == null && c.bathrooms_ru);
 ok("старые карточки без этажа не ломаются (floor = null)", all.some((c) => c.floor == null));

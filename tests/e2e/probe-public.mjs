@@ -1,5 +1,3 @@
-// Права и публичная видимость через API (anon / user / admin). Миграций нет:
-// is_draft никого не скрывает, безопасность остаётся прежней.
 import fs from "fs";
 const T = JSON.parse(fs.readFileSync(process.env.E2E_TOKENS || "./tokens.json"));
 const B = "http://localhost:3100";

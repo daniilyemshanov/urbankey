@@ -52,7 +52,6 @@ test("ссылка на каталог с районом: все ключи сп
         assert.equal(parseDistrictKey(new URLSearchParams(districtCatalogPath(d.key, "en").split("?")[1]).get("district")), d.key);
     }
     assert.equal(districtCatalogPath("chilanzar", "uz"), "/uz/Properties?district=chilanzar");
-    // неизвестный район и «все районы» — каталог без параметра
     assert.equal(districtCatalogPath("nope", "ru"), "/ru/Properties");
     assert.equal(districtCatalogPath(null, "en"), "/en/Properties");
 });

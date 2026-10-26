@@ -1,28 +1,3 @@
-// Чистая логика разбора поста и перевода — без Telegram/Supabase.
-// ЕДИНСТВЕННЫЙ источник правды: используется в server/bot.js (long-polling),
-// api/telegram-webhook.js и api/finalize-albums.js (serverless на Vercel).
-// Раньше webhook и finalize-albums содержали собственные устаревшие копии
-// этого кода (со старым словарём типов "Вилла/Коттедж/…" и без исправлений
-// регулярных выражений) — копии удалены, все три потребителя импортируют
-// отсюда.
-//
-// Как устроен разбор (getParsedListing):
-//   1. parseListing(text) — регулярный разбор. Выполняется ВСЕГДА (дёшево):
-//      это и запасной вариант, и источник для проверки ответа ИИ.
-//   2. parseWithAI(text) — цепочка провайдеров (api/aiProviders.js). Ответ
-//      модели проходит validateAiListing ДО принятия (типы, диапазоны, язык,
-//      пустота); при невалидном ответе цепочка повторяет запрос ограниченное
-//      число раз и идёт к следующему провайдеру.
-//   3. Принятый ответ ИИ сливается с регулярным разбором (buildParsedFromAi):
-//      числа, которых нет в исходном тексте, отбрасываются; то, что ИИ не
-//      нашёл, но нашла регулярка, подставляется; описание/преимущества
-//      строятся только из подтверждённых фактов.
-//   4. Если ИИ не помог — возвращается результат parseListing: объявление не
-//      теряется. Исходный текст (за вычетом контактов и мусора) сохраняется в
-//      описании.
-// Результат всегда содержит `diagnostics` (что извлечено, что отброшено и
-// почему, сколько было попыток) — он же пишется в лог одной строкой.
-
 import { runListingAiChain, configuredProviders } from "./aiProviders.js";
 import { ErrorClass, logEvent } from "./_aiLog.js";
 import { applyDistrictRules, districtPromptAddendum } from "./_districtRules.js";
@@ -55,7 +30,6 @@ import {
     numToString,
 } from "./_listingFacts.js";
 
-// Реэкспорт: потребители и тесты импортируют эти имена отсюда.
 export {
     detectType,
     extractAmenities,
@@ -74,13 +48,6 @@ export {
 
 const reU = (source, flags = "iu") => new RegExp(source, flags);
 
-// ---------------------------------------------------------------------
-// Бесплатный перевод (Google, без ключа)
-// ---------------------------------------------------------------------
-// Раньше запрос не имел таймаута (мог подвесить весь обработчик) и при
-// сбое молча возвращал исходный русский текст в поле en/uz. Теперь:
-// таймаут 6 с, один повтор; при окончательном сбое возвращается исходный
-// текст (объявление не теряется), а сбой попадает в лог.
 const TRANSLATE_TIMEOUT_MS = 6000;
 
 export async function translateText(text, target) {
@@ -109,8 +76,6 @@ export async function translateText(text, target) {
     return text;
 }
 
-// Дозаполняет только ПУСТЫЕ поля переводом с русского (то, что модель уже
-// дала на en/uz, не трогаем — не тратим лимит бесплатного API).
 export async function fillMissingTranslations(fieldsObj, bases) {
     const tasks = [];
 
@@ -141,17 +106,12 @@ export function slugify(value) {
         .slice(0, 60) || "listing";
 }
 
-// ---------------------------------------------------------------------
-// Разбор регулярными выражениями — запасной вариант и источник проверки
-// ---------------------------------------------------------------------
-
 const isServiceLine = (line) =>
     /^#/.test(line) ||
     /^(EN|UZ|RU_DESC|EN_DESC|UZ_DESC)\s*:/i.test(line) ||
     /^(Цена|Стоимость|Price|Narxi|Ориентир|Landmark|Mo'ljal|Высота потолков|Площадь|Этаж|Новая)\s*:?/i.test(line) ||
     line.includes("📍");
 
-// Заголовок из фактов, если в посте нет подходящей строки
 function titleFromFacts({ rooms, type, isCommercial, location }) {
     const base = isCommercial
         ? "Коммерческое помещение"
@@ -163,13 +123,11 @@ function titleFromFacts({ rooms, type, isCommercial, location }) {
 function buildAbout(description, factsParagraph, priceNote) {
     const parts = [];
     if (description) parts.push(description);
-    // факты не дублируем, если описание уже собрано из них
     if (factsParagraph && factsParagraph !== description) parts.push(factsParagraph);
     if (priceNote) parts.push(`Цена: ${priceNote}.`);
     return parts.join("\n\n").trim();
 }
 
-// Подпись количества: "1 спальня", "2 спальни", "5 спален" — было "1 спальни".
 export function countLabelsFor(kind, n) {
     const num = Number(n);
     if (!Number.isInteger(num) || num <= 0) return { ru: "", en: "", uz: "" };
@@ -209,7 +167,6 @@ export function parseListing(text) {
     const dealMarker = hasDealMarker(source);
     const isSold = detectIsSold(source);
 
-    // Заголовок: первая содержательная строка (не служебная, не контакты)
     const titleCandidate = lines.find((l) => !isServiceLine(l) && !isContactLine(l) && /\p{L}{3}/u.test(l));
     let title = cleanTitle(titleCandidate);
     const titleFromText = Boolean(title);
@@ -221,8 +178,6 @@ export function parseListing(text) {
         isCommercial, amenities, dealMarker, isRent,
     });
 
-    // Исходный текст не теряется: содержательные строки поста (без заголовка,
-    // служебных строк и контактов) идут в описание как есть.
     const narrative = buildNarrativeFromSource(source, titleCandidate, isServiceLine);
     const description = ruDescMarker || narrative || factsParagraph;
 
@@ -305,10 +260,6 @@ function summarizeExtracted(parsed) {
     };
 }
 
-// ---------------------------------------------------------------------
-// Разбор через ИИ
-// ---------------------------------------------------------------------
-
 const SCHEMA_STR = { type: "string" };
 const SCHEMA_STR_NULL = { type: ["string", "null"] };
 const SCHEMA_INT_NULL = { type: ["integer", "null"] };
@@ -357,7 +308,6 @@ const AI_JSON_SCHEMA = {
     ],
 };
 
-// Та же схема в формате Gemini (UPPERCASE-типы, nullable вместо type:[...,"null"])
 const GEMINI_RESPONSE_SCHEMA = (() => {
     const g = (t, nullable = false) => (nullable ? { type: t, nullable: true } : { type: t });
     return {
@@ -409,13 +359,8 @@ const AI_SYSTEM_PROMPT_BASE = `Ты помощник агентства недв
 17. amenities — список преимуществ ТОЛЬКО из подтверждённых фактов поста (мебель, техника, балкон, парковка, ремонт, лифт, охрана, вид и т.п.). Не добавляй то, о чём в тексте нет ни слова. Фразы вроде "без мебели" означают, что мебели НЕТ — такой пункт не включай. Для каждого пункта дай ru, en, uz (узбекский латиницей), коротко: 1–3 слова.
 18. Узбекский текст — латиницей. Русский — на русском языке.`;
 
-// + район: официальное название, список известных ЖК, район в описании
 const AI_SYSTEM_PROMPT = `${AI_SYSTEM_PROMPT_BASE}\n${districtPromptAddendum()}`;
 
-// ---- очистка текстовых полей ответа ИИ ----
-
-// Модели иногда присылают списки/markdown/служебные кавычки. Для карточек
-// нужен чистый текст в одну строку.
 function sanitizeAiText(value, maxLength = 1500) {
     if (value == null) return "";
     if (typeof value !== "string") {
@@ -432,8 +377,6 @@ function sanitizeAiText(value, maxLength = 1500) {
         .trim()
         .slice(0, maxLength);
 }
-
-// ---- проверка ответа модели (до записи куда-либо) ----
 
 const TEXT_FIELDS = [
     "title_ru", "title_en", "title_uz",
@@ -457,15 +400,12 @@ function toBoolean(value) {
     return false;
 }
 
-// Приводит значение модели к числу в допустимом диапазоне. null — "нет данных".
-// Возвращает { value, issue }: issue — почему значение отброшено.
 function coerceNumeric(field, raw) {
     if (raw == null || raw === "") return { value: null, issue: null };
 
     let value = raw;
 
     if (typeof value === "string") {
-        // "5/9" в поле floor — разбираем в вызывающем коде; здесь берём первое число
         const m = value.replace(/\s+/g, "").match(/^(\d+(?:[.,]\d+)?)/);
         value = m ? toNumber(m[1]) : NaN;
     }
@@ -486,12 +426,6 @@ function coerceNumeric(field, raw) {
     return { value, issue: null };
 }
 
-// Проверяет и нормализует сырой ответ модели.
-//   -> { ok: true, value, issues }   value — приведённый к схеме объект
-//   -> { ok: false, reason }         повод повторить запрос / идти к следующему провайдеру
-//
-// `regexFacts` (результат parseListing) нужен, чтобы отличить честное
-// "в тексте нет данных" от пустого ответа модели при явных фактах в посте.
 export function validateAiListing(raw, sourceText = "", regexFacts = null) {
     if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
         return { ok: false, reason: "ответ не является JSON-объектом" };
@@ -511,7 +445,6 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
         }
     }
 
-    // Числа. floor вида "5/9" допустим: разбираем оба значения.
     const rawFloor = raw.floor;
     let floorFromSlash = null;
     if (typeof rawFloor === "string" && /^\s*\d+\s*[/\\]\s*\d+\s*$/.test(rawFloor)) {
@@ -529,7 +462,6 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
         if (issue) issues.push(issue);
     }
 
-    // price_number: число > 0
     if (raw.price_number == null || raw.price_number === "") {
         value.price_number = null;
     } else {
@@ -546,7 +478,6 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
     value.is_sold = toBoolean(raw.is_sold);
     value._has_is_commercial = raw.is_commercial != null;
 
-    // Преимущества: массив объектов {ru,en,uz} или строк
     value.amenities = [];
     if (raw.amenities != null && !Array.isArray(raw.amenities)) {
         issues.push("amenities: ожидался массив");
@@ -563,8 +494,6 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
         }
     }
 
-    // ---- содержательные проверки ----
-
     const hasAnything =
         value.title_ru || value.description_ru || value.price_raw ||
         value.bedrooms != null || value.area != null || value.floor != null ||
@@ -577,7 +506,6 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
     const source = String(sourceText || "");
     const sourceScript = scriptShare(source);
 
-    // Русские поля должны быть на русском, если пост русский
     if (sourceScript.cyrShare > 0.5) {
         const ruText = `${value.title_ru} ${value.description_ru}`;
         const share = scriptShare(ruText);
@@ -601,16 +529,12 @@ export function validateAiListing(raw, sourceText = "", regexFacts = null) {
     return { ok: true, value, issues };
 }
 
-// ---- слияние ответа ИИ с регулярным разбором ----
-
 const TYPE_BY_RU = {
     "Квартира": { ru: "Квартира", en: "Apartment", uz: "Kvartira" },
     "Дом": { ru: "Дом", en: "House", uz: "Uy" },
     "Новостройка": { ru: "Новостройка", en: "New building", uz: "Yangi qurilish" },
 };
 
-// Подтверждён ли пункт преимуществ исходным текстом (по основе слова) и не
-// отрицается ли он ("без мебели").
 function isAmenitySupported(item, source) {
     const words = (item.ru || item.en || "").toLowerCase().match(/\p{L}{4,}/gu) || [];
     if (!words.length) return false;
@@ -621,7 +545,6 @@ function isAmenitySupported(item, source) {
     });
 }
 
-// Есть ли в описании числа, которых нет в исходнике (выдуманные факты).
 function descriptionHasUnsupportedNumbers(description, source, derived = []) {
     const allowed = extractNumberValues(source);
     for (const v of derived) if (v != null) allowed.add(Number(v));
@@ -645,8 +568,6 @@ function dedupeAmenities(list) {
     return out.slice(0, 12);
 }
 
-// validated — результат validateAiListing(...).value
-// regex     — результат parseListing(source)
 export function buildParsedFromAi(validated, regex, sourceText) {
     const source = String(sourceText || "");
     const diag = {
@@ -663,10 +584,6 @@ export function buildParsedFromAi(validated, regex, sourceText) {
     const reject = (field, reason, value) => diag.rejected.push({ field, reason, value: value ?? null });
     const fill = (field) => diag.filledFromRegex.push(field);
 
-    // --- количества: комнаты, санузлы, этаж, этажность ---
-    // Явные форматы ("5/9 этаж", "2-комнатная") разбирает детерминированная
-    // регулярка — при расхождении с моделью верим ей. Число модели принимаем,
-    // только если оно есть в тексте (цифрой или словом: "двухкомнатная").
     const pickCount = (field, aiValue, regexValue) => {
         if (aiValue != null) {
             if (!isNumberSupported(source, aiValue, "count")) {
@@ -694,7 +611,6 @@ export function buildParsedFromAi(validated, regex, sourceText) {
         totalFloors = "";
     }
 
-    // --- измеримые величины ---
     const pickMeasure = (field, aiValue, regexValue) => {
         if (aiValue != null) {
             if (isNumberSupported(source, aiValue, "measure")) return numToString(aiValue);
@@ -710,7 +626,6 @@ export function buildParsedFromAi(validated, regex, sourceText) {
     const area = pickMeasure("area", validated.area, regex.area);
     const ceiling = pickMeasure("ceiling_height", validated.ceiling_height, regex.commercialFields.ceiling);
 
-    // --- цена и валюта ---
     const aiPrice = validated.price_raw ? extractPriceInfo(validated.price_raw) : null;
     let priceInfo = extractPriceInfo("");
 
@@ -731,30 +646,24 @@ export function buildParsedFromAi(validated, regex, sourceText) {
     }
     
 
-    // --- тип, коммерция, аренда, продано ---
     const typeFromAi = TYPE_BY_RU[validated.type_ru];
     const type = typeFromAi || regex.type;
     if (!typeFromAi && validated.type_ru) reject("type", "неизвестный_тип", validated.type_ru);
 
     const isCommercial = validated._has_is_commercial ? validated.is_commercial : regex.isCommercial;
 
-    // Явные слова "сдам/продам" в тексте надёжнее оценки модели.
     const isRent = hasDealMarker(source) ? detectIsRent(source) : Boolean(validated.is_rent);
 
-    // "Продано" блокирует публикацию — поэтому оценке модели одной недостаточно:
-    // нужно подтверждение словами в тексте.
     const isSold = detectIsSold(source) ||
         (validated.is_sold && reU(`${NB}сдан(?:о|а)?${NA}|снят(?:о|а)?\\s+с\\s+(?:аренды|публикации)`).test(source));
     if (validated.is_sold && !isSold) reject("is_sold", "нет_подтверждения_в_тексте", true);
 
-    // --- расположение ---
     const locationFallback = regex.commercialFields.address_ru;
     const district = validated.district || regex.commercialFields.district_ru || "";
     const address = validated.address || locationFallback || "";
     if (!validated.district && regex.commercialFields.district_ru) fill("district");
     if (!validated.address && locationFallback) fill("address");
 
-    // --- преимущества: только подтверждённые фактами текста ---
     const aiAmenities = [];
     for (const item of validated.amenities) {
         if (isAmenitySupported(item, source)) aiAmenities.push(item);
@@ -763,13 +672,11 @@ export function buildParsedFromAi(validated, regex, sourceText) {
     const amenities = dedupeAmenities([...aiAmenities, ...regex.amenities]);
     for (const a of regex.amenities) if (!aiAmenities.some((x) => (x.ru || "").toLowerCase() === a.ru.toLowerCase())) fill(`amenity:${a.ru}`);
 
-    // --- заголовок ---
     const titleRuOk = validated.title_ru && scriptShare(validated.title_ru).cyrShare >= 0.3;
     const title_ru = titleRuOk ? validated.title_ru : regex.title_ru;
     if (validated.title_ru && !titleRuOk) reject("title_ru", "не_на_русском", validated.title_ru);
     if (!validated.title_ru) fill("title_ru");
 
-    // --- описание: только факты. Невалидное -> описание из исходного текста/фактов ---
     const factsParagraph = buildFactsParagraph({
         type, rooms: bedrooms, area, floor, totalFloors, location: address || district,
         isCommercial, amenities, dealMarker: hasDealMarker(source), isRent,
@@ -793,13 +700,12 @@ export function buildParsedFromAi(validated, regex, sourceText) {
         if (!text) return "";
         const share = scriptShare(text);
         if (lang === "en" || lang === "uz") {
-            if (share.cyrShare > 0.3) return "";        // русский текст в en/uz — сбой модели; переведём заново
+            if (share.cyrShare > 0.3) return "";
             if (ruText && text.trim() === ruText.trim()) return "";
         }
         return text;
     };
 
-    // Перевод описания, подготовленный моделью, годится, только если описание не заменялось
     const description_en = descProblems.length ? "" : cleanLang(validated.description_en, "en", description_ru);
     const description_uz = descProblems.length ? "" : cleanLang(validated.description_uz, "uz", description_ru);
     const title_en = titleRuOk ? cleanLang(validated.title_en, "en", title_ru) : "";
@@ -807,7 +713,6 @@ export function buildParsedFromAi(validated, regex, sourceText) {
 
     const priceNote = priceInfo.perSqmRaw || "";
 
-    // "Юнусабад, ул. Навои 12"; район не дублируем, если он уже есть в адресе
     const locationLine = district && address && !address.toLowerCase().includes(district.toLowerCase())
         ? `${district}, ${address}`
         : (address || district);
@@ -867,8 +772,6 @@ export function buildParsedFromAi(validated, regex, sourceText) {
     return parsed;
 }
 
-// ---- вызов цепочки ----
-
 async function parseWithAI(text, regexParsed) {
     const source = String(text || "");
 
@@ -884,7 +787,6 @@ async function parseWithAI(text, regexParsed) {
             validate,
         });
     } catch (e) {
-        // Цепочка не должна бросать, но если бросила — это не повод терять объявление.
         logEvent("AI_CHAIN_CRASH", { class: ErrorClass.MODEL, reason: String(e?.message || e).slice(0, 200) });
         return { parsed: null, attempts: [], error: { class: ErrorClass.MODEL, reason: "crash" } };
     }
@@ -904,8 +806,6 @@ async function parseWithAI(text, regexParsed) {
     }
 }
 
-// Одна строка лога на каждое объявление: что извлечено, что отброшено, откуда.
-// Тексты объявления (телефоны, имена) в лог не попадают — только флаги и причины.
 export function logParseSummary(diag, extra = {}) {
     logEvent("LISTING_PARSE", {
         source: diag.source,
@@ -920,15 +820,12 @@ export function logParseSummary(diag, extra = {}) {
     });
 }
 
-// Главная точка входа: ИИ с проверкой и слиянием, иначе регулярный разбор.
-// Результат всегда одной формы и не бросает исключений.
 async function getParsedListingRaw(text) {
     let regexParsed;
 
     try {
         regexParsed = parseListing(text);
     } catch (e) {
-        // parseListing — чистые регулярки; если он упал, сохраняем хотя бы исходный текст
         logEvent("REGEX_PARSE_CRASH", { class: ErrorClass.PARSE, reason: String(e?.message || e).slice(0, 200) });
         regexParsed = emergencyParsed(text);
     }
@@ -944,7 +841,6 @@ async function getParsedListingRaw(text) {
     const { parsed, attempts, error } = await parseWithAI(text, regexParsed);
 
     if (parsed) {
-        // ИИ не вернул ничего, что регулярка не смогла бы — помечаем явно
         if (parsed.diagnostics.filledFromRegex.length) parsed.diagnostics.source = "ai+regex";
         logParseSummary(parsed.diagnostics);
         return parsed;
@@ -959,8 +855,6 @@ async function getParsedListingRaw(text) {
     return regexParsed;
 }
 
-// Минимальный результат на случай неожиданного сбоя регулярного разбора:
-// исходный текст сохраняется в описании, остальное пусто.
 function emergencyParsed(text) {
     const source = String(text || "");
     const lines = source.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -986,8 +880,6 @@ function emergencyParsed(text) {
     };
 }
 
-// Единая точка входа: результат любого пути (ИИ, регулярки, аварийный) проходит
-// через правила района (официальное название, ориентиры, район в описании).
 export async function getParsedListing(text) {
     const parsed = await getParsedListingRaw(text);
     return applyDistrictRules(parsed, String(text || ""));

@@ -1,7 +1,3 @@
--- Пересоздаём оба view, добавляя boosted_until.
--- Остальные поля и порядок оставлены точно как было — только один
--- новый столбец в конце перед FROM.
-
 CREATE OR REPLACE VIEW public.cardss_public AS
 SELECT
     id,

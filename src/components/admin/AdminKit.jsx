@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { parsePrice, formatPriceIn } from "../../utils/currency";
 import s from "./admin.module.css";
 
-// Единый «скелет» страницы админки: заголовок, ссылка «назад», кнопки справа.
 export const AdminPage = ({
   title,
   subtitle,
@@ -42,7 +41,6 @@ export const AdminDenied = () => (
   </section>
 );
 
-// Бейдж «Продажа / Аренда / Продано»
 export const DealBadge = ({ isRent }) => (
   <span className={`${s.badge} ${isRent ? s.badgeRent : s.badgeSale}`}>
     {isRent ? "Аренда" : "Продажа"}
@@ -56,7 +54,6 @@ export const SoldBadge = ({ isSold }) =>
     <span className={`${s.badge} ${s.badgeOk}`}>На сайте</span>
   );
 
-// Переключатель Продажа / Аренда
 export const DealSwitch = ({ value, onChange }) => (
   <div className={s.segment} role="group" aria-label="Тип сделки">
     <button
@@ -79,7 +76,6 @@ export const DealSwitch = ({ value, onChange }) => (
   </div>
 );
 
-// Блок формы с заголовком
 export const Section = ({ title, children }) => (
   <div className={s.section}>
     {title && <h2 className={s.sectionTitle}>{title}</h2>}
@@ -87,7 +83,6 @@ export const Section = ({ title, children }) => (
   </div>
 );
 
-// Подписанное поле. cols: 1 | 2 | 3 — число колонок в ряду полей.
 export const Fields = ({ cols = 3, children }) => (
   <div
     className={`${s.fields} ${cols === 2 ? s.fields2 : ""} ${
@@ -105,7 +100,6 @@ export const Field = ({ label, children }) => (
   </label>
 );
 
-// Три языковых поля подряд (RU / EN / UZ): name + Ru/En/Uz — как в register().
 export const TriFields = ({ label, name, register, textarea = false }) => (
   <Fields cols={textarea ? 1 : 3}>
     {["Ru", "En", "Uz"].map((lang) => (
@@ -124,8 +118,6 @@ export const TriFields = ({ label, name, register, textarea = false }) => (
   </Fields>
 );
 
-// Подсказка под полем цены: как цена будет выглядеть на сайте.
-// Понимает "120000$", "1800$ за м2", "1 800 $/м²", "15 000 000 сум".
 export const PriceHint = ({ value }) => {
   const parsed = parsePrice(value);
 
@@ -138,9 +130,6 @@ export const PriceHint = ({ value }) => {
   );
 };
 
-// Выбор объекта из большого списка: поиск по названию (ru/en/uz), району/типу и ID.
-// items: [{ id, title: {ru,en,uz}, subtitle, image, is_rent }]
-// collapsible — после выбора список сворачивается в плашку с кнопкой «Сменить».
 export const ObjectPicker = ({
   items = [],
   value,
@@ -277,7 +266,6 @@ export const ObjectPicker = ({
   );
 };
 
-// Миниатюра объекта
 export const Thumb = ({ src, className = "" }) =>
   src ? (
     <img className={`${s.thumb} ${className}`} src={src} alt="" loading="lazy" />
@@ -285,7 +273,6 @@ export const Thumb = ({ src, className = "" }) =>
     <div className={`${s.thumb} ${s.thumbEmpty} ${className}`}>нет фото</div>
   );
 
-// Строка поиска
 export const SearchBar = ({ value, onChange, placeholder = "Поиск…" }) => (
   <div className={s.search}>
     <svg
@@ -310,7 +297,6 @@ export const SearchBar = ({ value, onChange, placeholder = "Поиск…" }) =>
   </div>
 );
 
-// Фильтры-«чипсы». options: [{ value, label, count? }]
 export const Chips = ({ options, value, onChange }) => (
   <div className={s.chips}>
     {options.map((o) => (

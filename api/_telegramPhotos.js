@@ -1,22 +1,3 @@
-// Общий конвейер фото: Telegram file_id -> getFile -> скачивание ->
-// Supabase Storage -> публичный URL.
-//
-// Файл начинается с "_", поэтому Vercel НЕ публикует его как отдельный
-// эндпоинт; он лежит в api/, чтобы попадать в бандл функций (как и
-// aiProviders.js).
-//
-// Главное:
-//  * processPhoto() НИКОГДА не бросает исключение — всегда возвращает
-//    { ok: true, url } или { ok: false, stage, error }. Ошибка одной
-//    фотографии не может уронить остальные.
-//  * mapWithConcurrency() — пул из N воркеров (не Promise.all по всему
-//    списку). Результаты пишутся по ИНДЕКСУ исходного элемента, а не в
-//    порядке завершения, поэтому порядок фото альбома сохраняется, а общего
-//    изменяемого массива, на который гоняются задачи, нет.
-//  * Все сетевые шаги ограничены по времени и по общему дедлайну, чтобы
-//    зависшая загрузка не съела весь лимит serverless-функции.
-
-// Одновременно обрабатывается не больше 4 фото (требование: 3–4).
 export const PHOTO_CONCURRENCY = 4;
 
 const TELEGRAM_API_TIMEOUT_MS = 10_000;
@@ -29,9 +10,6 @@ const RETRY_DELAY_MS = 400;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
-// Пул воркеров: одновременно выполняется не больше `limit` задач.
-// `next++` безопасен — в JS между чтением и инкрементом нет await, поэтому
-// два воркера не могут взять один и тот же индекс.
 export async function mapWithConcurrency(items, limit, worker) {
 
     const results = new Array(items.length);
@@ -44,8 +22,6 @@ export async function mapWithConcurrency(items, limit, worker) {
             try {
                 results[i] = await worker(items[i], i);
             } catch (e) {
-                // страховка: worker не должен бросать, но если бросил —
-                // это не должно останавливать соседние задачи
                 results[i] = { ok: false, stage: "worker", error: e?.message || String(e) };
             }
         }
@@ -58,7 +34,6 @@ export async function mapWithConcurrency(items, limit, worker) {
 }
 
 
-// Ошибка с указанием этапа и признаком "имеет смысл повторить".
 class PhotoStepError extends Error {
     constructor(stage, message, retryable) {
         super(message);
@@ -69,7 +44,6 @@ class PhotoStepError extends Error {
 
 const isTransientStatus = (status) => status === 429 || status >= 500;
 
-// Таймаут шага не больше оставшегося до общего дедлайна времени.
 function stepTimeout(defaultMs, deadline) {
     if (!deadline) return defaultMs;
     return Math.max(1000, Math.min(defaultMs, deadline - Date.now()));
@@ -89,7 +63,6 @@ function withTimeout(promise, ms, stage) {
 
 async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
 
-    // --- getFile -----------------------------------------------------
     let filePath;
 
     try {
@@ -118,7 +91,6 @@ async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
         throw new PhotoStepError("getFile", `getFile error: ${e.message}`, true);
     }
 
-    // --- download ----------------------------------------------------
     let buffer;
 
     try {
@@ -142,7 +114,6 @@ async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
         throw new PhotoStepError("download", `download error: ${e.message}`, true);
     }
 
-    // --- проверка, что это изображение (JPEG/PNG), как и раньше ---------
     const looksLikeImage =
         buffer.length > 100 &&
         ((buffer[0] === 0xff && buffer[1] === 0xd8) ||
@@ -156,10 +127,6 @@ async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
         );
     }
 
-    // --- upload ------------------------------------------------------
-    // Date.now() может совпасть у нескольких фото, поэтому добавляем
-    // случайный суффикс — иначе одинаковое имя тихо перезаписало бы
-    // предыдущее фото в Storage.
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.jpg`;
 
     try {
@@ -193,8 +160,6 @@ async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
 }
 
 
-// Обрабатывает ОДНО фото. Не бросает исключений.
-//   label — для логов, например "grp=123 photo 3/10"
 export async function processPhoto({ supabase, botToken, fileId, label = "photo", deadline = 0 }) {
 
     let lastError;
@@ -236,13 +201,6 @@ export async function processPhoto({ supabase, botToken, fileId, label = "photo"
 }
 
 
-// Обрабатывает все фото альбома с ограничением параллелизма.
-//   entries — [{ file_id, message_id }] (формат bot_pending_albums.photo_file_ids)
-// Возвращает:
-//   urls     — успешно загруженные URL в порядке альбома (по message_id), без дублей
-//   total    — сколько уникальных фото нужно было обработать
-//   okCount  — сколько загружено
-//   failures — [{ index, fileId, stage, error }]
 export async function processAlbumPhotos({
     supabase,
     botToken,
@@ -252,8 +210,6 @@ export async function processAlbumPhotos({
     deadline = 0
 }) {
 
-    // Порядок альбома = порядок message_id; убираем повторы по message_id
-    // и по file_id (повторная доставка апдейта Telegram и т.п.).
     const seenMessages = new Set();
     const seenFiles = new Set();
 

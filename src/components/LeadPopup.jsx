@@ -11,11 +11,8 @@ import TurnstileWidget from "./TurnstileWidget"
 import { useOnlineStatus } from "../hooks/useOnlineStatus"
 import { MyContext } from "../Context"
 
-// Через сколько мс показывать попап, если посетитель просто листает сайт
 const TIME_TRIGGER_MS = 45000
 
-// Пути, где уже есть своя форма заявки (Connect / Connect_one) — там
-// попап не нужен, будет дублировать то, что человек и так видит
 const EXCLUDED_PATHS = [
     "/ContactUs",
     "/login",
@@ -75,7 +72,6 @@ const LeadPopup = () => {
 
     }, [eligible]);
 
-    // Триггер по времени
     useEffect(() => {
 
         if (!eligible) return;
@@ -86,8 +82,6 @@ const LeadPopup = () => {
 
     }, [eligible, tryShow]);
 
-    // Exit-intent: курсор уходит за верхнюю границу окна (десктоп).
-    // На мобильных этого события не бывает — там сработает только таймер
     useEffect(() => {
 
         if (!eligible) return;
@@ -256,7 +250,6 @@ const LeadPopup = () => {
                                         />
                                     </div>
 
-                                    {/* honeypot */}
                                     <input
                                         type="text"
                                         tabIndex={-1}

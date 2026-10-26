@@ -1,23 +1,3 @@
-// /api/sitemap — динамический sitemap.xml (отдаётся по адресу /sitemap.xml,
-// см. rewrites в vercel.json). Статического public/sitemap.xml больше нет:
-// Vercel отдаёт файлы из public РАНЬШЕ rewrites, поэтому статический файл
-// молча перекрывал эту функцию и в индекс попадали только 5 устаревших URL.
-//
-// Что попадает в sitemap:
-//   • публичные страницы: главная, /Properties, /AboutUs, /Services, /ContactUs
-//     (для каждого языка ru/en/uz, с hreflang-альтернативами);
-//   • жильё  /property/:id   — карточка есть в cardss_public И у неё есть
-//                              страница (строка в villas);
-//   • коммерция /commercial/:id — объект есть в commercials_public И у него
-//                              есть страница (строка в commercial_pages).
-// Флаг is_draft не учитывается: объявления из Telegram публикуются сразу,
-// и их страницы (бот создаёт их вместе с карточкой) попадают в sitemap.
-// Не попадают: объекты без detail-страницы, страницы фильтров,
-// служебные разделы (admin/login/profile/...).
-//
-// Используется только anon-ключ (то, что и так видит любой посетитель).
-// Env: VITE_SUPABASE_URL / VITE_SUPABASE_KEY (или SUPABASE_URL / SUPABASE_ANON_KEY).
-
 import { getSupabase, noRetry, getDistrictsWithListings, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 import { allDistrictPages, districtBasePath } from "../src/utils/districtPages.js";
 
@@ -29,7 +9,7 @@ const STATIC_PATHS = [
     { path: "/ContactUs", priority: "0.5", changefreq: "monthly" },
 ];
 
-const PAGE_SIZE = 1000; // лимит PostgREST по умолчанию
+const PAGE_SIZE = 1000;
 
 function xmlEscape(value) {
     return String(value)
@@ -49,7 +29,6 @@ function buildAlternates(basePath) {
     return alternates;
 }
 
-// По <url> на каждую языковую версию, у всех одинаковый набор xhtml:link.
 function buildUrlBlocks(basePath, priority, changefreq) {
     const alternates = buildAlternates(basePath);
     return LANGS.map((lang) => {
@@ -63,7 +42,6 @@ function buildUrlBlocks(basePath, priority, changefreq) {
     });
 }
 
-// Читает таблицу/view целиком, постранично (иначе — молчаливый обрез на 1000).
 async function fetchAll(supabase, table, columns, orderColumn) {
     const rows = [];
     for (let from = 0; ; from += PAGE_SIZE) {
@@ -82,7 +60,6 @@ async function fetchAll(supabase, table, columns, orderColumn) {
     return rows;
 }
 
-// id жилья, у которых есть опубликованная detail-страница.
 async function publishedPropertyIds(supabase) {
     const [cards, villas] = await Promise.all([
         fetchAll(supabase, "cardss_public", "id", "id"),
@@ -91,7 +68,6 @@ async function publishedPropertyIds(supabase) {
 
     const visibleCards = new Set(cards.map((c) => c.id));
 
-    // Несколько строк villas на одну карточку дают один URL.
     const ids = new Set();
     for (const villa of villas) {
         if (villa.card_id != null && visibleCards.has(villa.card_id)) ids.add(villa.card_id);
@@ -99,7 +75,6 @@ async function publishedPropertyIds(supabase) {
     return [...ids].sort((a, b) => a - b);
 }
 
-// id коммерции, у которых есть опубликованная detail-страница.
 async function publishedCommercialIds(supabase) {
     const [commercials, pages] = await Promise.all([
         fetchAll(supabase, "commercials_public", "id", "id"),
@@ -118,7 +93,6 @@ async function publishedCommercialIds(supabase) {
 }
 
 export default async function handler(req, res) {
-    // 6 с на запрос: укладываемся в 10 с лимит Vercel и отвечаем 503 сами.
     const supabase = getSupabase({ timeoutMs: 6000 });
 
     if (!supabase) {
@@ -138,8 +112,6 @@ export default async function handler(req, res) {
             publishedCommercialIds(supabase),
         ]);
     } catch (err) {
-        // Не кэшируем и не отдаём урезанный sitemap с 200: поисковик
-        // решил бы, что объекты исчезли.
         console.error("sitemap: failed to read listings:", err.message);
         res.setHeader("Cache-Control", "no-store");
         res.setHeader("Retry-After", "300");
@@ -152,8 +124,6 @@ export default async function handler(req, res) {
     for (const { path, priority, changefreq } of STATIC_PATHS) {
         blocks.push(...buildUrlBlocks(path, priority, changefreq));
     }
-    // страницы районов: только те, где есть объявления (иначе пустые страницы
-    // попадали бы в sitemap). Если проверить не удалось — добавляем все.
     const withListings = await getDistrictsWithListings(supabase);
     for (const { kind, key } of allDistrictPages()) {
         if (withListings && !withListings[kind === "commercial" ? "commercial" : "apartments"].has(key)) continue;

@@ -1,9 +1,3 @@
-// Тесты api/spa.js и api/sitemap.js: поведение при отсутствии конфигурации,
-// сбоях и таймаутах Supabase, защита от рекурсии, статусы 200/404.
-// Не требуют БД и сети: fetch подменяется. Запуск: npm run test:api
-//
-// Проверка на настоящей БД с RLS — см. tests/e2e/README.md.
-
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -15,9 +9,9 @@ const SB_URL = "https://fake-project.supabase.co";
 const realFetch = globalThis.fetch;
 const ENV_KEYS = ["VITE_SUPABASE_URL", "VITE_SUPABASE_KEY", "SUPABASE_URL", "SUPABASE_ANON_KEY", "VERCEL_AUTOMATION_BYPASS_SECRET"];
 
-let calls;      // что запрашивалось
-let supabase;   // поведение подделки Supabase: (url, init) => Response | throw | зависнуть
-let shell;      // поведение index.html
+let calls;
+let supabase;
+let shell;
 
 const json = (body, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -51,8 +45,6 @@ const callSpa = async (query, headers = {}) => {
 };
 const callSitemap = async () => { const res = mkRes(); await sitemap({ headers: {} }, res); return res; };
 
-// --- без конфигурации ---------------------------------------------------
-
 test("без env: sitemap -> 503 без кэша (а не урезанный sitemap с 200)", async () => {
     const res = await callSitemap();
     assert.equal(res.code, 503);
@@ -85,8 +77,6 @@ test("запасные имена env (SUPABASE_URL / SUPABASE_ANON_KEY) тож�
     assert.equal(res.headers["X-SPA-Existence-Check"], "ok");
 });
 
-// --- сбои Supabase ------------------------------------------------------
-
 test("сеть до Supabase оборвалась: spa пропускает проверку, sitemap -> 503", async () => {
     withEnv();
     supabase = () => { throw new TypeError("fetch failed"); };
@@ -110,8 +100,6 @@ test("Supabase отвечает 500/401: spa пропускает проверк
 test("Supabase завис: spa укладывается в таймаут и не повторяет запрос", { timeout: 9000 }, async () => {
     withEnv();
     supabase = (_u, init) => new Promise((_res, rej) => init.signal?.addEventListener("abort", () => rej(init.signal.reason)));
-    // AbortSignal.timeout использует unref-таймер: в проде процесс держит живым
-    // сервер/сокет, в тесте — этот интервал.
     const keepAlive = setInterval(() => {}, 100);
     const t0 = Date.now();
     const page = await callSpa({ kind: "property", id: "5" });
@@ -122,8 +110,6 @@ test("Supabase завис: spa укладывается в таймаут и н�
     assert.ok(elapsed < 4500, `ушло ${elapsed} мс — таймаут не сработал`);
     assert.equal(calls.supabase, 1, "повторных запросов (retry) быть не должно");
 });
-
-// --- корректные ответы БД -----------------------------------------------
 
 test("опубликованный объект -> 200, кэшируется на CDN", async () => {
     withEnv();
@@ -168,8 +154,6 @@ test("коммерция: нет ни страницы, ни объекта -> 4
     assert.equal((await callSpa({ kind: "commercial", id: "3" })).code, 404);
 });
 
-// --- index.html ---------------------------------------------------------
-
 test("защита от рекурсии: собственный запрос за index.html не идёт в БД и не вызывает себя снова", async () => {
     withEnv();
     const res = await callSpa({ kind: "property", id: "5" }, { "x-urbankey-shell": "1" });
@@ -200,8 +184,6 @@ test("секрет обхода Deployment Protection передаётся то�
     shell = (_u, init) => { assert.equal(init.headers["x-vercel-protection-bypass"], "s3cret"); return new Response(SHELL); };
     await callSpa({ kind: "notfound" });
 });
-
-// --- кэш HTML: страницы с именами файлов-с-хешем не должны переживать деплой ----
 
 test("общие страницы и страницы районов не кэшируются на CDN (иначе после деплоя пропадают стили)", async () => {
     for (const q of [

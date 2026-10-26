@@ -10,8 +10,6 @@ if (typeof window !== 'undefined' && !window.gtag) {
   window.gtag('js', new Date());
   window.gtag('config', GA_ID);
 
-  // dataLayer/gtag уже работают как очередь; сам скрипт грузим после load,
-  // чтобы он не конкурировал с контентом первого экрана.
   const loadGtag = () => {
     const script = document.createElement('script');
     script.async = true;

@@ -32,8 +32,6 @@
 
 
 
-/* TOP */
-
 .profileTop {
 
     display: flex;
@@ -65,8 +63,6 @@
 }
 
 
-
-/* AVATAR */
 
 
 .avatarBlock {
@@ -178,8 +174,6 @@
 
 
 
-/* DIVIDER */
-
 .line {
 
     height: 1px;
@@ -193,8 +187,6 @@
 
 
 
-
-/* CARDS */
 
 
 .stats {
@@ -271,8 +263,6 @@
 
 
 
-
-/* BUTTONS */
 
 
 .editBtn {
@@ -411,8 +401,6 @@
 
 
 
-/* FORM */
-
 
 .editBox {
 
@@ -468,8 +456,6 @@
 
 
 
-
-/* PASSWORD */
 
 
 .passwordHeader {
