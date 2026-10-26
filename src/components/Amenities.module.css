@@ -242,7 +242,10 @@
     .amenities h2 {
 
 
-        font-size: 34px;
+        font-size: clamp(26px, 6.2vw, 32px);
+        line-height: 1.15;
+        text-wrap: balance;
+        overflow-wrap: anywhere;
 
         margin-bottom: 30px;
     }

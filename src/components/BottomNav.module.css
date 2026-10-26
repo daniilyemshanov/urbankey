@@ -45,7 +45,7 @@
         color: rgba(255, 255, 255, .6);
         text-decoration: none;
 
-        font-size: 10.5px;
+        font-size: 11.5px;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
     }
@@ -106,7 +106,7 @@
 }
 
 @media (max-width: 380px) {
-    .item { font-size: 9.5px; }
+    .item { font-size: 11px; }
     .addItem svg { width: 42px; height: 42px; padding: 10px; }
 }
 

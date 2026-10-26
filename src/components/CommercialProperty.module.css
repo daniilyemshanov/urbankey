@@ -60,6 +60,9 @@
     font-size: 40px;
     color: #e7b84b;
     margin-bottom: 30px;
+    line-height: 1.15;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
 }
 
 .rooms {
@@ -103,6 +106,8 @@
 .card h3 {
     color: #e7b84b;
     font-size: 24px;
+    overflow-wrap: anywhere;
+    min-width: 0;
 }
 
 .text {

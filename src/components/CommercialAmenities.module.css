@@ -47,7 +47,9 @@
 .feature {
 
 
-    height: 160px;
+    min-height: 160px;
+    height: auto;
+    min-width: 0;
 
 
     padding: 30px;
@@ -120,6 +122,8 @@
 
 
     font-size: 18px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
 
 
 }
@@ -142,6 +146,11 @@
 
 
 
+@media(max-width:768px) {
+    .amenities { margin: 76px auto; }
+    .amenities h1, .amenities h2 { font-size: clamp(26px, 6.2vw, 32px); line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; margin-bottom: 30px; }
+}
+
 @media(max-width:500px) {
 
 
@@ -150,6 +159,9 @@
         grid-template-columns: 1fr;
 
     }
+    .feature { min-height: 0; padding: 22px; }
+    .feature span { margin-bottom: 16px; }
+    .feature h3 { font-size: 16px; }
 
 
 }

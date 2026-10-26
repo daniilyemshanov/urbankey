@@ -343,7 +343,10 @@
 
                 h1, h2 {
 
-                    font-size: 36px;
+                    font-size: clamp(28px, 6vw, 32px);
+                    line-height: 1.15;
+                    text-wrap: balance;
+                    overflow-wrap: anywhere;
                 }
 
                 >p {

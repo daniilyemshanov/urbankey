@@ -263,8 +263,10 @@
     }
 
     .clients .text h1 {
-        font-size: 34px;
-        line-height: 130%;
+        font-size: clamp(26px, 6vw, 32px);
+        line-height: 1.15;
+        text-wrap: balance;
+        overflow-wrap: anywhere;
     }
 
     .clients .text p {

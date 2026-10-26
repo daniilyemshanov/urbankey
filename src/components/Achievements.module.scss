@@ -215,7 +215,10 @@
 
 
             h1, h2 {
-                font-size: 32px;
+                font-size: clamp(26px, 6vw, 30px);
+                line-height: 1.15;
+                text-wrap: balance;
+                overflow-wrap: anywhere;
             }
 
 
