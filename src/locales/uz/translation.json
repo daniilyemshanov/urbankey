@@ -901,6 +901,7 @@
       "all": "Barchasi"
     },
     "sort": {
+      "label": "Sharhlarni saralash",
       "newest": "Avval yangilari",
       "oldest": "Avval eskilari",
       "highest": "Yuqori baho",

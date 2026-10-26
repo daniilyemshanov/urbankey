@@ -93,6 +93,7 @@ const Gray = () => {
                 >
                     <motion.a
                         href="https://www.instagram.com/urban_keyuz/"
+                        aria-label="Instagram"
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}
@@ -102,6 +103,7 @@ const Gray = () => {
 
                     <motion.a
                         href="https://t.me/UrbanKeyNedvizhimost_Tashkent"
+                        aria-label="UrbanKey on Telegram"
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}
@@ -111,6 +113,7 @@ const Gray = () => {
 
                     <motion.a
                         href="https://t.me/Vladislav_commercia"
+                        aria-label="UrbanKey commercial listings on Telegram"
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}
@@ -120,6 +123,7 @@ const Gray = () => {
 
                     <motion.a
                         href="https://www.facebook.com/profile.php?id=61586642021148"
+                        aria-label="UrbanKey on Facebook"
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}

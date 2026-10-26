@@ -340,6 +340,7 @@ const What = () => {
                         <ArrowUpDown size={17} />
 
                         <select
+                            aria-label={t("what.sort.label")}
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
                         >

@@ -827,6 +827,7 @@
       "all": "All"
     },
     "sort": {
+      "label": "Sort reviews",
       "newest": "Newest First",
       "oldest": "Oldest First",
       "highest": "Highest Rating",

@@ -122,7 +122,11 @@ const Nav = () => {
                 >
                     <img
                         className={s.logo}
-                        src="/logo-nav.webp"
+                        src="/logo-nav-160.webp"
+                        srcSet="/logo-nav-160.webp 160w, /logo-nav-320.webp 320w"
+                        sizes="(max-width: 700px) 45px, (max-width: 1100px) 100px, 150px"
+                        width={450}
+                        height={215}
                         alt="UrbanKey"
                     />
                 </NavLink>

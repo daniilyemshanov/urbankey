@@ -16,7 +16,6 @@ const Hero = () => {
     const [videoSrc, setVideoSrc] = useState(undefined)
 
     useEffect(() => {
-
         let idleId
         let timerId
         let cancelled = false
@@ -27,22 +26,19 @@ const Hero = () => {
 
         const schedule = () => {
             if ("requestIdleCallback" in window) {
-                idleId = window.requestIdleCallback(start, { timeout: 3000 })
+                idleId = window.requestIdleCallback(start, { timeout: 1000 })
             } else {
-                timerId = setTimeout(start, 1500)
+                timerId = setTimeout(start, 500)
             }
         }
 
-        if (document.readyState === "complete") {
-            schedule()
-        } else {
-            window.addEventListener("load", schedule, { once: true })
-        }
+        if (document.readyState === "complete") schedule()
+        else window.addEventListener("load", schedule, { once: true })
 
         return () => {
             cancelled = true
             window.removeEventListener("load", schedule)
-            if (idleId !== undefined) window.cancelIdleCallback(idleId)
+            if (idleId !== undefined && "cancelIdleCallback" in window) window.cancelIdleCallback(idleId)
             if (timerId !== undefined) clearTimeout(timerId)
         }
 
@@ -202,9 +198,13 @@ const Hero = () => {
 
             </motion.div>
             <motion.img
-                src="/c3383124-8cd3-4f72-9ab0-7fd2f40c9fcc.webp"
+                src="/hero-main-960.webp"
+                srcSet="/hero-main-480.webp 480w, /hero-main-640.webp 640w, /hero-main-960.webp 960w, /hero-main-1200.webp 1200w"
                 alt=""
                 className={s.imgg}
+                width={1600}
+                height={798}
+                sizes="(max-width: 600px) 100vw, (max-width: 1100px) 500px, 560px"
                 fetchPriority="high"
                 decoding="async"
 
