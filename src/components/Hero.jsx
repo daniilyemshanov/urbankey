@@ -13,6 +13,46 @@ const Hero = () => {
 
     const [propertiesCount, setPropertiesCount] = useState(null)
 
+    // Фоновое видео (~0.7 МБ) не нужно для первого экрана, но если запросить его
+    // сразу вместе с React-рендером, оно делит канал с LCP-картинкой героя
+    // (на мобильной сети это задерживает LCP). Поэтому src назначается только
+    // после события load и когда браузер освободился — само видео и его
+    // поведение (autoplay, loop, muted) не меняются.
+    const [videoSrc, setVideoSrc] = useState(undefined)
+
+    useEffect(() => {
+
+        let idleId
+        let timerId
+        let cancelled = false
+
+        const start = () => {
+            if (!cancelled) setVideoSrc("/hero-bg.mp4")
+        }
+
+        const schedule = () => {
+            if ("requestIdleCallback" in window) {
+                idleId = window.requestIdleCallback(start, { timeout: 3000 })
+            } else {
+                timerId = setTimeout(start, 1500)
+            }
+        }
+
+        if (document.readyState === "complete") {
+            schedule()
+        } else {
+            window.addEventListener("load", schedule, { once: true })
+        }
+
+        return () => {
+            cancelled = true
+            window.removeEventListener("load", schedule)
+            if (idleId !== undefined) window.cancelIdleCallback(idleId)
+            if (timerId !== undefined) clearTimeout(timerId)
+        }
+
+    }, [])
+
     useEffect(() => {
 
         const fetchCount = async () => {
@@ -49,9 +89,8 @@ const Hero = () => {
                 loop
                 playsInline
                 preload="none"
-            >
-                <source src="/hero-bg.mp4" type="video/mp4" />
-            </video>
+                src={videoSrc}
+            />
 
 
             <div className={s.overlay}></div>
@@ -171,6 +210,8 @@ const Hero = () => {
                 src="/c3383124-8cd3-4f72-9ab0-7fd2f40c9fcc.webp"
                 alt=""
                 className={s.imgg}
+                fetchPriority="high"
+                decoding="async"
 
                 initial={{ opacity: 0, x: 100, scale: 0.9 }}
                 whileInView={{ opacity: 1, x: 0, scale: 1 }}

@@ -14,13 +14,13 @@ const PHONE = "+998 78 707 04 47"
 const PHONE_HREF = "+998787070447"
 
 const MEMBERS = [
-    { key: "vladislav", type: "head", photo: "/Vladislav.jpg", badge: true, thumbSize: "170% auto", thumbPos: "74.3% 5.6%" },
-    { key: "sunnat", type: "agent", photo: "/Sunnat.jpg", thumbSize: "230% auto", thumbPos: "50.0% 8.4%" },
-    { key: "mamurjon", type: "agent", photo: "/Mamurjon.jpg", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
-    { key: "sarvinoz", type: "agent", photo: "/Sarvinoz.jpg", thumbSize: "150% auto", thumbPos: "50.0% 9.0%" },
-    { key: "igor", type: "agent", photo: "/Igor.jpg", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
-    { key: "timur", type: "agent", photo: "/Timur.jpg", thumbSize: "170% auto", thumbPos: "64.6% 4.4%" },
-    { key: "irina", type: "smm", photo: "/Irina.jpg", thumbSize: "190% auto", thumbPos: "50.0% 11.8%" },
+    { key: "vladislav", type: "head", photo: "/Vladislav.webp", badge: true, thumbSize: "170% auto", thumbPos: "74.3% 5.6%" },
+    { key: "sunnat", type: "agent", photo: "/Sunnat.webp", thumbSize: "230% auto", thumbPos: "50.0% 8.4%" },
+    { key: "mamurjon", type: "agent", photo: "/Mamurjon.webp", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
+    { key: "sarvinoz", type: "agent", photo: "/Sarvinoz.webp", thumbSize: "150% auto", thumbPos: "50.0% 9.0%" },
+    { key: "igor", type: "agent", photo: "/Igor.webp", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
+    { key: "timur", type: "agent", photo: "/Timur.webp", thumbSize: "170% auto", thumbPos: "64.6% 4.4%" },
+    { key: "irina", type: "smm", photo: "/Irina.webp", thumbSize: "190% auto", thumbPos: "50.0% 11.8%" },
 ]
 
 const POINT_ICONS = {

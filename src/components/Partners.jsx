@@ -5,32 +5,32 @@ const partners = [
   {
     id: "murad",
     name: "Murad Buildings",
-    image: "/Murad.jpg",
+    image: "/Murad.webp",
   },
   {
     id: "nrg-bi",
     name: "NRG BI",
-    image: "/Nrg.jpg",
+    image: "/Nrg.webp",
   },
   {
     id: "al-bina",
     name: "Al-Bina",
-    image: "/Al-Bina.jpg",
+    image: "/Al-Bina.webp",
   },
   {
     id: "kayan",
     name: "Kayan Development",
-    image: "/Kayan.jpg",
+    image: "/Kayan.webp",
   },
   {
     id: "makani",
     name: "Makani",
-    image: "/Makani.jpg",
+    image: "/Makani.webp",
   },
   {
     id: "human2human",
     name: "Human2Human",
-    image: "/human.jpg",
+    image: "/human.webp",
   },
 ];
 

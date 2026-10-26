@@ -594,6 +594,8 @@ const What = () => {
                                             "/Profile.svg"
                                         }
                                         alt={item.profiles?.name}
+                                        loading="lazy"
+                                        decoding="async"
                                         className={s.imgg}
                                         onClick={() => navigate(`/user/${item.user_id}`)}
                                     />

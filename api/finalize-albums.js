@@ -155,7 +155,7 @@ async function uploadPhoto(fileId) {
         const { error } =
             await supabase.storage
                 .from("images")
-                .upload(fileName, buffer, { contentType: "image/jpeg" });
+                .upload(fileName, buffer, { contentType: "image/jpeg", cacheControl: "31536000" });
 
         if (error) {
             console.log("UPLOAD ERROR:", error);

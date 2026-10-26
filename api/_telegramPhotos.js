@@ -164,7 +164,7 @@ async function attemptPhoto({ supabase, botToken, fileId, deadline }) {
 
     try {
         const { error } = await withTimeout(
-            supabase.storage.from("images").upload(fileName, buffer, { contentType: "image/jpeg" }),
+            supabase.storage.from("images").upload(fileName, buffer, { contentType: "image/jpeg", cacheControl: "31536000" }),
             stepTimeout(UPLOAD_TIMEOUT_MS, deadline),
             "upload"
         );

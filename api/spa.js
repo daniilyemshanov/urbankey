@@ -38,6 +38,15 @@ import { STATIC_PAGES } from "../src/utils/staticPages.js";
 
 const SHELL_HEADER = "x-urbankey-shell";
 
+// Должен совпадать с src в src/components/Hero.jsx
+const HERO_IMAGE = "/c3383124-8cd3-4f72-9ab0-7fd2f40c9fcc.webp";
+
+export function injectHeroPreload(html) {
+    if (!/<\/head>/i.test(html)) return html;
+    const tag = `<link rel="preload" as="image" href="${HERO_IMAGE}" fetchpriority="high" />`;
+    return html.replace(/<\/head>/i, () => `  ${tag}\n</head>`);
+}
+
 async function loadShell(req) {
     const host = req.headers["x-forwarded-host"] || req.headers.host;
     const proto = String(req.headers["x-forwarded-proto"] || "https").split(",")[0];
@@ -181,6 +190,11 @@ export default async function handler(req, res) {
         } catch (err) {
             console.error("spa: page head injection failed:", err);
         }
+    }
+
+    // Главная: LCP-картинка героя иначе обнаруживается только после выполнения JS.
+    if (status === 200 && kind === "page" && String(req.query.page || "") === "home") {
+        html = injectHeroPreload(html);
     }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");

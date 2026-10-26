@@ -141,6 +141,10 @@ const Footer = () => {
                         src="/image (18).webp"
                         alt=""
                         className={s.imgg}
+                        width={1600}
+                        height={268}
+                        loading="lazy"
+                        decoding="async"
                         whileHover={{
                             scale: 1.05,
                             rotate: -2

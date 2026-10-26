@@ -2479,7 +2479,9 @@ export const MyProvider = ({ children }) => {
             .from("images")
             .upload(
                 fileName,
-                file
+                file,
+                // имя файла уникально (Date.now), перезаписи нет — можно кэшировать на год
+                { cacheControl: "31536000" }
             );
 
 

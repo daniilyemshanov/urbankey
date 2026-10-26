@@ -5,19 +5,10 @@ import { Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Error from "./pages/Error";
 import Burger from "./components/Burger";
-import ContactUs from "./pages/ContactUs";
-import AboutUs from "./pages/AboutUs";
-import Properties from "./pages/Properties";
-import DistrictListings from "./pages/DistrictListings";
-import Services from "./pages/Services";
 import { ToastContainer } from "react-toastify";
-import AOS from "aos";
-import "aos/dist/aos.css";
 import { lazy, Suspense, useContext, useEffect } from "react";
 import { MyContext } from "./Context";
-import PropertyPage from "./pages/PropertyPage";
 import ScrollToTop from "./components/ScrollToTop";
-import CommercialPage from "./pages/CommercialPage";
 import TelegramFloatButton from "./components/TelegramFloatButton";
 import CallFloatButton from "./components/CallFloatButton";
 import LeadPopup from "./components/LeadPopup";
@@ -26,6 +17,14 @@ import LegacyRedirect from "./components/LegacyRedirect";
 
 // Непубличные страницы (вход, профиль, админка, добавление объявлений) грузятся
 // отдельными чанками: публичные страницы для поиска не тащат этот код.
+// Публичные страницы, кроме главной, тоже отдельными чанками: главная не тянет их код.
+const AboutUs = lazy(() => import("./pages/AboutUs"));
+const Properties = lazy(() => import("./pages/Properties"));
+const DistrictListings = lazy(() => import("./pages/DistrictListings"));
+const Services = lazy(() => import("./pages/Services"));
+const ContactUs = lazy(() => import("./pages/ContactUs"));
+const PropertyPage = lazy(() => import("./pages/PropertyPage"));
+const CommercialPage = lazy(() => import("./pages/CommercialPage"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -66,13 +65,6 @@ const App = () => {
     }
 
   }, [isDark]);
-
-  useEffect(() => {
-    AOS.init({
-      duration: 1000,
-      once: true
-    });
-  }, []);
 
   return (
     <>
