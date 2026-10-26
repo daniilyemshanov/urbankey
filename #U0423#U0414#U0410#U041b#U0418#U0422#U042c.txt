@@ -1,6 +1,0 @@
-Эти файлы больше не нужны:
-src/pages/Admin.module.css
-src/components/ChangeCard.module.css
-src/components/ChangeCommercial.module.css
-src/components/ChangeCommercialPage.module.css
-src/components/CreateCard.module.css
