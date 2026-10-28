@@ -20,12 +20,14 @@ const MEMBERS = [
     { key: "sarvinoz", type: "agent", photo: "/Sarvinoz.webp", thumbSize: "150% auto", thumbPos: "50.0% 9.0%" },
     { key: "igor", type: "agent", photo: "/Igor.webp", thumbSize: "220% auto", thumbPos: "50.0% 16.9%" },
     { key: "timur", type: "agent", photo: "/Timur.webp", thumbSize: "170% auto", thumbPos: "64.6% 4.4%" },
+    { key: "alexander", type: "alexander", photo: "/Alexander.webp", thumbSize: "200% auto", thumbPos: "52.9% 12.2%" },
     { key: "irina", type: "smm", photo: "/Irina.webp", thumbSize: "190% auto", thumbPos: "50.0% 11.8%" },
 ]
 
 const POINT_ICONS = {
     head: [ShieldCheck, Building2, Tag, ClipboardCheck],
     agent: [Building2, Home, Wallet, ClipboardCheck],
+    alexander: [Building2, Home, Wallet, ClipboardCheck],
     smm: [Megaphone, Camera, Newspaper, Users],
 }
 

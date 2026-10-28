@@ -1011,6 +1011,24 @@
           "title": "Team life",
           "description": "Stories, events and behind the scenes"
         }
+      ],
+      "alexander": [
+        {
+          "title": "New builds",
+          "description": "Current offers from developers"
+        },
+        {
+          "title": "Resale properties",
+          "description": "Selection and checking of resale listings"
+        },
+        {
+          "title": "Selection within your budget",
+          "description": "Options matched to your goals and financial means"
+        },
+        {
+          "title": "Deal support",
+          "description": "Help at every stage — from viewing to closing"
+        }
       ]
     },
     "members": {
@@ -1044,6 +1062,11 @@
         "role": "New-Build and Resale Property Sales Agent",
         "short": "Timur"
       },
+      "alexander": {
+        "name": "Alexander Magovsky",
+        "role": "Real Estate Agent",
+        "short": "Alexander"
+      },
       "irina": {
         "name": "Irina Yemshanova",
         "role": "UrbanKey SMM",
@@ -1053,7 +1076,8 @@
     "about": {
       "head": "Leads the Urban Key team and personally handles commercial real estate deals. Guides clients from property valuation to signing the contract at the notary.",
       "agent": "Helps you find an apartment in a new build or on the resale market that fits your goals and budget. Supports you at every step, from the first viewings to closing the deal.",
-      "smm": "Runs the Urban Key social media: creates and publishes content about properties, talks about the real estate market and shows how the team works. Thanks to her, clients see current offers and get to know us before the first call."
+      "smm": "Runs the Urban Key social media: creates and publishes content about properties, talks about the real estate market and shows how the team works. Thanks to her, clients see current offers and get to know us before the first call.",
+      "alexander": "Helps you find property in Tashkent that fits your goals and budget. Guides you through choosing a property and helps you understand the details of the deal."
     }
   },
   "switchCurrency": "Switch currency",

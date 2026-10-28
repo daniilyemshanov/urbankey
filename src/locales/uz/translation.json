@@ -1085,6 +1085,24 @@
           "title": "Jamoa hayoti",
           "description": "Hikoyalar, tadbirlar va sahna ortidagi ish"
         }
+      ],
+      "alexander": [
+        {
+          "title": "Yangi qurilishlar",
+          "description": "Quruvchilardan dolzarb takliflar"
+        },
+        {
+          "title": "Ikkilamchi uy-joy",
+          "description": "Ikkilamchi bozordagi obyektlarni tanlash va tekshirish"
+        },
+        {
+          "title": "Byudjetga mos tanlov",
+          "description": "Maqsad va moliyaviy imkoniyatlaringizga mos variantlar"
+        },
+        {
+          "title": "Bitimni kuzatish",
+          "description": "Har bir bosqichda yordam — ko‘rishdan rasmiylashtirishgacha"
+        }
       ]
     },
     "members": {
@@ -1118,6 +1136,11 @@
         "role": "Yangi qurilish va ikkilamchi uy-joy bo‘yicha sotuv agenti",
         "short": "Timur"
       },
+      "alexander": {
+        "name": "Aleksandr Magovskiy",
+        "role": "Ko‘chmas mulk agenti",
+        "short": "Aleksandr"
+      },
       "irina": {
         "name": "Irina Yemshanova",
         "role": "UrbanKey SMM",
@@ -1127,7 +1150,8 @@
     "about": {
       "head": "Urban Key jamoasiga rahbarlik qiladi va tijoriy ko‘chmas mulk bitimlarini shaxsan olib boradi. Mijozni obyektni baholashdan notariusda shartnoma imzolashgacha kuzatib boradi.",
       "agent": "Yangi qurilishdagi yoki ikkilamchi bozordagi kvartirani sizning maqsad va byudjetingizga mos tanlashda yordam beradi. Dastlabki ko‘rishlardan bitimgacha har bir bosqichda hamroh bo‘ladi.",
-      "smm": "Urban Key ijtimoiy tarmoqlarini yuritadi: obyektlar haqida kontent tayyorlab nashr qiladi, ko‘chmas mulk bozori haqida hikoya qiladi va jamoa hayotini ko‘rsatadi. Uning sharofati bilan mijozlar dolzarb takliflarni ko‘radi va bizni birinchi qo‘ng‘iroqdan oldin taniydi."
+      "smm": "Urban Key ijtimoiy tarmoqlarini yuritadi: obyektlar haqida kontent tayyorlab nashr qiladi, ko‘chmas mulk bozori haqida hikoya qiladi va jamoa hayotini ko‘rsatadi. Uning sharofati bilan mijozlar dolzarb takliflarni ko‘radi va bizni birinchi qo‘ng‘iroqdan oldin taniydi.",
+      "alexander": "Toshkentda maqsad va byudjetingizga mos ko‘chmas mulkni tanlashda yordam beradi. Obyekt tanlash jarayonini kuzatib boradi va bitim tafsilotlarini tushunib olishga ko‘maklashadi."
     }
   },
   "switchCurrency": "Valyutani almashtirish",
