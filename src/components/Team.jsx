@@ -114,7 +114,7 @@ const Team = () => {
                 ))}
 
             </div>
-
+sadsdfasfasfasfasfasf
         </section>
     )
 }
