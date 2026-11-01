@@ -8,6 +8,7 @@ import {
     LANGS,
     DEFAULT_LANG,
 } from "./_publicDb.js";
+import { loadStoredRate } from "./_exchangeRate.js";
 import { buildListingHead, buildDistrictHead, buildStaticHead, injectHead, injectRootContent } from "./_seoMeta.js";
 import { DISTRICT_PAGE_KINDS, districtKeyFromSlug } from "../src/utils/districtPages.js";
 import { STATIC_PAGES } from "../src/utils/staticPages.js";
@@ -59,6 +60,7 @@ export default async function handler(req, res) {
     let status = 404;
     let checkState = "ok";
     let listingMeta = null;
+    let rate = null;
     let emptyDistrict = false;
     let pageHead = null;
 
@@ -85,7 +87,15 @@ export default async function handler(req, res) {
                 }
 
                 if (result === true) {
-                    listingMeta = await getListingMeta(supabase, kind, id);
+                    const [meta, storedRate] = await Promise.all([
+                        getListingMeta(supabase, kind, id),
+                        loadStoredRate(supabase).catch((err) => {
+                            console.error("spa: exchange rate unavailable:", err?.message);
+                            return null;
+                        }),
+                    ]);
+                    listingMeta = meta;
+                    rate = storedRate?.rate ?? null;
                 }
 
                 if (result === null) {
@@ -138,7 +148,8 @@ export default async function handler(req, res) {
 
     if (status === 200 && checkState === "ok" && listingMeta) {
         try {
-            html = injectHead(html, buildListingHead({ kind, id, lang, meta: listingMeta }));
+            const head = buildListingHead({ kind, id, lang, meta: listingMeta, rate });
+            html = injectRootContent(injectHead(html, head), head?.body);
         } catch (err) {
             console.error("spa: head injection failed:", err);
         }

@@ -92,22 +92,79 @@ export async function commercialExists(supabase, id) {
     return Boolean(base);
 }
 
+// Optional SEO fields must never break the primary listing meta: any error,
+// exception or missing row simply yields null.
+async function optionalRow(run) {
+    try {
+        const { data, error } = await run();
+        if (error || !data) return null;
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+const trio = (row, base) => ({ ru: row[`${base}_ru`], en: row[`${base}_en`], uz: row[`${base}_uz`] });
+
 export async function getListingMeta(supabase, kind, id) {
     const view = kind === "property" ? "cardss_public" : "commercials_public";
     try {
-        const { data, error } = await noRetry(
-            supabase
-                .from(view)
-                .select("title_ru, title_en, title_uz, description_ru, description_en, description_uz, image")
-                .eq("id", id)
-                .maybeSingle()
-        );
+        const [primary, extra, villa] = await Promise.all([
+            noRetry(
+                supabase
+                    .from(view)
+                    .select("title_ru, title_en, title_uz, description_ru, description_en, description_uz, image")
+                    .eq("id", id)
+                    .maybeSingle()
+            ),
+            optionalRow(() => noRetry(
+                supabase
+                    .from(view)
+                    .select(
+                        kind === "property"
+                            ? "bedrooms_ru, bedrooms_en, bedrooms_uz, type_ru, type_en, type_uz, price"
+                            : "district_ru, district_en, district_uz, address_ru, address_en, address_uz, " +
+                              "class_ru, class_en, class_uz, area, floor, price"
+                    )
+                    .eq("id", id)
+                    .maybeSingle()
+            )),
+            kind === "property"
+                ? optionalRow(() => noRetry(
+                    supabase
+                        .from("villas")
+                        .select("location_ru, location_en, location_uz")
+                        .eq("card_id", id)
+                        .limit(1)
+                        .maybeSingle()
+                ))
+                : null,
+        ]);
+
+        const { data, error } = primary;
         if (error || !data) return null;
-        return {
+
+        const meta = {
             title: { ru: data.title_ru, en: data.title_en, uz: data.title_uz },
             description: { ru: data.description_ru, en: data.description_en, uz: data.description_uz },
             image: data.image,
         };
+
+        if (extra) {
+            meta.price = extra.price;
+            meta.facts = kind === "property"
+                ? { bedrooms: trio(extra, "bedrooms"), type: trio(extra, "type") }
+                : {
+                    district: trio(extra, "district"),
+                    address: trio(extra, "address"),
+                    class: trio(extra, "class"),
+                    area: extra.area,
+                    floor: extra.floor,
+                };
+        }
+        if (villa) meta.location = trio(villa, "location");
+
+        return meta;
     } catch (err) {
         console.error("getListingMeta failed:", err);
         return null;

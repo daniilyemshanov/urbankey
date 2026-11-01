@@ -204,3 +204,114 @@ test("страница объекта кэшируется не дольше м�
     const res = await callSpa({ kind: "property", id: "5" });
     assert.equal(res.headers["Cache-Control"], "public, s-maxage=60");
 });
+
+const LISTING_ROW = {
+    title_ru: "Квартира </script><b>X", title_en: "Flat", title_uz: "Kvartira",
+    description_ru: "Описание <img onerror=1> Чиланзар", description_en: "Desc", description_uz: "Tavsif",
+    image: "https://cdn.example.com/a b.jpg",
+};
+
+const HEAD_SHELL = `<!doctype html><html lang="ru"><head><title>t</title></head><body><div id="root"></div></body></html>`;
+const listingSupabase = ({ extraFails = false, rate = true } = {}) => (u) => {
+    if (u.includes("/exchange_rates")) return rate ? json({ rate: "12500", rate_date: "2026-11-01", fetched_at: null }) : json({ message: "x" }, 500);
+    if (u.includes("/villas") && u.includes("location_ru")) return extraFails ? json({ message: "x" }, 400) : json({ location_ru: "Чиланзар", location_en: "Chilanzar", location_uz: "Chilonzor" });
+    if (u.includes("/villas")) return json({ card_id: 5 });
+    if (u.includes("/cardss_public") && u.includes("bedrooms_ru")) return extraFails ? json({ message: "x" }, 400) : json({ bedrooms_ru: "2", bedrooms_en: "2", bedrooms_uz: "2", type_ru: "Квартира", type_en: "Flat", type_uz: "Kvartira", price: "$50 000" });
+    if (u.includes("/cardss_public") && u.includes("title_ru")) return json(LISTING_ROW);
+    if (u.includes("/cardss_public")) return json({ id: 5 });
+    return json([]);
+};
+
+const count = (html, re) => (html.match(re) || []).length;
+
+test("листинг: SSR-тело (h1, ссылки) и по одному ld+json на тип с data-ssr-seo, всё экранировано", async () => {
+    withEnv();
+    shell = () => new Response(HEAD_SHELL, { status: 200 });
+    supabase = listingSupabase();
+    const res = await callSpa({ kind: "property", id: "5", lang: "ru" });
+    assert.equal(res.code, 200);
+    assert.match(res.body, /<div id="root"><main data-ssr-seo="1"/);
+    assert.match(res.body, /<h1>Квартира &lt;\/script&gt;&lt;b&gt;X<\/h1>/);
+    assert.match(res.body, /<a href="\/ru\/Properties">/);
+    assert.match(res.body, /<a href="\/ru\/Properties\/apartments\//);
+    assert.equal(count(res.body, /<script data-ssr-seo="1" type="application\/ld\+json">/g), 2);
+    assert.equal(count(res.body, /"@type":"RealEstateListing"/g), 1);
+    assert.equal(count(res.body, /"@type":"BreadcrumbList"/g), 1);
+    assert.ok(!/<\/script><b>/.test(res.body), "< внутри JSON-LD должен быть экранирован");
+    assert.match(res.body, /"priceCurrency":"UZS"/);
+});
+
+test("листинг: без курса Offer опускается, страница остаётся 200", async () => {
+    withEnv();
+    shell = () => new Response(HEAD_SHELL, { status: 200 });
+    supabase = listingSupabase({ rate: false });
+    const res = await callSpa({ kind: "property", id: "5", lang: "ru" });
+    assert.equal(res.code, 200);
+    assert.equal(count(res.body, /"@type":"RealEstateListing"/g), 1);
+    assert.ok(!res.body.includes('"@type":"Offer"'));
+});
+
+test("листинг: сбой опциональных запросов не теряет основные метаданные", async () => {
+    withEnv();
+    shell = () => new Response(HEAD_SHELL, { status: 200 });
+    supabase = listingSupabase({ extraFails: true });
+    const res = await callSpa({ kind: "property", id: "5", lang: "en" });
+    assert.equal(res.code, 200);
+    assert.match(res.body, /<title data-ssr-seo="1">Flat — UrbanKey<\/title>/);
+    assert.match(res.body, /<h1>Flat<\/h1>/);
+    assert.equal(count(res.body, /"@type":"BreadcrumbList"/g), 1);
+});
+
+import { buildListingHead, buildListingBody } from "../api/_seoMeta.js";
+
+const ldBlocks = (lines) => [...lines.matchAll(/<script data-ssr-seo="1" type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+
+test("некорректный URL картинки (%): ни head, ни тело, ни JSON-LD не падают, остальные данные на месте", () => {
+    const meta = { title: { ru: "Квартира" }, description: { ru: "Описание" }, image: "https://cdn.example.com/%E0%A4%A.jpg", price: "500 000 000 сум" };
+    const head = buildListingHead({ kind: "property", id: 5, lang: "ru", meta });
+    assert.ok(head, "head не должен пропасть");
+    assert.match(head.lines, /<title data-ssr-seo="1">Квартира — UrbanKey<\/title>/);
+    assert.match(head.lines, /og:image" content="https:\/\/urbankey\.uz\/image%20\(16\)\.webp"/, "og:image -> запасная картинка");
+    assert.ok(!head.body.includes("<img"));
+    assert.match(head.body, /<h1>Квартира<\/h1>/);
+    const [listing, breadcrumb] = ldBlocks(head.lines);
+    assert.equal(listing["@type"], "RealEstateListing");
+    assert.equal(breadcrumb["@type"], "BreadcrumbList");
+    assert.ok(!("image" in listing), "поле image не выводится");
+    assert.equal(listing.offers.price, 500000000);
+});
+
+test("корректные URL картинки не меняются", () => {
+    const meta = { title: { ru: "T" }, description: { ru: "D" } };
+    const abs = buildListingHead({ kind: "property", id: 5, lang: "ru", meta: { ...meta, image: "https://cdn.example.com/a b.jpg" } });
+    assert.match(abs.body, /<img src="https:\/\/cdn\.example\.com\/a%20b\.jpg"/);
+    assert.deepEqual(ldBlocks(abs.lines)[0].image, ["https://cdn.example.com/a%20b.jpg"]);
+    const rel = buildListingBody({ kind: "property", id: 5, lang: "ru", meta: { ...meta, image: "/img/x y.webp" } });
+    assert.match(rel, /<img src="https:\/\/urbankey\.uz\/img\/x%20y\.webp"/);
+});
+
+test("подписи характеристик локализованы, пустые значения не выводятся", () => {
+    const trio = (ru, en, uz) => ({ ru, en, uz });
+    const property = {
+        title: trio("Кв", "Flat", "Kv"), description: trio("D", "D", "D"), price: "$50 000",
+        location: trio("Юнусабад", "Yunusabad", "Yunusobod"),
+        facts: { type: trio("Квартира", "Apartment", "Kvartira"), bedrooms: trio("2", "2", "2") },
+    };
+    const line = (html) => html.match(/<p>([^<]*:[^<]*)<\/p>/)[1];
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "ru", meta: property })), "Квартира · Район: Юнусабад · Комнат: 2 · Цена: $50 000");
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "en", meta: property })), "Apartment · District: Yunusabad · Rooms: 2 · Price: $50 000");
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "uz", meta: property })), "Kvartira · Tuman: Yunusobod · Xonalar: 2 · Narx: $50 000");
+
+    const commercial = {
+        title: trio("Офис", "Office", "Ofis"), description: trio("D", "D", "D"), price: "100 000 $",
+        facts: { district: trio("Юнусабад", "Yunusabad", "Yunusobod"), area: "120", floor: "3" },
+    };
+    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "ru", meta: commercial })), "Район: Юнусабад · Площадь: 120 м² · Этаж: 3 · Цена: 100 000 $");
+    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "uz", meta: commercial })), "Tuman: Yunusobod · Maydon: 120 m² · Qavat: 3 · Narx: 100 000 $");
+
+    const sparse = buildListingBody({ kind: "commercial", id: 1, lang: "en", meta: { title: trio("Офис", "Office", "Ofis"), description: trio("", "", ""), facts: { floor: "5", area: " ", district: trio("", "", "") } } });
+    assert.match(sparse, /<p>Floor: 5<\/p>/);
+    assert.ok(!/District:|Area:|Price:| · /.test(sparse), "нет пустых подписей и разделителей");
+    const none = buildListingBody({ kind: "property", id: 1, lang: "en", meta: { title: trio("Кв", "Flat", "Kv"), description: trio("", "", "") } });
+    assert.ok(!none.includes("<p>"), "без данных нет пустого <p>");
+});

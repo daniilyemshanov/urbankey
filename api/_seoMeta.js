@@ -1,6 +1,8 @@
 import { SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 import { getDistrictPage, districtBasePath } from "../src/utils/districtPages.js";
 import { getStaticPage, staticBasePath } from "../src/utils/staticPages.js";
+import { detectDistrict, districtLabel } from "../src/utils/districts.js";
+import { buildResidenceJsonLd, buildCommercialJsonLd, buildBreadcrumbJsonLd } from "../src/utils/structuredData.js";
 
 const SITE_NAME = "UrbanKey";
 const FALLBACK_IMAGE = `${SITE_ORIGIN}/image%20(16).webp`;
@@ -34,14 +36,123 @@ function absoluteImage(url) {
     return `${SITE_ORIGIN}${url.startsWith("/") ? "" : "/"}${encodeURI(url)}`;
 }
 
-export function buildListingHead({ kind, id, lang, meta }) {
+// Absolute image URL, or null when missing/malformed (e.g. a stray "%").
+function safeImage(url) {
+    if (!url || typeof url !== "string") return null;
+    try {
+        return absoluteImage(url);
+    } catch {
+        return null;
+    }
+}
+
+const PROPERTIES_LABEL = { ru: "Недвижимость", en: "Properties", uz: "Mulk" };
+const AREA_UNIT = { ru: "м²", en: "m²", uz: "m²" };
+const FACT_LABELS = {
+    ru: { district: "Район", area: "Площадь", floor: "Этаж", rooms: "Комнат", price: "Цена" },
+    en: { district: "District", area: "Area", floor: "Floor", rooms: "Rooms", price: "Price" },
+    uz: { district: "Tuman", area: "Maydon", floor: "Qavat", rooms: "Xonalar", price: "Narx" },
+};
+
+export function jsonLdTags(objs) {
+    return objs
+        .filter(Boolean)
+        .map((obj) => {
+            const json = JSON.stringify(obj)
+                .replace(/</g, "\\u003c")
+                .replace(/\u2028/g, "\\u2028")
+                .replace(/\u2029/g, "\\u2029");
+            return `<script data-ssr-seo="1" type="application/ld+json">${json}</script>`;
+        });
+}
+
+function buildListingJsonLd({ kind, id, lang, meta, canonical, title, rate }) {
+    try {
+        const image = safeImage(meta.image);
+        const data = {
+            title: meta.title,
+            about: meta.description,
+            images: image ? [image] : [],
+            price: meta.price,
+        };
+        const listing = kind === "property"
+            ? buildResidenceJsonLd({ villa: data, lang, url: canonical, rate })
+            : buildCommercialJsonLd({ page: data, lang, url: canonical, rate });
+        const breadcrumb = buildBreadcrumbJsonLd(
+            [
+                { name: SITE_NAME, path: "/" },
+                { name: PROPERTIES_LABEL[lang], path: "/Properties" },
+                { name: title, path: `/${kind}/${id}` },
+            ],
+            lang
+        );
+        return [listing, breadcrumb];
+    } catch (err) {
+        console.error("seo: listing JSON-LD failed:", err);
+        return [];
+    }
+}
+
+export function buildListingBody({ kind, id, lang, meta }) {
+    const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
+    const title = pick(meta?.title);
+    if (!title) return "";
+
+    const facts = meta.facts || {};
+    const L = FACT_LABELS[lang];
+    const text = (v) => String(v ?? "").trim();
+    const labeled = (label, value) => (text(value) ? `${label}: ${text(value)}` : "");
+    const area = text(facts.area) ? `${text(facts.area)} ${AREA_UNIT[lang]}` : "";
+    const factParts = kind === "property"
+        ? [
+            pick(facts.type),
+            labeled(L.district, pick(meta.location)),
+            labeled(L.rooms, pick(facts.bedrooms)),
+            labeled(L.price, meta.price),
+        ]
+        : [
+            pick(facts.class),
+            labeled(L.district, pick(facts.district)),
+            pick(facts.address),
+            labeled(L.area, area),
+            labeled(L.floor, facts.floor),
+            labeled(L.price, meta.price),
+        ];
+    const factsLine = factParts.map(text).filter(Boolean).join(" · ");
+    const image = safeImage(meta.image);
+
+    const description = String(pick(meta.description)).replace(/\s+/g, " ").trim().slice(0, 1500);
+
+    const districtKey = detectDistrict([
+        pick(meta.location), pick(facts.district), pick(facts.address), title, description,
+    ]);
+    const districtKind = kind === "commercial" ? "commercial" : "apartments";
+
+    const links = [
+        `<a href="/${lang}">${SITE_NAME}</a>`,
+        `<a href="/${lang}/Properties">${escapeHtml(PROPERTIES_LABEL[lang])}</a>`,
+    ];
+    if (districtKey) {
+        links.push(`<a href="/${lang}${districtBasePath(districtKind, districtKey)}">${escapeHtml(districtLabel(districtKey, lang))}</a>`);
+    }
+
+    const a = 'data-ssr-seo="1"';
+    return `<main ${a} style="max-width:1440px;margin:0 auto;padding:120px 20px 0;font-family:sans-serif;color:#f5f5f5">` +
+        `<h1>${escapeHtml(title)}</h1>` +
+        (factsLine ? `<p>${escapeHtml(factsLine)}</p>` : "") +
+        (image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(title)}" style="max-width:100%;height:auto" />` : "") +
+        (description ? `<p>${escapeHtml(description)}</p>` : "") +
+        `<nav>${links.join(" | ")}</nav></main>`;
+}
+
+export function buildListingHead({ kind, id, lang, meta, rate = null }) {
     const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
     const rawTitle = pick(meta?.title);
     const title = rawTitle ? `${rawTitle} — ${SITE_NAME}` : null;
     if (!title) return null;
 
     const description = shortDescription(pick(meta?.description)) || DEFAULT_DESCRIPTION[lang];
-    const image = absoluteImage(meta?.image);
+    const image = safeImage(meta?.image) || FALLBACK_IMAGE;
     const basePath = `/${kind}/${id}`;
     const canonical = `${SITE_ORIGIN}/${lang}${basePath}`;
     const a = 'data-ssr-seo="1"';
@@ -64,8 +175,9 @@ export function buildListingHead({ kind, id, lang, meta }) {
         `<meta ${a} name="twitter:title" content="${escapeHtml(title)}" />`,
         `<meta ${a} name="twitter:description" content="${escapeHtml(description)}" />`,
         `<meta ${a} name="twitter:image" content="${escapeHtml(image)}" />`,
+        ...jsonLdTags(buildListingJsonLd({ kind, id, lang, meta, canonical, title: rawTitle, rate })),
     ];
-    return { lines: lines.join("\n  "), lang };
+    return { lines: lines.join("\n  "), lang, body: buildListingBody({ kind, id, lang, meta }) };
 }
 
 export function injectHead(html, head) {
