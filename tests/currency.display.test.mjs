@@ -25,10 +25,12 @@ test("валюта цены совпадает с выбранной — кур�
     assert.equal(price("1 200 000 000 сум", "UZS"), "1 200 000 000 UZS");
 });
 
-test("курса нет: цена остаётся в сохранённой валюте, подставного курса нет", () => {
+test("курса нет: в режиме «сум» цена в долларах не показывается; подставного курса нет", () => {
     for (const rate of [undefined, null, 0, -5, NaN, "12650", 12.65, 99999999]) {
-        assert.equal(price("85 000$", "UZS", rate), "$85 000", `rate=${rate}`);
+        assert.equal(price("85 000$", "UZS", rate), "—", `rate=${rate}`);
+        assert.equal(price("1 200 000 000 сум", "UZS", rate), "1 200 000 000 UZS", `rate=${rate}`);
         assert.equal(price("1 200 000 000 сум", "USD", rate), "1 200 000 000 UZS", `rate=${rate}`);
+        assert.equal(price("85 000$", "USD", rate), "$85 000", `rate=${rate}`);
     }
 });
 
@@ -170,12 +172,14 @@ test("цены в карточках: пересчёт по сохранённо
     assert.equal(renderPrice("1 200 000 000 сум"), "$100 000");
 });
 
-test("цены в карточках: курса нет — цена в исходной валюте, не по выдуманному курсу", () => {
+test("цены в карточках: курса нет — в режиме «сум» доллары не показываются, курс не выдумывается", () => {
     reset({ currency: "UZS" });
-    assert.equal(renderPrice("85 000$"), "$85 000");
+    assert.equal(renderPrice("85 000$"), "—");
+    assert.equal(renderPrice("1 200 000 000 сум"), "1 200 000 000 UZS");
 
     reset({ currency: "USD" });
     assert.equal(renderPrice("1 200 000 000 сум"), "1 200 000 000 UZS");
+    assert.equal(renderPrice("85 000$"), "$85 000");
 });
 
 test("в коде сайта не осталось зашитого курса", async () => {

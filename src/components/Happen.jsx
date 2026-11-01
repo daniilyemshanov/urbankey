@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { sendLead } from "../utils/sendLead"
 import TurnstileWidget from "./TurnstileWidget"
 import { MyContext } from "../Context"
+import ConsentNote from "./ConsentNote";
 
 const Happen = () => {
 
@@ -325,6 +326,8 @@ const Happen = () => {
                     </label>
 
                 </div>
+
+                <ConsentNote variant="links" />
 
                 <input
                     type="text"

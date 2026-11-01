@@ -41,7 +41,8 @@ const BottomNav = () => {
 
     useEffect(() => {
         let cancelled = false;
-        if (user) {
+        // «Мои объявления» есть только у админа: остальным запрос не нужен
+        if (user && profile?.role === "admin") {
             getMyListings().then(data => {
                 if (!cancelled) setHasListings(Array.isArray(data) && data.length > 0);
             }).catch(() => {});
@@ -49,7 +50,7 @@ const BottomNav = () => {
             setHasListings(false);
         }
         return () => { cancelled = true; };
-    }, [user, getMyListings]);
+    }, [user, profile?.role, getMyListings]);
 
     const startPress = () => {
         longPressed.current = false;
@@ -97,7 +98,7 @@ const BottomNav = () => {
                     <span>{t("properties")}</span>
                 </NavLink>
 
-                {user && (
+                {user && profile?.role === "admin" && (
                     <NavLink to="/add-property" className={({ isActive }) => isActive ? `${s.item} ${s.addItem} ${s.active}` : `${s.item} ${s.addItem}`}>
                         <PlusSquare size={22} />
                         <span>{t("addListing")}</span>

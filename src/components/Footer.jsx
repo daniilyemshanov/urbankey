@@ -9,10 +9,17 @@ import { MyContext } from "../Context";
 import { useTranslation } from 'react-i18next';
 import { sendLead } from "../utils/sendLead";
 import TurnstileWidget from "./TurnstileWidget";
+import { localizedPath } from "../utils/lang";
+
+const LEGAL_LINK_LABELS = {
+    ru: { privacy: "Политика конфиденциальности", terms: "Условия использования" },
+    en: { privacy: "Privacy Policy", terms: "Terms of Use" },
+    uz: { privacy: "Maxfiylik siyosati", terms: "Foydalanish shartlari" },
+};
 
 const Footer = () => {
 
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { profile } = useContext(MyContext);
 
     const navigate = useNavigate();
@@ -287,6 +294,11 @@ const Footer = () => {
                 </motion.div>
 
             </motion.div>
+
+            <div className={s.legalLinks}>
+                <a href={localizedPath("/Privacy", i18n.language)}>{LEGAL_LINK_LABELS[i18n.language]?.privacy || LEGAL_LINK_LABELS.ru.privacy}</a>
+                <a href={localizedPath("/Terms", i18n.language)}>{LEGAL_LINK_LABELS[i18n.language]?.terms || LEGAL_LINK_LABELS.ru.terms}</a>
+            </div>
 
             <Gray />
 

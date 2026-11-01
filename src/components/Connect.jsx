@@ -8,6 +8,7 @@ import { sendLead } from "../utils/sendLead"
 import TurnstileWidget from "./TurnstileWidget"
 import { useOnlineStatus } from "../hooks/useOnlineStatus"
 import { MyContext } from "../Context"
+import ConsentNote from "./ConsentNote";
 
 const Connect = () => {
 
@@ -369,6 +370,8 @@ const Connect = () => {
                     aria-hidden="true"
                     {...register("company")}
                 />
+
+                <ConsentNote />
 
                 <TurnstileWidget
                     className={s.captcha}

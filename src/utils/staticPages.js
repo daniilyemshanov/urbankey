@@ -1,4 +1,6 @@
-export const STATIC_PAGES = ["home", "Properties", "AboutUs", "Services", "ContactUs"];
+import { LEGAL_TEXTS } from "../legal/legalTexts.js";
+
+export const STATIC_PAGES = ["home", "Properties", "AboutUs", "Services", "ContactUs", "Privacy", "Terms"];
 
 export const staticBasePath = (page) => (page === "home" ? "" : `/${page}`);
 
@@ -104,5 +106,15 @@ const PAGES = {
         },
     },
 };
+
+// Политика конфиденциальности и Условия использования — из src/legal/legalTexts.js
+for (const [page, doc] of [["Privacy", "privacy"], ["Terms", "terms"]]) {
+    PAGES[page] = Object.fromEntries(
+        ["ru", "en", "uz"].map((lang) => {
+            const d = LEGAL_TEXTS[doc][lang];
+            return [lang, { title: d.title, h1: d.title, description: d.description, intro: d.description }];
+        })
+    );
+}
 
 export const getStaticPage = (page, lang) => PAGES[page]?.[lang] || null;

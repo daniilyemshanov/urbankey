@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Trash2 } from "lucide-react";
 import { MyContext } from "../Context";
@@ -9,7 +9,8 @@ import s from "./MyListings.module.css";
 
 const MyListings = () => {
 
-    const { user, profile, getMyListings, deleteCard, deleteCommercial, setBoost } = useContext(MyContext);
+    const { user, profile, authLoading, getMyListings, deleteCard, deleteCommercial, setBoost } = useContext(MyContext);
+    const navigate = useNavigate();
     const { t, i18n } = useTranslation();
 
     const [listings, setListings] = useState([]);
@@ -30,6 +31,12 @@ const MyListings = () => {
     }, [user]);
 
     const isAdmin = profile?.role === "admin";
+
+    // Объявлениями управляет только админ: остальных отправляем на главную
+    useEffect(() => {
+        if (authLoading || !user || !profile || isAdmin) return;
+        navigate("/", { replace: true });
+    }, [authLoading, user, profile, isAdmin, navigate]);
 
     const handleAdminBoost = async (item, days) => {
         await setBoost(item.kind, item.id, days);
@@ -67,14 +74,13 @@ const MyListings = () => {
 
             <div className={s.header}>
                 <h1>{t("myListings")}</h1>
-                <Link to="/add-property" className={s.addBtn}>
-                    {t("addListing")}
-                </Link>
+                {isAdmin && (
+                    <Link to="/add-property" className={s.addBtn}>
+                        {t("addListing")}
+                    </Link>
+                )}
             </div>
 
-            {!loading && profile?.role !== "admin" && (
-                <p className={s.note}>{t("listingLimitCounter", { count: listings.length, limit: 7 })}</p>
-            )}
 
             {loading && <p className={s.note}>{t("loading")}</p>}
 

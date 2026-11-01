@@ -32,11 +32,15 @@ export default function UserProfile() {
 
     const isAdmin = viewerProfile?.role === "admin";
 
+    // Телефон видят только сам пользователь и админ (в базе он закрыт от остальных)
+    const [phone, setPhone] = useState("");
+    const canSeePhone = Boolean(profile) && (isAdmin || user?.id === profile.id);
+
     useEffect(() => {
         async function loadProfile() {
             const { data, error } = await supabase
                 .from("profiles")
-                .select("*")
+                .select("id, uuid, name, surname, city, role, avatar_url, bio, created_at")
                 .eq("id", id)
                 .single();
 
@@ -59,6 +63,22 @@ export default function UserProfile() {
 
         loadProfile();
     }, [id]);
+
+    useEffect(() => {
+        if (!canSeePhone) {
+            setPhone("");
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        supabase.rpc("get_profile_phone", { p_id: profile.id }).then(({ data }) => {
+            if (!cancelled) setPhone(data || "");
+        });
+
+        return () => { cancelled = true; };
+    }, [canSeePhone, profile?.id]);
+
 
     async function deleteReview(reviewId) {
         const { error } = await supabase
@@ -171,13 +191,15 @@ export default function UserProfile() {
 
                 <div className={s.stats}>
 
-                    <div className={s.stat}>
-                        <span>
-                            <Phone size={14} />
-                            {t("profile.phone")}
-                        </span>
-                        <b>{profile.phone || t("profile.notSpecified")}</b>
-                    </div>
+                    {canSeePhone && (
+                        <div className={s.stat}>
+                            <span>
+                                <Phone size={14} />
+                                {t("profile.phone")}
+                            </span>
+                            <b>{phone || t("profile.notSpecified")}</b>
+                        </div>
+                    )}
 
                     <div className={s.stat}>
                         <span>

@@ -10,6 +10,7 @@ import { sendLead } from "../utils/sendLead"
 import TurnstileWidget from "./TurnstileWidget"
 import { useOnlineStatus } from "../hooks/useOnlineStatus"
 import { MyContext } from "../Context"
+import ConsentNote from "./ConsentNote";
 
 const TIME_TRIGGER_MS = 45000
 
@@ -258,6 +259,8 @@ const LeadPopup = () => {
                                         aria-hidden="true"
                                         {...register("company")}
                                     />
+
+                                    <ConsentNote />
 
                                     <TurnstileWidget
                                         className={s.captcha}

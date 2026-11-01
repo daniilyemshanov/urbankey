@@ -72,7 +72,7 @@
             "destination": "/api/spa?kind=page&page=home&lang=:lang"
         },
         {
-            "source": "/:lang(ru|en|uz)/:page(AboutUs|Properties|Services|ContactUs)",
+            "source": "/:lang(ru|en|uz)/:page(AboutUs|Properties|Services|ContactUs|Privacy|Terms)",
             "destination": "/api/spa?kind=page&page=:page&lang=:lang"
         },
         {

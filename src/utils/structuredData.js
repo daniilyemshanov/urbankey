@@ -1,4 +1,4 @@
-import { parsePrice } from "./currency.js";
+import { parsePrice, isValidRate } from "./currency.js";
 
 const SITE_ORIGIN = "https://urbankey.uz";
 
@@ -32,17 +32,19 @@ export const buildBreadcrumbJsonLd = (items, lang) => ({
     })),
 });
 
-const buildOffer = (rawPrice) => {
+const buildOffer = (rawPrice, rate) => {
     const parsed = parsePrice(rawPrice);
     if (!parsed || parsed.perSqm) return undefined;
-    return {
-        "@type": "Offer",
-        price: parsed.amount,
-        priceCurrency: parsed.currency,
-    };
+
+    if (parsed.currency === "UZS") {
+        return { "@type": "Offer", price: parsed.amount, priceCurrency: "UZS" };
+    }
+
+    if (!isValidRate(rate)) return undefined;
+    return { "@type": "Offer", price: Math.round(parsed.amount * rate), priceCurrency: "UZS" };
 };
 
-const buildListing = ({ name, description, url, images, price }) => {
+const buildListing = ({ name, description, url, images, price, rate }) => {
     const data = {
         "@context": "https://schema.org",
         "@type": "RealEstateListing",
@@ -51,25 +53,27 @@ const buildListing = ({ name, description, url, images, price }) => {
         url,
     };
     if (Array.isArray(images) && images.length > 0) data.image = images;
-    const offers = buildOffer(price);
+    const offers = buildOffer(price, rate);
     if (offers) data.offers = offers;
     return data;
 };
 
-export const buildResidenceJsonLd = ({ villa, lang, url }) =>
+export const buildResidenceJsonLd = ({ villa, lang, url, rate }) =>
     buildListing({
         name: villa?.title?.[lang] || villa?.title?.ru,
         description: villa?.about?.[lang] || villa?.about?.ru,
         url,
         images: villa?.images,
         price: villa?.price,
+        rate,
     });
 
-export const buildCommercialJsonLd = ({ page, lang, url }) =>
+export const buildCommercialJsonLd = ({ page, lang, url, rate }) =>
     buildListing({
         name: page?.title?.[lang] || page?.title?.ru,
         description: page?.about?.[lang] || page?.about?.ru,
         url,
         images: page?.images,
         price: page?.price,
+        rate,
     });

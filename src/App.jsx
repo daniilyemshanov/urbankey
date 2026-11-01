@@ -20,6 +20,7 @@ const Properties = lazy(() => import("./pages/Properties"));
 const DistrictListings = lazy(() => import("./pages/DistrictListings"));
 const Services = lazy(() => import("./pages/Services"));
 const ContactUs = lazy(() => import("./pages/ContactUs"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 const PropertyPage = lazy(() => import("./pages/PropertyPage"));
 const CommercialPage = lazy(() => import("./pages/CommercialPage"));
 const Login = lazy(() => import("./pages/Login"));
@@ -98,6 +99,8 @@ const App = () => {
           <Route path="Properties/commercial/:district" element={<DistrictListings kind="commercial" />} />
           <Route path="Services" element={<Services />} />
           <Route path="ContactUs" element={<ContactUs />} />
+          <Route path="Privacy" element={<LegalPage kind="privacy" />} />
+          <Route path="Terms" element={<LegalPage kind="terms" />} />
           <Route path="property/:id" element={<PropertyPage />} />
           <Route path="commercial/:id" element={<CommercialPage />} />
         </Route>

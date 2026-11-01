@@ -228,26 +228,30 @@ const Nav = () => {
 
                     {user ? (
                         <>
-                            <NavLink
-                                to="/add-property"
-                                className={({ isActive }) =>
-                                    isActive ? `${s.iconBtn} ${s.favActive}` : s.iconBtn
-                                }
-                                aria-label={t("addListing")}
-                                title={t("addListing")}
-                            >
-                                <PlusSquare size={18} />
-                            </NavLink>
-                            <NavLink
-                                to="/my-listings"
-                                className={({ isActive }) =>
-                                    isActive ? `${s.iconBtn} ${s.favActive}` : s.iconBtn
-                                }
-                                aria-label={t("myListings")}
-                                title={t("myListings")}
-                            >
-                                <ListChecks size={18} />
-                            </NavLink>
+                            {isAdmin && (
+                                <NavLink
+                                    to="/add-property"
+                                    className={({ isActive }) =>
+                                        isActive ? `${s.iconBtn} ${s.favActive}` : s.iconBtn
+                                    }
+                                    aria-label={t("addListing")}
+                                    title={t("addListing")}
+                                >
+                                    <PlusSquare size={18} />
+                                </NavLink>
+                            )}
+                            {isAdmin && (
+                                <NavLink
+                                    to="/my-listings"
+                                    className={({ isActive }) =>
+                                        isActive ? `${s.iconBtn} ${s.favActive}` : s.iconBtn
+                                    }
+                                    aria-label={t("myListings")}
+                                    title={t("myListings")}
+                                >
+                                    <ListChecks size={18} />
+                                </NavLink>
+                            )}
                             <NavLink
                                 to="/favorites"
                                 className={({ isActive }) =>

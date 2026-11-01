@@ -2574,14 +2574,24 @@ export const MyProvider = ({ children }) => {
     }
 
 
+    // Телефон из таблицы profiles закрыт от анонимов и других пользователей
+    // (supabase/profiles_privacy.sql): читаем только безопасные колонки,
+    // а телефон владельца/админа получаем через rpc get_profile_phone.
+    const PROFILE_COLUMNS = "id, uuid, name, surname, city, role, avatar_url, bio, created_at";
+
     const getProfile = async (id) => {
 
         const result = await supabase
 
             .from("profiles")
-            .select("*")
+            .select(PROFILE_COLUMNS)
             .eq("id", id)
             .maybeSingle();
+
+        if (result.data) {
+            const { data: phone } = await supabase.rpc("get_profile_phone", { p_id: id });
+            result.data = { ...result.data, phone: phone ?? "" };
+        }
 
         return result;
     };
@@ -2699,7 +2709,7 @@ export const MyProvider = ({ children }) => {
                 .from("profiles")
                 .update(values)
                 .eq("id", user.id)
-                .select()
+                .select(PROFILE_COLUMNS)
                 .single();
 
 
@@ -2711,10 +2721,17 @@ export const MyProvider = ({ children }) => {
         }
 
 
-        setProfile(data);
+        const merged = {
+            ...data,
+            phone: Object.prototype.hasOwnProperty.call(values, "phone")
+                ? values.phone
+                : (profile?.phone ?? ""),
+        };
+
+        setProfile(merged);
 
 
-        return data;
+        return merged;
 
     };
 
@@ -2757,7 +2774,7 @@ export const MyProvider = ({ children }) => {
                 .from("profiles")
                 .update({ role })
                 .eq("id", targetUserId)
-                .select()
+                .select(PROFILE_COLUMNS)
                 .single();
 
         if (error) {

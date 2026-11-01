@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import Error from "./Error";
 import DetailLoading from "../components/DetailLoading";
 import { buildCommercialJsonLd, buildBreadcrumbJsonLd } from "../utils/structuredData";
+import { useCurrency } from "../context/CurrencyContext";
 
 
 const CommercialPage = () => {
@@ -22,6 +23,7 @@ const CommercialPage = () => {
 
     const { id } = useParams();
     const { t, i18n } = useTranslation();
+    const { rate } = useCurrency() ?? {};
 
 
     const {
@@ -56,7 +58,7 @@ const CommercialPage = () => {
     const seoUrl = `https://urbankey.uz/${i18n.language}/commercial/${id}`;
 
     const jsonLd = [
-        buildCommercialJsonLd({ page: commercialPage, lang: i18n.language, url: seoUrl }),
+        buildCommercialJsonLd({ page: commercialPage, lang: i18n.language, url: seoUrl, rate }),
         buildBreadcrumbJsonLd(
             [
                 { name: "UrbanKey", path: "/" },

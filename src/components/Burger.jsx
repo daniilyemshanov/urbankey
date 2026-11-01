@@ -73,12 +73,16 @@ const Burger = () => {
 
                     {user ? (
                         <div className={s.actions}>
-                            <Link className={s.actionBtn} to="/add-property" onClick={handleBurger}>
-                                <PlusSquare size={18} /> {t("addListing")}
-                            </Link>
-                            <Link className={s.actionBtn} to="/my-listings" onClick={handleBurger}>
-                                <ListChecks size={18} /> {t("myListings")}
-                            </Link>
+                            {profile?.role === "admin" && (
+                                <Link className={s.actionBtn} to="/add-property" onClick={handleBurger}>
+                                    <PlusSquare size={18} /> {t("addListing")}
+                                </Link>
+                            )}
+                            {profile?.role === "admin" && (
+                                <Link className={s.actionBtn} to="/my-listings" onClick={handleBurger}>
+                                    <ListChecks size={18} /> {t("myListings")}
+                                </Link>
+                            )}
                             <Link className={s.actionBtn} to="/favorites" onClick={handleBurger}>
                                 <Heart size={18} /> {t("favorites")}
                             </Link>

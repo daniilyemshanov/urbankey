@@ -13,6 +13,7 @@ import { MyContext } from "../Context";
 import { useTranslation } from "react-i18next";
 import Error from "./Error";
 import DetailLoading from "../components/DetailLoading";
+import { useCurrency } from "../context/CurrencyContext";
 
 
 const PropertyPage = () => {
@@ -20,6 +21,7 @@ const PropertyPage = () => {
 
     const { id } = useParams();
     const { t, i18n } = useTranslation();
+    const { rate } = useCurrency() ?? {};
 
 
     const {
@@ -48,7 +50,7 @@ const PropertyPage = () => {
     const seoUrl = `https://urbankey.uz/${i18n.language}/property/${id}`;
 
     const jsonLd = [
-        buildResidenceJsonLd({ villa, lang: i18n.language, url: seoUrl }),
+        buildResidenceJsonLd({ villa, lang: i18n.language, url: seoUrl, rate }),
         buildBreadcrumbJsonLd(
             [
                 { name: "UrbanKey", path: "/" },

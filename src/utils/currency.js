@@ -59,7 +59,10 @@ export const formatPriceIn = (raw, displayCurrency, rate) => {
     const suffix = perSqm ? ` / ${sqmUnit()}` : "";
 
     if (currency === displayCurrency) return formatIn(amount, currency) + suffix;
-    if (!isValidRate(rate)) return formatIn(amount, currency) + suffix;
+    if (!isValidRate(rate)) {
+        if (displayCurrency === "UZS" && currency === "USD") return "—";
+        return formatIn(amount, currency) + suffix;
+    }
 
     const converted = currency === "USD" ? amount * rate : amount / rate;
     return formatIn(converted, displayCurrency) + suffix;

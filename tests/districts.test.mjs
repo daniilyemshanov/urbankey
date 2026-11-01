@@ -58,10 +58,13 @@ test("ссылка на каталог с районом: все ключи сп
 
 test("JSON-LD объявления: тип, числовая цена и валюта из данных", () => {
     const base = { title: { ru: "Квартира" }, about: { ru: "Описание" }, images: ["https://x.test/1.jpg"] };
-    const usd = buildResidenceJsonLd({ villa: { ...base, price: "$85 000" }, lang: "ru", url: "https://urbankey.uz/ru/property/1" });
+    const usd = buildResidenceJsonLd({ villa: { ...base, price: "$85 000" }, lang: "ru", url: "https://urbankey.uz/ru/property/1", rate: 12000 });
     assert.equal(usd["@type"], "RealEstateListing");
-    assert.deepEqual(usd.offers, { "@type": "Offer", price: 85000, priceCurrency: "USD" });
+    assert.deepEqual(usd.offers, { "@type": "Offer", price: 1020000000, priceCurrency: "UZS" });
     assert.equal("address" in usd, false);
+
+    const noRate = buildResidenceJsonLd({ villa: { ...base, price: "$85 000" }, lang: "ru", url: "u" });
+    assert.equal("offers" in noRate, false, "без курса цену в долларах в разметку не выдаём");
 
     const uzs = buildCommercialJsonLd({ page: { ...base, price: "950 000 000 сум" }, lang: "ru", url: "u" });
     assert.equal(uzs.offers.priceCurrency, "UZS");

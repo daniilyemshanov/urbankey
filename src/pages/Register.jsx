@@ -8,6 +8,7 @@ import { supabase } from "../supabase";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import TurnstileWidget from "../components/TurnstileWidget";
+import ConsentNote from "../components/ConsentNote";
 
 
 const Register = () => {
@@ -206,6 +207,8 @@ const Register = () => {
                         </span>
                     )
                 }
+
+                <ConsentNote />
 
                 <TurnstileWidget
                     onVerify={setCaptchaToken}

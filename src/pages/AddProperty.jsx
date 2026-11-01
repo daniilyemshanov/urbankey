@@ -18,7 +18,7 @@ const emptyLang = () => ({ ru: "", en: "", uz: "" });
 
 const AddProperty = () => {
 
-    const { user, profile, uploadImage, createUserProperty, updateUserProperty, getMyListingFull, getMyListings } = useContext(MyContext);
+    const { user, profile, authLoading, uploadImage, createUserProperty, updateUserProperty, getMyListingFull, getMyListings } = useContext(MyContext);
     const { t, i18n } = useTranslation();
     const { isOnline } = useOnlineStatus();
     const navigate = useNavigate();
@@ -30,6 +30,12 @@ const AddProperty = () => {
     const [activeCount, setActiveCount] = useState(null);
 
     const isAdmin = profile?.role === "admin";
+
+    // Создавать и редактировать объявления может только админ
+    useEffect(() => {
+        if (authLoading || !user || !profile || isAdmin) return;
+        navigate("/", { replace: true });
+    }, [authLoading, user, profile, isAdmin, navigate]);
 
     useEffect(() => {
         if (isEditing || !user || isAdmin) return;

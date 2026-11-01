@@ -1481,3 +1481,22 @@ footer {
 .captcha {
     margin-top: 10px;
 }
+
+/* ссылки на Политику конфиденциальности и Условия использования */
+.legalLinks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 24px;
+    padding: 18px 16px 0;
+}
+
+.legalLinks a {
+    color: var(--gray);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.legalLinks a:hover {
+    color: var(--violet);
+}
