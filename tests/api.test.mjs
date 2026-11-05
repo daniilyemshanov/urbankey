@@ -298,16 +298,20 @@ test("подписи характеристик локализованы, пус
         facts: { type: trio("Квартира", "Apartment", "Kvartira"), bedrooms: trio("2", "2", "2") },
     };
     const line = (html) => html.match(/<p>([^<]*:[^<]*)<\/p>/)[1];
-    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "ru", meta: property })), "Квартира · Район: Юнусабад · Комнат: 2 · Цена: $50 000");
-    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "en", meta: property })), "Apartment · District: Yunusabad · Rooms: 2 · Price: $50 000");
-    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "uz", meta: property })), "Kvartira · Tuman: Yunusobod · Xonalar: 2 · Narx: $50 000");
+    // цена в рекламном тексте — только в сумах (по курсу); без курса цену в долларах не выводим
+    const rate = 12000;
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "ru", meta: property, rate })), "Квартира · Район: Юнусабад · Комнат: 2 · Цена: 600\u00a0000\u00a0000 UZS");
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "en", meta: property, rate })), "Apartment · District: Yunusabad · Rooms: 2 · Price: 600\u00a0000\u00a0000 UZS");
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "uz", meta: property, rate })), "Kvartira · Tuman: Yunusobod · Xonalar: 2 · Narx: 600\u00a0000\u00a0000 UZS");
+    assert.equal(line(buildListingBody({ kind: "property", id: 1, lang: "ru", meta: property })), "Квартира · Район: Юнусабад · Комнат: 2", "без курса цена в долларах не показывается");
 
     const commercial = {
         title: trio("Офис", "Office", "Ofis"), description: trio("D", "D", "D"), price: "100 000 $",
         facts: { district: trio("Юнусабад", "Yunusabad", "Yunusobod"), area: "120", floor: "3" },
     };
-    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "ru", meta: commercial })), "Район: Юнусабад · Площадь: 120 м² · Этаж: 3 · Цена: 100 000 $");
-    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "uz", meta: commercial })), "Tuman: Yunusobod · Maydon: 120 m² · Qavat: 3 · Narx: 100 000 $");
+    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "ru", meta: commercial, rate })), "Район: Юнусабад · Площадь: 120 м² · Этаж: 3 · Цена: 1\u00a0200\u00a0000\u00a0000 UZS");
+    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "uz", meta: commercial, rate })), "Tuman: Yunusobod · Maydon: 120 m² · Qavat: 3 · Narx: 1\u00a0200\u00a0000\u00a0000 UZS");
+    assert.equal(line(buildListingBody({ kind: "commercial", id: 1, lang: "ru", meta: commercial })), "Район: Юнусабад · Площадь: 120 м² · Этаж: 3");
 
     const sparse = buildListingBody({ kind: "commercial", id: 1, lang: "en", meta: { title: trio("Офис", "Office", "Ofis"), description: trio("", "", ""), facts: { floor: "5", area: " ", district: trio("", "", "") } } });
     assert.match(sparse, /<p>Floor: 5<\/p>/);

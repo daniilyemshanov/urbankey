@@ -3,6 +3,7 @@ import { getDistrictPage, districtBasePath } from "../src/utils/districtPages.js
 import { getStaticPage, staticBasePath } from "../src/utils/staticPages.js";
 import { detectDistrict, districtLabel } from "../src/utils/districts.js";
 import { buildResidenceJsonLd, buildCommercialJsonLd, buildBreadcrumbJsonLd } from "../src/utils/structuredData.js";
+import { formatPriceIn } from "../src/utils/currency.js";
 
 const SITE_NAME = "UrbanKey";
 const FALLBACK_IMAGE = `${SITE_ORIGIN}/image%20(16).webp`;
@@ -54,7 +55,39 @@ const FACT_LABELS = {
     uz: { district: "Tuman", area: "Maydon", floor: "Qavat", rooms: "Xonalar", price: "Narx" },
 };
 
-export function jsonLdTags(objs) {
+export // Реклама цен в иностранной валюте запрещена, поэтому в текст для роботов (HTML,
+// description, микроразметка) не попадают предложения со знаком $, USD, «у.е.»,
+// «долларов» и т.п., а цена выводится только в сумах (или не выводится вовсе).
+const CURRENCY_MENTION = /\$|(?<![\p{L}\d])usd(?![\p{L}\d])|dollar|долл|(?<![\p{L}\d])у\s?\.?\s?е(?![\p{L}\d])|(?<![\p{L}\d])y\.?\s?e(?![\p{L}\d])/iu;
+
+export function stripForeignCurrency(text) {
+    return String(text || "")
+        .split(/\n+/)
+        .map((line) =>
+            line
+                .split(/(?<=[.!?])\s+(?=[\p{Lu}\d])/u)
+                .filter((sentence) => !CURRENCY_MENTION.test(sentence))
+                .join(" ")
+                .trim()
+        )
+        .filter(Boolean)
+        .join("\n");
+}
+
+const stripTrio = (obj) =>
+    Object.fromEntries(Object.entries(obj || {}).map(([lang, value]) => [lang, stripForeignCurrency(value)]));
+
+// Цена для текста роботов: только в сумах; без курса цену в долларах не показываем.
+export function priceInSoums(rawPrice, rate) {
+    try {
+        const shown = formatPriceIn(rawPrice, "UZS", rate);
+        return shown && shown !== "—" ? String(shown) : "";
+    } catch {
+        return "";
+    }
+}
+
+function jsonLdTags(objs) {
     return objs
         .filter(Boolean)
         .map((obj) => {
@@ -71,7 +104,7 @@ function buildListingJsonLd({ kind, id, lang, meta, canonical, title, rate }) {
         const image = safeImage(meta.image);
         const data = {
             title: meta.title,
-            about: meta.description,
+            about: stripTrio(meta.description),
             images: image ? [image] : [],
             price: meta.price,
         };
@@ -93,12 +126,13 @@ function buildListingJsonLd({ kind, id, lang, meta, canonical, title, rate }) {
     }
 }
 
-export function buildListingBody({ kind, id, lang, meta }) {
+export function buildListingBody({ kind, id, lang, meta, rate = null }) {
     const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
     const title = pick(meta?.title);
     if (!title) return "";
 
     const facts = meta.facts || {};
+    const priceText = priceInSoums(meta.price, rate);
     const L = FACT_LABELS[lang];
     const text = (v) => String(v ?? "").trim();
     const labeled = (label, value) => (text(value) ? `${label}: ${text(value)}` : "");
@@ -108,7 +142,7 @@ export function buildListingBody({ kind, id, lang, meta }) {
             pick(facts.type),
             labeled(L.district, pick(meta.location)),
             labeled(L.rooms, pick(facts.bedrooms)),
-            labeled(L.price, meta.price),
+            labeled(L.price, priceText),
         ]
         : [
             pick(facts.class),
@@ -116,12 +150,12 @@ export function buildListingBody({ kind, id, lang, meta }) {
             pick(facts.address),
             labeled(L.area, area),
             labeled(L.floor, facts.floor),
-            labeled(L.price, meta.price),
+            labeled(L.price, priceText),
         ];
     const factsLine = factParts.map(text).filter(Boolean).join(" · ");
     const image = safeImage(meta.image);
 
-    const description = String(pick(meta.description)).replace(/\s+/g, " ").trim().slice(0, 1500);
+    const description = stripForeignCurrency(pick(meta.description)).replace(/\s+/g, " ").trim().slice(0, 1500);
 
     const districtKey = detectDistrict([
         pick(meta.location), pick(facts.district), pick(facts.address), title, description,
@@ -151,7 +185,7 @@ export function buildListingHead({ kind, id, lang, meta, rate = null }) {
     const title = rawTitle ? `${rawTitle} — ${SITE_NAME}` : null;
     if (!title) return null;
 
-    const description = shortDescription(pick(meta?.description)) || DEFAULT_DESCRIPTION[lang];
+    const description = shortDescription(stripForeignCurrency(pick(meta?.description))) || DEFAULT_DESCRIPTION[lang];
     const image = safeImage(meta?.image) || FALLBACK_IMAGE;
     const basePath = `/${kind}/${id}`;
     const canonical = `${SITE_ORIGIN}/${lang}${basePath}`;
@@ -177,7 +211,7 @@ export function buildListingHead({ kind, id, lang, meta, rate = null }) {
         `<meta ${a} name="twitter:image" content="${escapeHtml(image)}" />`,
         ...jsonLdTags(buildListingJsonLd({ kind, id, lang, meta, canonical, title: rawTitle, rate })),
     ];
-    return { lines: lines.join("\n  "), lang, body: buildListingBody({ kind, id, lang, meta }) };
+    return { lines: lines.join("\n  "), lang, body: buildListingBody({ kind, id, lang, meta, rate }) };
 }
 
 export function injectHead(html, head) {
