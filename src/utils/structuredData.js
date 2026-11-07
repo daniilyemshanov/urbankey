@@ -1,4 +1,5 @@
 import { parsePrice, isValidRate } from "./currency.js";
+import { SAME_AS, BRAND_NAME, BRAND_ALTERNATE_NAMES } from "./socialLinks.js";
 
 const SITE_ORIGIN = "https://urbankey.uz";
 
@@ -6,7 +7,8 @@ export const buildOrganizationJsonLd = () => ({
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
     "@id": `${SITE_ORIGIN}/#organization`,
-    name: "UrbanKey",
+    name: BRAND_NAME,
+    alternateName: BRAND_ALTERNATE_NAMES,
     url: SITE_ORIGIN,
     logo: `${SITE_ORIGIN}/favicon.png`,
     image: `${SITE_ORIGIN}/image%20(16).webp`,
@@ -19,6 +21,19 @@ export const buildOrganizationJsonLd = () => ({
         addressLocality: "Tashkent",
         addressCountry: "UZ",
     },
+    sameAs: SAME_AS,
+});
+
+// «Имя сайта» для поиска: Google берёт его из WebSite на главной странице.
+export const buildWebSiteJsonLd = () => ({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${SITE_ORIGIN}/#website`,
+    name: BRAND_NAME,
+    alternateName: BRAND_ALTERNATE_NAMES,
+    url: `${SITE_ORIGIN}/`,
+    inLanguage: ["ru", "en", "uz"],
+    publisher: { "@id": `${SITE_ORIGIN}/#organization` },
 });
 
 export const buildBreadcrumbJsonLd = (items, lang) => ({

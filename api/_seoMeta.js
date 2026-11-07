@@ -2,7 +2,7 @@ import { SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 import { getDistrictPage, districtBasePath } from "../src/utils/districtPages.js";
 import { getStaticPage, staticBasePath } from "../src/utils/staticPages.js";
 import { detectDistrict, districtLabel } from "../src/utils/districts.js";
-import { buildResidenceJsonLd, buildCommercialJsonLd, buildBreadcrumbJsonLd } from "../src/utils/structuredData.js";
+import { buildResidenceJsonLd, buildCommercialJsonLd, buildBreadcrumbJsonLd, buildOrganizationJsonLd, buildWebSiteJsonLd } from "../src/utils/structuredData.js";
 import { formatPriceIn } from "../src/utils/currency.js";
 
 const SITE_NAME = "UrbanKey";
@@ -226,7 +226,7 @@ export function injectHead(html, head) {
     return out.replace(/<\/head>/i, () => `  ${head.lines}\n</head>`);
 }
 
-function buildPageHead({ page, basePath, lang }) {
+function buildPageHead({ page, basePath, lang, jsonLd }) {
     const title = `${page.title} — ${SITE_NAME}`;
     const description = shortDescription(page.description);
     const canonical = `${SITE_ORIGIN}/${lang}${basePath}`;
@@ -256,7 +256,7 @@ function buildPageHead({ page, basePath, lang }) {
     const body = `<main ${a} style="max-width:1440px;margin:0 auto;padding:120px 20px 0;font-family:sans-serif;color:#f5f5f5">` +
         `<h1>${escapeHtml(page.h1)}</h1>${paragraphs}</main>`;
 
-    return { lines: lines.join("\n  "), lang, body };
+    return { lines: [...lines, ...jsonLdTags(jsonLd || [])].join("\n  "), lang, body };
 }
 
 export function buildDistrictHead({ kind, key, lang }) {
@@ -266,7 +266,10 @@ export function buildDistrictHead({ kind, key, lang }) {
 
 export function buildStaticHead({ page: pageKey, lang }) {
     const page = getStaticPage(pageKey, lang);
-    return page ? buildPageHead({ page, basePath: staticBasePath(pageKey), lang }) : null;
+    if (!page) return null;
+    // на главной — Organization и WebSite (имя бренда, соцсети) прямо в HTML для роботов
+    const jsonLd = pageKey === "home" ? [buildOrganizationJsonLd(), buildWebSiteJsonLd()] : undefined;
+    return buildPageHead({ page, basePath: staticBasePath(pageKey), lang, jsonLd });
 }
 
 export function injectRootContent(html, body) {
