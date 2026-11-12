@@ -1,0 +1,196 @@
+{
+    "functions": {
+        "api/finalize-albums.js": {
+            "maxDuration": 60
+        },
+        "api/update-exchange-rate.js": {
+            "maxDuration": 30
+        }
+    },
+    "crons": [
+        {
+            "path": "/api/update-exchange-rate",
+            "schedule": "0 1 * * *"
+        }
+    ],
+    "trailingSlash": false,
+    "redirects": [
+        {
+            "source": "/((?!api/).*)",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "urbankeyy.vercel.app"
+                }
+            ],
+            "destination": "https://urbankey.uz/$1",
+            "permanent": true
+        },
+        {
+            "source": "/",
+            "destination": "/ru",
+            "permanent": true
+        },
+        {
+            "source": "/AboutUs",
+            "destination": "/ru/AboutUs",
+            "permanent": true
+        },
+        {
+            "source": "/Properties",
+            "destination": "/ru/Properties",
+            "permanent": true
+        },
+        {
+            "source": "/Services",
+            "destination": "/ru/Services",
+            "permanent": true
+        },
+        {
+            "source": "/ContactUs",
+            "destination": "/ru/ContactUs",
+            "permanent": true
+        },
+        {
+            "source": "/property/:id",
+            "destination": "/ru/property/:id",
+            "permanent": true
+        },
+        {
+            "source": "/commercial/:id",
+            "destination": "/ru/commercial/:id",
+            "permanent": true
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/sitemap.xml",
+            "destination": "/api/sitemap"
+        },
+        {
+            "source": "/:lang(ru|en|uz)",
+            "destination": "/api/spa?kind=page&page=home&lang=:lang"
+        },
+        {
+            "source": "/:lang(ru|en|uz)/:page(AboutUs|Properties|Services|ContactUs|Privacy|Terms)",
+            "destination": "/api/spa?kind=page&page=:page&lang=:lang"
+        },
+        {
+            "source": "/:lang(ru|en|uz)/Properties/:dtype(apartments|commercial)/:district",
+            "destination": "/api/spa?kind=district&dtype=:dtype&district=:district&lang=:lang"
+        },
+        {
+            "source": "/:lang(ru|en|uz)/property/:id",
+            "destination": "/api/spa?kind=property&id=:id&lang=:lang"
+        },
+        {
+            "source": "/:lang(ru|en|uz)/commercial/:id",
+            "destination": "/api/spa?kind=commercial&id=:id&lang=:lang"
+        },
+        {
+            "source": "/login",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/register",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/reset-password",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/forgot-password",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/profile",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/favorites",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/my-listings",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/add-property",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/add-property/:kind/:id",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/user/:id",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/admin",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/admin/:path*",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/commercial/edit/:id",
+            "destination": "/index.html"
+        },
+        {
+            "source": "/((?!api/).*)",
+            "destination": "/api/spa?kind=notfound"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "strict-origin-when-cross-origin"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "geolocation=(), camera=(), microphone=(), payment=()"
+                },
+                {
+                    "key": "Strict-Transport-Security",
+                    "value": "max-age=63072000; includeSubDomains; preload"
+                },
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' https:; font-src 'self' data:; frame-src https://challenges.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://router.project-osrm.org https://challenges.cloudflare.com https://www.google-analytics.com https://analytics.google.com https://*.google-analytics.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+                }
+            ]
+        },
+        {
+            "source": "/assets/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/(.*)\\.(webp|png|jpg|jpeg|svg|gif|mp4)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=2592000"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,11 @@
+.note {
+    margin: 10px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--gray);
+}
+
+.note a {
+    color: var(--violet);
+    text-decoration: underline;
+}

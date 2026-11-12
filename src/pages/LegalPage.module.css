@@ -1,0 +1,67 @@
+.page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 130px 20px 60px;
+    color: var(--white);
+}
+
+.page h1 {
+    margin: 0 0 8px;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.15;
+    color: var(--white);
+}
+
+.updated {
+    margin: 0 0 32px;
+    font-size: 14px;
+    color: var(--gray);
+}
+
+.section {
+    margin-bottom: 26px;
+}
+
+.section h2 {
+    margin: 0 0 10px;
+    font-size: 20px;
+    color: var(--white);
+}
+
+.section p {
+    margin: 0 0 10px;
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--gray);
+}
+
+.contacts {
+    margin-top: 36px;
+    padding: 20px 22px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--card);
+}
+
+.contacts h2 {
+    margin: 0 0 12px;
+    font-size: 20px;
+    color: var(--white);
+}
+
+.contacts dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+}
+
+.contacts dt {
+    color: var(--gray);
+}
+
+.contacts dd {
+    margin: 0;
+    color: var(--white);
+    word-break: break-word;
+}
