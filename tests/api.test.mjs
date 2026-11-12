@@ -52,11 +52,12 @@ test("без env: sitemap -> 503 без кэша (а не урезанный sit
     assert.ok(res.headers["Retry-After"]);
 });
 
-test("без env: страница объекта не падает, проверка пропущена и это видно в заголовке", async () => {
+test("без env: страница объекта возвращает 503 (временная ошибка инфраструктуры, а не ложный 200)", async () => {
     const res = await callSpa({ kind: "property", id: "5" });
-    assert.equal(res.code, 200);
+    assert.equal(res.code, 503);
     assert.equal(res.headers["X-SPA-Existence-Check"], "skipped-no-config");
     assert.equal(res.headers["Cache-Control"], "no-store");
+    assert.ok(res.headers["Retry-After"]);
     assert.equal(calls.supabase, 0);
 });
 
@@ -77,22 +78,25 @@ test("запасные имена env (SUPABASE_URL / SUPABASE_ANON_KEY) тож�
     assert.equal(res.headers["X-SPA-Existence-Check"], "ok");
 });
 
-test("сеть до Supabase оборвалась: spa пропускает проверку, sitemap -> 503", async () => {
+test("сеть до Supabase оборвалась: spa -> 503, sitemap -> 503", async () => {
     withEnv();
     supabase = () => { throw new TypeError("fetch failed"); };
     const page = await callSpa({ kind: "property", id: "5" });
-    assert.equal(page.code, 200);
+    assert.equal(page.code, 503);
     assert.equal(page.headers["X-SPA-Existence-Check"], "skipped-error");
+    assert.equal(page.headers["Cache-Control"], "no-store");
+    assert.ok(page.headers["Retry-After"]);
     assert.equal((await callSitemap()).code, 503);
 });
 
-test("Supabase отвечает 500/401: spa пропускает проверку, sitemap -> 503", async () => {
+test("Supabase отвечает 500/401: spa -> 503, sitemap -> 503", async () => {
     withEnv();
     for (const status of [500, 401]) {
         supabase = () => json({ message: "boom" }, status);
         const page = await callSpa({ kind: "commercial", id: "3" });
-        assert.equal(page.code, 200, `status ${status}`);
+        assert.equal(page.code, 503, `status ${status}`);
         assert.equal(page.headers["X-SPA-Existence-Check"], "skipped-error");
+        assert.equal(page.headers["Cache-Control"], "no-store");
         assert.equal((await callSitemap()).code, 503, `sitemap, status ${status}`);
     }
 });
@@ -105,8 +109,9 @@ test("Supabase завис: spa укладывается в таймаут и н�
     const page = await callSpa({ kind: "property", id: "5" });
     const elapsed = Date.now() - t0;
     clearInterval(keepAlive);
-    assert.equal(page.code, 200);
+    assert.equal(page.code, 503);
     assert.equal(page.headers["X-SPA-Existence-Check"], "skipped-error");
+    assert.equal(page.headers["Cache-Control"], "no-store");
     assert.ok(elapsed < 4500, `ушло ${elapsed} мс — таймаут не сработал`);
     assert.equal(calls.supabase, 1, "повторных запросов (retry) быть не должно");
 });

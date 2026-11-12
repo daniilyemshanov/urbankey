@@ -5,6 +5,7 @@ import { useState, useContext } from "react"
 import { toast } from "react-toastify"
 import { useTranslation } from 'react-i18next'
 import { sendLead } from "../utils/sendLead"
+import { trackFormStart } from "../analytics"
 import TurnstileWidget from "./TurnstileWidget"
 import { MyContext } from "../Context"
 import ConsentNote from "./ConsentNote";
@@ -101,6 +102,7 @@ const Happen = () => {
 
             <motion.form
                 className={s.requestForm}
+                onFocus={() => trackFormStart("Happen")}
 
                 onSubmit={handleSubmit(onSubmit)}
 

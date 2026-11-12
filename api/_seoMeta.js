@@ -126,17 +126,35 @@ function buildListingJsonLd({ kind, id, lang, meta, canonical, title, rate }) {
     }
 }
 
+export function hasTranslation(field, lang) {
+    if (!field || typeof field !== "object") return false;
+    const val = field[lang];
+    return typeof val === "string" && val.trim().length > 0;
+}
+
+export function getAvailableLangs(meta) {
+    const ruAvailable = Boolean(meta?.title?.ru?.trim());
+    const langs = [];
+    if (ruAvailable) langs.push("ru");
+    if (hasTranslation(meta?.title, "en")) langs.push("en");
+    if (hasTranslation(meta?.title, "uz")) langs.push("uz");
+    return langs.length > 0 ? langs : [DEFAULT_LANG];
+}
+
 export function buildListingBody({ kind, id, lang, meta, rate = null }) {
-    const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
+    const availableLangs = getAvailableLangs(meta);
+    const effectiveLang = availableLangs.includes(lang) ? lang : DEFAULT_LANG;
+
+    const pick = (obj) => (obj && (obj[effectiveLang] || obj.ru)) || "";
     const title = pick(meta?.title);
     if (!title) return "";
 
     const facts = meta.facts || {};
     const priceText = priceInSoums(meta.price, rate);
-    const L = FACT_LABELS[lang];
+    const L = FACT_LABELS[effectiveLang];
     const text = (v) => String(v ?? "").trim();
     const labeled = (label, value) => (text(value) ? `${label}: ${text(value)}` : "");
-    const area = text(facts.area) ? `${text(facts.area)} ${AREA_UNIT[lang]}` : "";
+    const area = text(facts.area) ? `${text(facts.area)} ${AREA_UNIT[effectiveLang]}` : "";
     const factParts = kind === "property"
         ? [
             pick(facts.type),
@@ -163,11 +181,11 @@ export function buildListingBody({ kind, id, lang, meta, rate = null }) {
     const districtKind = kind === "commercial" ? "commercial" : "apartments";
 
     const links = [
-        `<a href="/${lang}">${SITE_NAME}</a>`,
-        `<a href="/${lang}/Properties">${escapeHtml(PROPERTIES_LABEL[lang])}</a>`,
+        `<a href="/${effectiveLang}">${SITE_NAME}</a>`,
+        `<a href="/${effectiveLang}/Properties">${escapeHtml(PROPERTIES_LABEL[effectiveLang])}</a>`,
     ];
     if (districtKey) {
-        links.push(`<a href="/${lang}${districtBasePath(districtKind, districtKey)}">${escapeHtml(districtLabel(districtKey, lang))}</a>`);
+        links.push(`<a href="/${effectiveLang}${districtBasePath(districtKind, districtKey)}">${escapeHtml(districtLabel(districtKey, effectiveLang))}</a>`);
     }
 
     const a = 'data-ssr-seo="1"';
@@ -180,38 +198,48 @@ export function buildListingBody({ kind, id, lang, meta, rate = null }) {
 }
 
 export function buildListingHead({ kind, id, lang, meta, rate = null }) {
-    const pick = (obj) => (obj && (obj[lang] || obj.ru)) || "";
+    const availableLangs = getAvailableLangs(meta);
+    const isLangAvailable = availableLangs.includes(lang);
+    const effectiveLang = isLangAvailable ? lang : DEFAULT_LANG;
+
+    const pick = (obj) => (obj && (obj[effectiveLang] || obj.ru)) || "";
     const rawTitle = pick(meta?.title);
     const title = rawTitle ? `${rawTitle} — ${SITE_NAME}` : null;
     if (!title) return null;
 
-    const description = shortDescription(stripForeignCurrency(pick(meta?.description))) || DEFAULT_DESCRIPTION[lang];
+    const description = shortDescription(stripForeignCurrency(pick(meta?.description))) || DEFAULT_DESCRIPTION[effectiveLang];
     const image = safeImage(meta?.image) || FALLBACK_IMAGE;
     const basePath = `/${kind}/${id}`;
-    const canonical = `${SITE_ORIGIN}/${lang}${basePath}`;
+    const canonical = `${SITE_ORIGIN}/${effectiveLang}${basePath}`;
     const a = 'data-ssr-seo="1"';
+
+    const alternateLines = availableLangs.map(
+        (code) => `<link ${a} rel="alternate" hreflang="${code}" href="${escapeHtml(`${SITE_ORIGIN}/${code}${basePath}`)}" />`
+    );
+    alternateLines.push(
+        `<link ${a} rel="alternate" hreflang="x-default" href="${escapeHtml(`${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`)}" />`
+    );
 
     const lines = [
         `<title ${a}>${escapeHtml(title)}</title>`,
         `<meta ${a} name="description" content="${escapeHtml(description)}" />`,
         `<link ${a} rel="canonical" href="${escapeHtml(canonical)}" />`,
-        ...LANGS.map((code) => `<link ${a} rel="alternate" hreflang="${code}" href="${escapeHtml(`${SITE_ORIGIN}/${code}${basePath}`)}" />`),
-        `<link ${a} rel="alternate" hreflang="x-default" href="${escapeHtml(`${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`)}" />`,
+        ...alternateLines,
         `<meta ${a} property="og:type" content="website" />`,
         `<meta ${a} property="og:site_name" content="${SITE_NAME}" />`,
         `<meta ${a} property="og:title" content="${escapeHtml(title)}" />`,
         `<meta ${a} property="og:description" content="${escapeHtml(description)}" />`,
         `<meta ${a} property="og:image" content="${escapeHtml(image)}" />`,
         `<meta ${a} property="og:url" content="${escapeHtml(canonical)}" />`,
-        `<meta ${a} property="og:locale" content="${OG_LOCALES[lang]}" />`,
-        ...LANGS.filter((c) => c !== lang).map((c) => `<meta ${a} property="og:locale:alternate" content="${OG_LOCALES[c]}" />`),
+        `<meta ${a} property="og:locale" content="${OG_LOCALES[effectiveLang]}" />`,
+        ...availableLangs.filter((c) => c !== effectiveLang).map((c) => `<meta ${a} property="og:locale:alternate" content="${OG_LOCALES[c]}" />`),
         `<meta ${a} name="twitter:card" content="summary_large_image" />`,
         `<meta ${a} name="twitter:title" content="${escapeHtml(title)}" />`,
         `<meta ${a} name="twitter:description" content="${escapeHtml(description)}" />`,
         `<meta ${a} name="twitter:image" content="${escapeHtml(image)}" />`,
-        ...jsonLdTags(buildListingJsonLd({ kind, id, lang, meta, canonical, title: rawTitle, rate })),
+        ...jsonLdTags(buildListingJsonLd({ kind, id, lang: effectiveLang, meta, canonical, title: rawTitle, rate })),
     ];
-    return { lines: lines.join("\n  "), lang, body: buildListingBody({ kind, id, lang, meta, rate }) };
+    return { lines: lines.join("\n  "), lang: effectiveLang, body: buildListingBody({ kind, id, lang: effectiveLang, meta, rate }) };
 }
 
 export function injectHead(html, head) {

@@ -5,6 +5,7 @@ import { toast } from "react-toastify"
 import { motion } from "framer-motion"
 import { useTranslation } from "react-i18next"
 import { sendLead } from "../utils/sendLead"
+import { trackFormStart } from "../analytics"
 import TurnstileWidget from "./TurnstileWidget"
 import { MyContext } from "../Context"
 import ConsentNote from "./ConsentNote";
@@ -127,6 +128,7 @@ const Connect = () => {
             <motion.form
                 className={s.requestForm}
                 onSubmit={handleSubmit(onSubmit)}
+                onFocus={() => trackFormStart("Connect_one")}
 
                 initial="hidden"
                 whileInView="visible"

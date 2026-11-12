@@ -89,7 +89,7 @@ grant select (
   bedrooms_ru, bedrooms_en, bedrooms_uz,
   bathrooms_ru, bathrooms_en, bathrooms_uz,
   type_ru, type_en, type_uz,
-  price, image, link, created_by
+  price, image, link, created_by, is_sold
 ) on public.cardss to anon, authenticated;
 
 create or replace view public.cardss_public as
@@ -100,7 +100,8 @@ create or replace view public.cardss_public as
     bathrooms_ru, bathrooms_en, bathrooms_uz,
     type_ru, type_en, type_uz,
     price, image, link, created_by
-  from public.cardss;
+  from public.cardss
+  where coalesce(is_sold, false) = false;
 
 grant select on public.cardss_public to anon, authenticated;
 
@@ -150,7 +151,7 @@ grant select (
   floor, ceiling, area,
   price, discount_price, discount,
   status_ru, status_en, status_uz,
-  delivery_date, image, created_by
+  delivery_date, image, created_by, is_sold
 ) on public.commercials to anon, authenticated;
 
 create or replace view public.commercials_public as
@@ -165,7 +166,8 @@ create or replace view public.commercials_public as
     price, discount_price, discount,
     status_ru, status_en, status_uz,
     delivery_date, image, created_by
-  from public.commercials;
+  from public.commercials
+  where coalesce(is_sold, false) = false;
 
 grant select on public.commercials_public to anon, authenticated;
 

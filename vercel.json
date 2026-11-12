@@ -27,6 +27,17 @@
             "permanent": true
         },
         {
+            "source": "/:path*",
+            "has": [
+                {
+                    "type": "host",
+                    "value": "www.urbankey.uz"
+                }
+            ],
+            "destination": "https://urbankey.uz/:path*",
+            "permanent": true
+        },
+        {
             "source": "/",
             "destination": "/ru",
             "permanent": true

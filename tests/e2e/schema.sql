@@ -20,7 +20,7 @@ create table public.cardss(id integer generated always as identity primary key,
  bedrooms_ru text,bedrooms_en text,bedrooms_uz text,bathrooms_ru text,bathrooms_en text,bathrooms_uz text,
  type_ru text,type_en text,type_uz text,price text,image text,link text,
  created_by uuid,owner_phone text,owner_telegram text,boosted_until timestamptz,is_rent boolean,
- tg_chat_id bigint,tg_message_id bigint, video text);
+ tg_chat_id bigint,tg_message_id bigint, video text, is_sold boolean not null default false, sold_at timestamptz);
 create table public.commercials(id integer generated always as identity primary key,
  title_ru text,title_en text,title_uz text,description_ru text,description_en text,description_uz text,
  district_ru text,district_en text,district_uz text,address_ru text,address_en text,address_uz text,
@@ -28,7 +28,7 @@ create table public.commercials(id integer generated always as identity primary 
  floor int,ceiling numeric,area numeric,price text,discount_price text,discount text,
  status_ru text,status_en text,status_uz text,delivery_date date,image text,
  created_by uuid,owner_phone text,owner_telegram text,boosted_until timestamptz,is_rent boolean,
- link text,tg_chat_id bigint,tg_message_id bigint, video text);
+ link text,tg_chat_id bigint,tg_message_id bigint, video text, is_sold boolean not null default false, sold_at timestamptz);
 create table public.villas(id integer generated always as identity primary key,card_id integer,slug text,
  title_ru text,title_en text,title_uz text,description_ru text,description_en text,description_uz text,
  about_ru text,about_en text,about_uz text,location_ru text,location_en text,location_uz text,
@@ -59,20 +59,20 @@ create policy commercial_pages_write_admin on commercial_pages for all to authen
 grant usage on schema public to anon, authenticated;
 revoke select on cardss from anon, authenticated;
 grant select (id,title_ru,title_en,title_uz,description_ru,description_en,description_uz,bedrooms_ru,bedrooms_en,bedrooms_uz,
- bathrooms_ru,bathrooms_en,bathrooms_uz,type_ru,type_en,type_uz,price,image,link,created_by,boosted_until,is_rent) on cardss to anon, authenticated;
+ bathrooms_ru,bathrooms_en,bathrooms_uz,type_ru,type_en,type_uz,price,image,link,created_by,boosted_until,is_rent,is_sold) on cardss to anon, authenticated;
 revoke select on commercials from anon, authenticated;
 grant select (id,title_ru,title_en,title_uz,description_ru,description_en,description_uz,district_ru,district_en,district_uz,
  address_ru,address_en,address_uz,class_ru,class_en,class_uz,landmark_ru,landmark_en,landmark_uz,floor,ceiling,area,price,
- discount_price,discount,status_ru,status_en,status_uz,delivery_date,image,created_by,boosted_until,is_rent) on commercials to anon, authenticated;
+ discount_price,discount,status_ru,status_en,status_uz,delivery_date,image,created_by,boosted_until,is_rent,is_sold) on commercials to anon, authenticated;
 grant select, insert, update, delete on villas, commercial_pages to anon, authenticated;
 grant select on profiles to anon, authenticated;
 grant update on cardss, commercials to authenticated;
 
 create view cardss_public as select id,title_ru,title_en,title_uz,description_ru,description_en,description_uz,
- bedrooms_ru,bedrooms_en,bedrooms_uz,bathrooms_ru,bathrooms_en,bathrooms_uz,type_ru,type_en,type_uz,price,image,link,created_by,boosted_until,is_rent from cardss;
+ bedrooms_ru,bedrooms_en,bedrooms_uz,bathrooms_ru,bathrooms_en,bathrooms_uz,type_ru,type_en,type_uz,price,image,link,created_by,boosted_until,is_rent from cardss where coalesce(is_sold, false) = false;
 create view commercials_public as select id,title_ru,title_en,title_uz,description_ru,description_en,description_uz,district_ru,district_en,district_uz,
  address_ru,address_en,address_uz,class_ru,class_en,class_uz,landmark_ru,landmark_en,landmark_uz,floor,ceiling,area,price,discount_price,discount,
- status_ru,status_en,status_uz,delivery_date,image,created_by,boosted_until,is_rent from commercials;
+ status_ru,status_en,status_uz,delivery_date,image,created_by,boosted_until,is_rent from commercials where coalesce(is_sold, false) = false;
 grant select on cardss_public, commercials_public to anon, authenticated;
 
 insert into profiles values ('aaaaaaaa-0000-0000-0000-000000000001','admin'),('bbbbbbbb-0000-0000-0000-000000000002','user');

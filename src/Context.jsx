@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { createContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { parsePrice } from "./utils/currency";
@@ -51,6 +51,28 @@ const isMissingRelation = (error) =>
         /relation .* does not exist/i.test(error.message || "") ||
         /Could not find the table/i.test(error.message || "")
     );
+
+// Проверка публикации с fallback на таблицу; ошибки НЕ маскируются под успех
+const checkListingVisibility = async (view, fallbackTable, id) => {
+
+    let { data, error } = await supabase
+        .from(view)
+        .select("id")
+        .eq("id", id)
+        .maybeSingle();
+
+    if (error && isMissingRelation(error)) {
+        ({ data, error } = await supabase
+            .from(fallbackTable)
+            .select("id")
+            .eq("id", id)
+            .maybeSingle());
+    }
+
+    if (error) throw error;
+
+    return Boolean(data);
+};
 
 
 const extractStorageFileName = (url) => {
@@ -122,34 +144,22 @@ export const MyProvider = ({ children }) => {
         setIsBurger(prev => !prev);
 
 
-    
-
-
-  
-
-
-    
     const logout = async () => {
 
-
         const { error } = await supabase.auth.signOut();
-
 
         if (error) {
             console.error("LOGOUT ERROR:", error);
             return false;
         }
 
-
         setUser(null);
 
         setProfile(null);
 
-
         toast.success(
             t("logoutSuccess")
         );
-
 
         return true;
 
@@ -165,12 +175,10 @@ export const MyProvider = ({ children }) => {
 
     useEffect(() => {
 
-
         localStorage.setItem(
             "theme",
             isDark ? "light" : "dark"
         );
-
 
     }, [isDark]);
 
@@ -181,14 +189,11 @@ export const MyProvider = ({ children }) => {
 
     const getCards = async () => {
 
-
         try {
-
 
             let { data, error } = await supabase
                 .from("cardss_public")
                 .select("*");
-
 
             if (error && isMissingRelation(error)) {
 
@@ -198,60 +203,41 @@ export const MyProvider = ({ children }) => {
 
             }
 
-
             if (error) throw error;
-
 
             const formattedData = data.map(item => ({
 
-
                 id: item.id,
 
-
                 title: {
-
                     ru: item.title_ru,
                     en: item.title_en,
                     uz: item.title_uz
-
                 },
 
-
                 description: {
-
                     ru: item.description_ru,
                     en: item.description_en,
                     uz: item.description_uz
-
                 },
 
-
                 bedrooms: {
-
                     ru: item.bedrooms_ru,
                     en: item.bedrooms_en,
                     uz: item.bedrooms_uz
-
                 },
 
-
                 bathrooms: {
-
                     ru: item.bathrooms_ru,
                     en: item.bathrooms_en,
                     uz: item.bathrooms_uz
-
                 },
 
-
                 type: {
-
                     ru: item.type_ru,
                     en: item.type_en,
                     uz: item.type_uz
-
                 },
-
 
                 image: item.image,
 
@@ -264,15 +250,11 @@ export const MyProvider = ({ children }) => {
                 boostedUntil: item.boosted_until,
                 is_rent: item.is_rent
 
-
             }));
-
 
             setCards(formattedData);
 
-
         } catch (error) {
-
 
             console.error(error);
 
@@ -280,25 +262,20 @@ export const MyProvider = ({ children }) => {
                 t("cardsLoadError")
             );
 
-
         }
-
 
     };
 
 
     const getLatestCards = async () => {
 
-
         try {
-
 
             let { data, error } = await supabase
                 .from("cardss_public")
                 .select("*")
                 .order("id", { ascending: false })
                 .limit(7);
-
 
             if (error && isMissingRelation(error)) {
 
@@ -310,15 +287,11 @@ export const MyProvider = ({ children }) => {
 
             }
 
-
             if (error) throw error;
-
 
             const formattedData = data.map(item => ({
 
-
                 id: item.id,
-
 
                 title: {
                     ru: item.title_ru,
@@ -326,13 +299,11 @@ export const MyProvider = ({ children }) => {
                     uz: item.title_uz
                 },
 
-
                 description: {
                     ru: item.description_ru,
                     en: item.description_en,
                     uz: item.description_uz
                 },
-
 
                 bedrooms: {
                     ru: item.bedrooms_ru,
@@ -340,20 +311,17 @@ export const MyProvider = ({ children }) => {
                     uz: item.bedrooms_uz
                 },
 
-
                 bathrooms: {
                     ru: item.bathrooms_ru,
                     en: item.bathrooms_en,
                     uz: item.bathrooms_uz
                 },
 
-
                 type: {
                     ru: item.type_ru,
                     en: item.type_en,
                     uz: item.type_uz
                 },
-
 
                 image: item.image,
 
@@ -366,15 +334,11 @@ export const MyProvider = ({ children }) => {
                 boostedUntil: item.boosted_until,
                 is_rent: item.is_rent
 
-
             }));
-
 
             setCards(formattedData);
 
-
         } catch (err) {
-
 
             console.error(err);
 
@@ -384,8 +348,8 @@ export const MyProvider = ({ children }) => {
 
         }
 
-
     };
+
     const getLatestCommercials = async () => {
 
         let { data, error } = await supabase
@@ -417,6 +381,7 @@ export const MyProvider = ({ children }) => {
         setCommercials(data);
 
     };
+
     const getCommercials = async () => {
 
         try {
@@ -448,13 +413,11 @@ export const MyProvider = ({ children }) => {
 
                     id: item.id,
 
-
                     title: {
                         ru: item.title_ru,
                         en: item.title_en,
                         uz: item.title_uz
                     },
-
 
                     description: {
                         ru: item.description_ru,
@@ -462,13 +425,11 @@ export const MyProvider = ({ children }) => {
                         uz: item.description_uz
                     },
 
-
                     district: {
                         ru: item.district_ru,
                         en: item.district_en,
                         uz: item.district_uz
                     },
-
 
                     address: {
                         ru: item.address_ru,
@@ -476,13 +437,11 @@ export const MyProvider = ({ children }) => {
                         uz: item.address_uz
                     },
 
-
                     class: {
                         ru: item.class_ru,
                         en: item.class_en,
                         uz: item.class_uz
                     },
-
 
                     landmark: {
                         ru: item.landmark_ru,
@@ -490,13 +449,11 @@ export const MyProvider = ({ children }) => {
                         uz: item.landmark_uz
                     },
 
-
                     status: {
                         ru: item.status_ru,
                         en: item.status_en,
                         uz: item.status_uz
                     },
-
 
                     floor: item.floor,
 
@@ -504,14 +461,11 @@ export const MyProvider = ({ children }) => {
 
                     area: item.area,
 
-
                     price: item.price,
 
                     discount_price: item.discount_price,
 
-
                     delivery_date: item.delivery_date,
-
 
                     image: item.image,
 
@@ -521,7 +475,6 @@ export const MyProvider = ({ children }) => {
                 }))
 
             );
-
 
         } catch (err) {
 
@@ -575,7 +528,6 @@ export const MyProvider = ({ children }) => {
 
     const getCardId = async (id) => {
 
-
         let { data, error } = await supabase
             .from("cardss_public")
             .select("*")
@@ -607,27 +559,19 @@ export const MyProvider = ({ children }) => {
 
         setCardId({
 
-
             id: data.id,
 
-
             title: {
-
                 ru: data.title_ru,
                 en: data.title_en,
                 uz: data.title_uz
-
             },
 
-
             description: {
-
                 ru: data.description_ru,
                 en: data.description_en,
                 uz: data.description_uz
-
             },
-
 
             bedrooms: {
                 ru: data.bedrooms_ru,
@@ -635,20 +579,17 @@ export const MyProvider = ({ children }) => {
                 uz: data.bedrooms_uz
             },
 
-
             bathrooms: {
                 ru: data.bathrooms_ru,
                 en: data.bathrooms_en,
                 uz: data.bathrooms_uz
             },
 
-
             type: {
                 ru: data.type_ru,
                 en: data.type_en,
                 uz: data.type_uz
             },
-
 
             price: data.price,
 
@@ -665,7 +606,6 @@ export const MyProvider = ({ children }) => {
             is_rent: data.is_rent === true
 
         });
-
 
     };
 
@@ -752,21 +692,17 @@ export const MyProvider = ({ children }) => {
 
     const createCard = async (data) => {
 
-
         const { error } = await supabase
             .from("cardss")
             .insert([{
-
 
                 title_ru: data.title.ru,
                 title_en: data.title.en,
                 title_uz: data.title.uz,
 
-
                 description_ru: data.description.ru,
                 description_en: data.description.en,
                 description_uz: data.description.uz,
-
 
                 bedrooms_ru: data.bedrooms.ru,
                 bedrooms_en: data.bedrooms.en,
@@ -790,68 +726,55 @@ export const MyProvider = ({ children }) => {
             "Создано"
         );
 
-
     };
+
     const createCommercial = async (data) => {
 
         try {
-
 
             const { error } = await supabase
                 .from("commercials")
                 .insert([{
 
-
                     title_ru: data.title.ru,
                     title_en: data.title.en,
                     title_uz: data.title.uz,
-
 
                     description_ru: data.description.ru,
                     description_en: data.description.en,
                     description_uz: data.description.uz,
 
-
                     district_ru: data.district.ru,
                     district_en: data.district.en,
                     district_uz: data.district.uz,
-
 
                     address_ru: data.address.ru,
                     address_en: data.address.en,
                     address_uz: data.address.uz,
 
-
                     class_ru: data.class.ru,
                     class_en: data.class.en,
                     class_uz: data.class.uz,
-
 
                     landmark_ru: data.landmark.ru,
                     landmark_en: data.landmark.en,
                     landmark_uz: data.landmark.uz,
 
-
                     floor: data.floor,
                     ceiling: data.ceiling,
                     area: data.area,
-
 
                     price: data.price,
                     discount_price: data.discount_price,
                     discount: data.discount,
 
-
                     status_ru: data.status.ru,
                     status_en: data.status.en,
                     status_uz: data.status.uz,
 
-
                     delivery_date: data.delivery_date,
 
-
                     image: data.image
-
 
                 }]);
 
@@ -869,7 +792,6 @@ export const MyProvider = ({ children }) => {
                 "Коммерция создана"
             );
 
-
         } catch (err) {
 
             console.error(err);
@@ -877,6 +799,7 @@ export const MyProvider = ({ children }) => {
         }
 
     };
+
     const getCommercialPage = async (id) => {
 
         setCommercialPage(null);
@@ -905,13 +828,11 @@ export const MyProvider = ({ children }) => {
                 uz: data.title_uz || ""
             },
 
-
             description: {
                 ru: data.description_ru || "",
                 en: data.description_en || "",
                 uz: data.description_uz || ""
             },
-
 
             type: {
                 ru: data.type_ru || "",
@@ -919,13 +840,11 @@ export const MyProvider = ({ children }) => {
                 uz: data.type_uz || ""
             },
 
-
             location: {
                 ru: data.location_ru || "",
                 en: data.location_en || "",
                 uz: data.location_uz || ""
             },
-
 
             class: {
                 ru: data.class_ru || "",
@@ -933,13 +852,11 @@ export const MyProvider = ({ children }) => {
                 uz: data.class_uz || ""
             },
 
-
             purpose: {
                 ru: data.purpose_ru || "",
                 en: data.purpose_en || "",
                 uz: data.purpose_uz || ""
             },
-
 
             area: data.area || "",
             ceiling_height: data.ceiling_height || "",
@@ -952,121 +869,18 @@ export const MyProvider = ({ children }) => {
 
         });
 
-
     }
 
-    const getCommercialById = async (id) => {
+    // ВАЖНО: getCommercial объявлен выше getCommercialById и обёрнут в useCallback,
+    // чтобы ссылки на обе функции были стабильны между рендерами.
+    const getCommercial = useCallback(async (id, requestId) => {
 
-        const requestId = ++commercialRequest.current;
-
-        setCommercialPage(null);
-        setCommercialStatus("loading");
-
-        const commercialId = parseListingId(id);
-
-        if (commercialId === null) {
-            setCommercialStatus("notfound");
-            return;
+        // Прямой вызов (не из getCommercialById) — сами запускаем цикл загрузки
+        if (requestId === undefined) {
+            requestId = ++commercialRequest.current;
+            setCommercialPage(null);
+            setCommercialStatus("loading");
         }
-
-        const { data, error } = await supabase
-            .from("commercial_pages")
-            .select("*")
-            .eq("commercial_id", commercialId)
-            .maybeSingle();
-
-        if (requestId !== commercialRequest.current) return;
-
-        if (error) {
-            console.error(error);
-            setCommercialStatus("error");
-            return;
-        }
-
-        if (!data) {
-            await getCommercial(commercialId, requestId);
-            return;
-        }
-
-        if (!(await isListingVisible("commercials_public", commercialId))) {
-            if (requestId === commercialRequest.current) setCommercialStatus("notfound");
-            return;
-        }
-
-        if (requestId !== commercialRequest.current) return;
-
-        const perSqmText = await perSqmPriceText("commercials_public", commercialId);
-
-        if (requestId !== commercialRequest.current) return;
-
-        setCommercialPage({
-
-            id: data.id,
-            commercial_id: data.commercial_id,
-
-            title: {
-                ru: data.title_ru || "",
-                en: data.title_en || "",
-                uz: data.title_uz || ""
-            },
-
-            description: {
-                ru: data.description_ru || "",
-                en: data.description_en || "",
-                uz: data.description_uz || ""
-            },
-
-            about: {
-                ru: data.about_ru || "",
-                en: data.about_en || "",
-                uz: data.about_uz || ""
-            },
-
-
-            type: {
-                ru: data.type_ru || "",
-                en: data.type_en || "",
-                uz: data.type_uz || ""
-            },
-
-
-            location: {
-                ru: data.location_ru || "",
-                en: data.location_en || "",
-                uz: data.location_uz || ""
-            },
-
-
-            class: {
-                ru: data.class_ru || "",
-                en: data.class_en || "",
-                uz: data.class_uz || ""
-            },
-
-
-            purpose: {
-                ru: data.purpose_ru || "",
-                en: data.purpose_en || "",
-                uz: data.purpose_uz || ""
-            },
-
-
-            area: data.area,
-            ceiling_height: data.ceiling_height,
-            floor: data.floor,
-            price: perSqmText ?? data.price,
-            is_rent: Boolean(data.is_rent),
-
-            images: data.images || [],
-            amenities: data.amenities || []
-
-        });
-
-        setCommercialStatus("ready");
-
-    }
-
-    const getCommercial = async (id, requestId = ++commercialRequest.current) => {
 
         const commercialId = parseListingId(id);
 
@@ -1123,6 +937,10 @@ export const MyProvider = ({ children }) => {
                     uz: data.description_uz
                 },
 
+                about: { ru: "", en: "", uz: "" },
+                type: { ru: "", en: "", uz: "" },
+                purpose: { ru: "", en: "", uz: "" },
+
                 floor: data.floor,
 
                 ceiling_height: data.ceiling,
@@ -1147,7 +965,9 @@ export const MyProvider = ({ children }) => {
 
                 image: data.image,
 
-                images: data.images || []
+                images: data.images || (data.image ? [data.image] : []),
+
+                amenities: data.amenities || []
 
             });
 
@@ -1163,7 +983,129 @@ export const MyProvider = ({ children }) => {
 
         }
 
-    };
+    }, []);
+
+
+    const getCommercialById = useCallback(async (id) => {
+
+        const requestId = ++commercialRequest.current;
+
+        setCommercialPage(null);
+        setCommercialStatus("loading");
+
+        const commercialId = parseListingId(id);
+
+        if (commercialId === null) {
+            setCommercialStatus("notfound");
+            return;
+        }
+
+        try {
+
+            const { data, error } = await supabase
+                .from("commercial_pages")
+                .select("*")
+                .eq("commercial_id", commercialId)
+                .maybeSingle();
+
+            if (requestId !== commercialRequest.current) return;
+
+            if (error) throw error;
+
+            // Нет записи в commercial_pages — берём основной объект
+            if (!data) {
+                await getCommercial(commercialId, requestId);
+                return;
+            }
+
+            const visible = await checkListingVisibility(
+                "commercials_public",
+                "commercials",
+                commercialId
+            );
+
+            if (requestId !== commercialRequest.current) return;
+
+            if (!visible) {
+                setCommercialStatus("notfound");
+                return;
+            }
+
+            const perSqmText = await perSqmPriceText("commercials_public", commercialId);
+
+            if (requestId !== commercialRequest.current) return;
+
+            setCommercialPage({
+
+                id: data.id,
+                commercial_id: data.commercial_id,
+
+                title: {
+                    ru: data.title_ru || "",
+                    en: data.title_en || "",
+                    uz: data.title_uz || ""
+                },
+
+                description: {
+                    ru: data.description_ru || "",
+                    en: data.description_en || "",
+                    uz: data.description_uz || ""
+                },
+
+                about: {
+                    ru: data.about_ru || "",
+                    en: data.about_en || "",
+                    uz: data.about_uz || ""
+                },
+
+                type: {
+                    ru: data.type_ru || "",
+                    en: data.type_en || "",
+                    uz: data.type_uz || ""
+                },
+
+                location: {
+                    ru: data.location_ru || "",
+                    en: data.location_en || "",
+                    uz: data.location_uz || ""
+                },
+
+                class: {
+                    ru: data.class_ru || "",
+                    en: data.class_en || "",
+                    uz: data.class_uz || ""
+                },
+
+                purpose: {
+                    ru: data.purpose_ru || "",
+                    en: data.purpose_en || "",
+                    uz: data.purpose_uz || ""
+                },
+
+                area: data.area,
+                ceiling_height: data.ceiling_height,
+                floor: data.floor,
+                price: perSqmText ?? data.price,
+                is_rent: Boolean(data.is_rent),
+
+                images: data.images || [],
+                amenities: data.amenities || []
+
+            });
+
+            setCommercialStatus("ready");
+
+        } catch (err) {
+
+            if (requestId !== commercialRequest.current) return;
+
+            console.error(err);
+
+            setCommercialStatus("error");
+
+        }
+
+    }, [getCommercial]);
 
 
     const getAdminListings = async (kind) => {
@@ -1253,29 +1195,23 @@ export const MyProvider = ({ children }) => {
 
     const changeCard = async (data, id) => {
 
-
         const updateData = {
-
 
             title_ru: data.title.ru,
             title_en: data.title.en,
             title_uz: data.title.uz,
 
-
             description_ru: data.description.ru,
             description_en: data.description.en,
             description_uz: data.description.uz,
-
 
             bedrooms_ru: data.bedrooms.ru,
             bedrooms_en: data.bedrooms.en,
             bedrooms_uz: data.bedrooms.uz,
 
-
             price: data.price,
 
             image: data.image
-
 
         };
 
@@ -1335,12 +1271,10 @@ export const MyProvider = ({ children }) => {
             "Изменено"
         );
 
-
     };
 
 
     const createCommercialPage = async (page) => {
-
 
         const payload = {
 
@@ -1351,41 +1285,33 @@ export const MyProvider = ({ children }) => {
                 .normalize("NFKD")
                 .replace(/[^\w-]+/g, "-")}-${Date.now()}`,
 
-
             title_ru: page.title.ru,
             title_en: page.title.en,
             title_uz: page.title.uz,
-
 
             description_ru: page.description.ru,
             description_en: page.description.en,
             description_uz: page.description.uz,
 
-
             about_ru: page.about.ru,
             about_en: page.about.en,
             about_uz: page.about.uz,
-
 
             location_ru: page.location.ru,
             location_en: page.location.en,
             location_uz: page.location.uz,
 
-
             type_ru: page.type.ru,
             type_en: page.type.en,
             type_uz: page.type.uz,
-
 
             class_ru: page.class.ru,
             class_en: page.class.en,
             class_uz: page.class.uz,
 
-
             purpose_ru: page.purpose.ru,
             purpose_en: page.purpose.en,
             purpose_uz: page.purpose.uz,
-
 
             area: Number(page.area) || null,
 
@@ -1397,7 +1323,6 @@ export const MyProvider = ({ children }) => {
 
             price:
                 Number(page.price) || null,
-
 
             images: page.images || [],
 
@@ -1434,8 +1359,8 @@ export const MyProvider = ({ children }) => {
         return data;
 
     };
-    const deleteCard = async (id) => {
 
+    const deleteCard = async (id) => {
 
         const { data: cardRow } = await supabase
             .from("cardss")
@@ -1483,7 +1408,6 @@ export const MyProvider = ({ children }) => {
         );
 
         return true;
-
 
     };
 
@@ -1949,7 +1873,8 @@ export const MyProvider = ({ children }) => {
     };
 
 
-    const getVilla = async (id) => {
+    // useCallback: стабильная ссылка, иначе эффект PropertyPage зацикливается так же
+    const getVilla = useCallback(async (id) => {
 
         const requestId = ++villaRequest.current;
 
@@ -2006,56 +1931,39 @@ export const MyProvider = ({ children }) => {
 
             setVilla({
 
-
                 id: data.id,
 
                 card_id: cardId,
 
-
                 title: {
-
                     ru: data.title_ru,
                     en: data.title_en,
                     uz: data.title_uz
-
                 },
 
-
                 description: {
-
                     ru: data.description_ru,
                     en: data.description_en,
                     uz: data.description_uz
-
                 },
 
-
                 about: {
-
                     ru: data.about_ru,
                     en: data.about_en,
                     uz: data.about_uz
-
                 },
 
-
                 location: {
-
                     ru: data.location_ru,
                     en: data.location_en,
                     uz: data.location_uz
-
                 },
 
-
                 type: {
-
                     ru: data.type_ru,
                     en: data.type_en,
                     uz: data.type_uz
-
                 },
-
 
                 price: perSqmText ?? data.price,
 
@@ -2067,21 +1975,17 @@ export const MyProvider = ({ children }) => {
 
                 is_rent: Boolean(data.is_rent),
 
-
                 images: data.images || [],
 
                 video: data.video || "",
 
                 amenities: data.amenities || []
 
-
             });
 
             setVillaStatus("ready");
 
-
         } catch (err) {
-
 
             if (requestId !== villaRequest.current) return;
 
@@ -2091,15 +1995,12 @@ export const MyProvider = ({ children }) => {
 
         }
 
-
-    };
+    }, []);
 
 
     const createVilla = async (data) => {
 
-
         try {
-
 
             let inheritedRent = null;
 
@@ -2119,40 +2020,32 @@ export const MyProvider = ({ children }) => {
                     card_id: data.card_id || null,
                     ...(inheritedRent !== null ? { is_rent: inheritedRent } : {}),
 
-
                     title_ru: data.title.ru,
                     title_en: data.title.en,
                     title_uz: data.title.uz,
-
 
                     slug: data.slug ||
                         `${data.title.ru
                             .toLowerCase()
                             .replaceAll(" ", "-")}-${Date.now()}`,
 
-
                     description_ru: data.description.ru,
                     description_en: data.description.en,
                     description_uz: data.description.uz,
-
 
                     about_ru: data.about.ru,
                     about_en: data.about.en,
                     about_uz: data.about.uz,
 
-
                     location_ru: data.location.ru,
                     location_en: data.location.en,
                     location_uz: data.location.uz,
-
 
                     type_ru: data.type.ru,
                     type_en: data.type.en,
                     type_uz: data.type.uz,
 
-
                     price: data.price,
-
 
                     bedrooms: data.bedrooms,
 
@@ -2160,11 +2053,9 @@ export const MyProvider = ({ children }) => {
 
                     square: data.square,
 
-
                     images: data.images,
 
                     amenities: data.amenities
-
 
                 }])
                 .select()
@@ -2175,7 +2066,6 @@ export const MyProvider = ({ children }) => {
 
 
             if (data.card_id) {
-
 
                 await supabase
                     .from("cardss")
@@ -2190,7 +2080,6 @@ export const MyProvider = ({ children }) => {
                         data.card_id
                     );
 
-
             }
 
 
@@ -2198,56 +2087,44 @@ export const MyProvider = ({ children }) => {
                 "Вилла создана"
             );
 
-
         } catch (error) {
 
-
             console.error(error);
-
 
             toast.error(
                 error.message
             );
 
-
         }
-
 
     };
 
 
     const updateVilla = async (data, id) => {
 
-
         const { data: updated, error } = await supabase
             .from("villas")
             .update({
-
 
                 title_ru: data.title.ru,
                 title_en: data.title.en,
                 title_uz: data.title.uz,
 
-
                 description_ru: data.description.ru,
                 description_en: data.description.en,
                 description_uz: data.description.uz,
-
 
                 about_ru: data.about.ru,
                 about_en: data.about.en,
                 about_uz: data.about.uz,
 
-
                 location_ru: data.location.ru,
                 location_en: data.location.en,
                 location_uz: data.location.uz,
 
-
                 type_ru: data.type.ru,
                 type_en: data.type.en,
                 type_uz: data.type.uz,
-
 
                 price: data.price,
 
@@ -2257,13 +2134,11 @@ export const MyProvider = ({ children }) => {
 
                 square: data.square,
 
-
                 images: data.images,
 
                 video: data.video,
 
                 amenities: data.amenities
-
 
             })
             .eq("id", id)
@@ -2303,12 +2178,10 @@ export const MyProvider = ({ children }) => {
 
         }));
 
-
     };
 
 
     const deleteVilla = async (id) => {
-
 
         const { data: villaRow } = await supabase
             .from("villas")
@@ -2341,7 +2214,6 @@ export const MyProvider = ({ children }) => {
         toast.success(
             "Страница объекта удалена"
         );
-
 
     };
 
@@ -2395,7 +2267,6 @@ export const MyProvider = ({ children }) => {
 
         if (error) {
 
-
             toast.error(
                 t("imageUploadError")
             );
@@ -2416,43 +2287,35 @@ export const MyProvider = ({ children }) => {
 
         return data.publicUrl;
 
-
     };
+
     const updateCommercialPage = async (page) => {
 
-
         const payload = {
-
 
             title_ru: page.title.ru,
             title_en: page.title.en,
             title_uz: page.title.uz,
 
-
             description_ru: page.description.ru,
             description_en: page.description.en,
             description_uz: page.description.uz,
-
 
             location_ru: page.location.ru,
             location_en: page.location.en,
             location_uz: page.location.uz,
 
-
             type_ru: page.type.ru,
             type_en: page.type.en,
             type_uz: page.type.uz,
-
 
             class_ru: page.class.ru,
             class_en: page.class.en,
             class_uz: page.class.uz,
 
-
             purpose_ru: page.purpose.ru,
             purpose_en: page.purpose.en,
             purpose_uz: page.purpose.uz,
-
 
             area: Number(page.area),
 
@@ -2461,7 +2324,6 @@ export const MyProvider = ({ children }) => {
             floor: Number(page.floor),
 
             price: Number(page.price),
-
 
             images: page.images,
 
@@ -2490,10 +2352,9 @@ export const MyProvider = ({ children }) => {
 
         return true;
 
-
     }
-    const deleteCommercialPage = async (id) => {
 
+    const deleteCommercialPage = async (id) => {
 
         const { data: pageRow } = await supabase
             .from("commercial_pages")
@@ -2521,12 +2382,10 @@ export const MyProvider = ({ children }) => {
 
         toast.success("Удалено");
 
-
     };
 
 
     const getCommercialPages = async () => {
-
 
         const { data, error } = await supabase
             .from("commercial_pages")
@@ -2548,13 +2407,11 @@ export const MyProvider = ({ children }) => {
 
                 commercial_id: item.commercial_id,
 
-
                 title: {
                     ru: item.title_ru,
                     en: item.title_en,
                     uz: item.title_uz
                 },
-
 
                 location: {
                     ru: item.location_ru,
@@ -2562,14 +2419,11 @@ export const MyProvider = ({ children }) => {
                     uz: item.location_uz
                 },
 
-
                 images: item.images || []
-
 
             }))
 
         )
-
 
     }
 
@@ -2646,7 +2500,6 @@ export const MyProvider = ({ children }) => {
                 setAuthLoading(false);
             }
 
-
         }
 
 
@@ -2695,7 +2548,6 @@ export const MyProvider = ({ children }) => {
             listener.subscription.unsubscribe();
 
         };
-
 
     }, []);
 
@@ -2866,7 +2718,6 @@ export const MyProvider = ({ children }) => {
 
     const toggleFavorite = async (item) => {
 
-
         if (!user) {
             toast.info(t("favoriteLoginRequired"));
             return;
@@ -2938,7 +2789,6 @@ export const MyProvider = ({ children }) => {
 
         <MyContext.Provider value={{
 
-
             setUserRole,
             setBoost,
             searchUsers,
@@ -2950,32 +2800,25 @@ export const MyProvider = ({ children }) => {
 
             getLatestCards,
 
-
             createCard,
 
             deleteCard,
 
             changeCard,
 
-
             getCardId,
             getAdminListings,
             setListingSold,
-
 
             cardId,
 
             setCardId,
 
-
             createVilla,
-
 
             deleteVilla,
 
-
             getVilla,
-
 
             villa,
 
@@ -2983,33 +2826,23 @@ export const MyProvider = ({ children }) => {
 
             setVilla,
 
-
             updateVilla,
-
-
-          
-
 
             user,
             profile,
             authLoading,
             logout,
 
-
             isDark,
 
             updateCommercial,
             handleDark,
 
-
             isBurger,
-
 
             handleBurger,
 
-
             uploadImage,
-
 
             commercials,
 
@@ -3027,10 +2860,8 @@ export const MyProvider = ({ children }) => {
             deleteCommercialPage,
             getCommercialPages,
             commercialPages,
-            deleteCommercialPage,
             getCommercialById,
             updateProfile,
-
 
             favorites,
             favoritesLoading,
@@ -3046,14 +2877,10 @@ export const MyProvider = ({ children }) => {
             updateLeadStatus
         }}>
 
-
             {children}
-
 
         </MyContext.Provider>
 
-
     );
-
 
 };

@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+Allow: /sitemap.xml
+Disallow: /api/
 Disallow: /admin
 Disallow: /login
 Disallow: /register
@@ -10,5 +12,6 @@ Disallow: /favorites
 Disallow: /user/
 Disallow: /add-property
 Disallow: /my-listings
+Disallow: /commercial/edit/
 
 Sitemap: https://urbankey.uz/sitemap.xml

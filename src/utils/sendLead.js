@@ -1,3 +1,5 @@
+import { trackGenerateLead } from "../analytics.js";
+
 export const sendLead = async ({ source, data, captchaToken, honeypot, skipCrm }) => {
 
     const response = await fetch("/api/lead", {
@@ -23,6 +25,12 @@ export const sendLead = async ({ source, data, captchaToken, honeypot, skipCrm }
         }
 
         throw new Error(message);
+    }
+
+    try {
+        trackGenerateLead({ source });
+    } catch (e) {
+        // Analytics failure should never break lead submission
     }
 
     return response.json();

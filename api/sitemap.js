@@ -1,5 +1,6 @@
-import { getSupabase, noRetry, getDistrictsWithListings, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
+import { getSupabase, noRetry, getDistrictsWithListings, fetchAllRows, SITE_ORIGIN, LANGS, DEFAULT_LANG } from "./_publicDb.js";
 import { allDistrictPages, districtBasePath } from "../src/utils/districtPages.js";
+import { getAvailableLangs } from "./_seoMeta.js";
 
 const STATIC_PATHS = [
     { path: "", priority: "1.0", changefreq: "daily" },
@@ -11,8 +12,6 @@ const STATIC_PATHS = [
     { path: "/ContactUs", priority: "0.5", changefreq: "monthly" },
 ];
 
-const PAGE_SIZE = 1000;
-
 function xmlEscape(value) {
     return String(value)
         .replace(/&/g, "&amp;")
@@ -22,8 +21,8 @@ function xmlEscape(value) {
         .replace(/'/g, "&apos;");
 }
 
-function buildAlternates(basePath) {
-    const alternates = LANGS.map((lang) => ({
+function buildAlternates(basePath, langs = LANGS) {
+    const alternates = langs.map((lang) => ({
         lang,
         href: `${SITE_ORIGIN}/${lang}${basePath}`,
     }));
@@ -31,10 +30,13 @@ function buildAlternates(basePath) {
     return alternates;
 }
 
-function buildUrlBlocks(basePath, priority, changefreq) {
-    const alternates = buildAlternates(basePath);
-    return LANGS.map((lang) => {
+function buildUrlBlocks(basePath, priority, changefreq, langs = LANGS, lastmod = null) {
+    const alternates = buildAlternates(basePath, langs);
+    return langs.map((lang) => {
         let block = `  <url>\n    <loc>${xmlEscape(`${SITE_ORIGIN}/${lang}${basePath}`)}</loc>\n`;
+        if (lastmod) {
+            block += `    <lastmod>${xmlEscape(lastmod)}</lastmod>\n`;
+        }
         block += `    <changefreq>${changefreq}</changefreq>\n`;
         block += `    <priority>${priority}</priority>\n`;
         for (const alt of alternates) {
@@ -44,54 +46,44 @@ function buildUrlBlocks(basePath, priority, changefreq) {
     });
 }
 
-async function fetchAll(supabase, table, columns, orderColumn) {
-    const rows = [];
-    for (let from = 0; ; from += PAGE_SIZE) {
-        const { data, error } = await noRetry(
-            supabase
-                .from(table)
-                .select(columns)
-                .order(orderColumn, { ascending: true })
-                .range(from, from + PAGE_SIZE - 1)
-        );
-
-        if (error) throw new Error(`${table}: ${error.message}`);
-        rows.push(...data);
-        if (data.length < PAGE_SIZE) break;
-    }
-    return rows;
-}
-
-async function publishedPropertyIds(supabase) {
+async function publishedProperties(supabase) {
     const [cards, villas] = await Promise.all([
-        fetchAll(supabase, "cardss_public", "id", "id"),
-        fetchAll(supabase, "villas", "id, card_id", "id"),
+        fetchAllRows(supabase, "cardss_public", "id, title_ru, title_en, title_uz", "id"),
+        fetchAllRows(supabase, "villas", "id, card_id", "id"),
     ]);
 
-    const visibleCards = new Set(cards.map((c) => c.id));
+    const visibleCards = new Map(cards.map((c) => [c.id, c]));
 
-    const ids = new Set();
+    const seen = new Set();
+    const items = [];
     for (const villa of villas) {
-        if (villa.card_id != null && visibleCards.has(villa.card_id)) ids.add(villa.card_id);
-    }
-    return [...ids].sort((a, b) => a - b);
-}
-
-async function publishedCommercialIds(supabase) {
-    const [commercials, pages] = await Promise.all([
-        fetchAll(supabase, "commercials_public", "id", "id"),
-        fetchAll(supabase, "commercial_pages", "id, commercial_id", "id"),
-    ]);
-
-    const visible = new Set(commercials.map((c) => c.id));
-    const ids = new Set();
-
-    for (const page of pages) {
-        if (page.commercial_id != null && visible.has(page.commercial_id)) {
-            ids.add(page.commercial_id);
+        if (villa.card_id != null && visibleCards.has(villa.card_id) && !seen.has(villa.card_id)) {
+            seen.add(villa.card_id);
+            items.push(visibleCards.get(villa.card_id));
         }
     }
-    return [...ids].sort((a, b) => a - b);
+    return items.sort((a, b) => a.id - b.id);
+}
+
+async function publishedCommercials(supabase) {
+    // Commercials can be rendered with or without commercial_pages row.
+    // Any active, non-sold commercial listing in commercials_public is public & indexable.
+    const commercials = await fetchAllRows(
+        supabase,
+        "commercials_public",
+        "id, title_ru, title_en, title_uz, delivery_date",
+        "id"
+    );
+
+    const seen = new Set();
+    const items = [];
+    for (const com of commercials) {
+        if (!seen.has(com.id)) {
+            seen.add(com.id);
+            items.push(com);
+        }
+    }
+    return items.sort((a, b) => a.id - b.id);
 }
 
 export default async function handler(req, res) {
@@ -105,16 +97,16 @@ export default async function handler(req, res) {
         return;
     }
 
-    let propertyIds;
-    let commercialIds;
+    let properties;
+    let commercials;
 
     try {
-        [propertyIds, commercialIds] = await Promise.all([
-            publishedPropertyIds(supabase),
-            publishedCommercialIds(supabase),
+        [properties, commercials] = await Promise.all([
+            publishedProperties(supabase),
+            publishedCommercials(supabase),
         ]);
     } catch (err) {
-        console.error("sitemap: failed to read listings:", err.message);
+        console.error("sitemap: failed to read listings:", err?.message || err);
         res.setHeader("Cache-Control", "no-store");
         res.setHeader("Retry-After", "300");
         res.status(503).send("Sitemap temporarily unavailable");
@@ -123,19 +115,29 @@ export default async function handler(req, res) {
 
     const blocks = [];
 
+    // 1. Static pages (all languages translated)
     for (const { path, priority, changefreq } of STATIC_PATHS) {
-        blocks.push(...buildUrlBlocks(path, priority, changefreq));
+        blocks.push(...buildUrlBlocks(path, priority, changefreq, LANGS));
     }
+
+    // 2. District pages (only those with listings)
     const withListings = await getDistrictsWithListings(supabase);
     for (const { kind, key } of allDistrictPages()) {
         if (withListings && !withListings[kind === "commercial" ? "commercial" : "apartments"].has(key)) continue;
-        blocks.push(...buildUrlBlocks(districtBasePath(kind, key), "0.7", "weekly"));
+        blocks.push(...buildUrlBlocks(districtBasePath(kind, key), "0.7", "weekly", LANGS));
     }
-    for (const id of propertyIds) {
-        blocks.push(...buildUrlBlocks(`/property/${id}`, "0.8", "weekly"));
+
+    // 3. Properties (only emit URLs for languages that actually have content for this listing)
+    for (const item of properties) {
+        const langs = getAvailableLangs({ title: { ru: item.title_ru, en: item.title_en, uz: item.title_uz } });
+        blocks.push(...buildUrlBlocks(`/property/${item.id}`, "0.8", "weekly", langs));
     }
-    for (const id of commercialIds) {
-        blocks.push(...buildUrlBlocks(`/commercial/${id}`, "0.8", "weekly"));
+
+    // 4. Commercials (only emit URLs for languages that actually have content for this listing)
+    for (const item of commercials) {
+        const langs = getAvailableLangs({ title: { ru: item.title_ru, en: item.title_en, uz: item.title_uz } });
+        const lastmod = item.delivery_date ? String(item.delivery_date).slice(0, 10) : null;
+        blocks.push(...buildUrlBlocks(`/commercial/${item.id}`, "0.8", "weekly", langs, lastmod));
     }
 
     const xml =

@@ -1,92 +1,137 @@
+
+import { useParams } from "react-router-dom";
+import { useContext, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+
 import Villa from "../components/Villa";
 import Property from "../components/Property";
 import Amenities from "../components/Amenities";
 import Feautured from "../components/Feautured_one";
 import Footer from "../components/Footer";
 import Seo from "../components/Seo";
-import { buildResidenceJsonLd, buildBreadcrumbJsonLd } from "../utils/structuredData";
 
-
-import { useParams } from "react-router-dom";
-import { useContext, useEffect } from "react";
 import { MyContext } from "../Context";
-import { useTranslation } from "react-i18next";
-import Error from "./Error";
-import DetailLoading from "../components/DetailLoading";
 import { useCurrency } from "../context/CurrencyContext";
 
+import {
+    buildResidenceJsonLd,
+    buildBreadcrumbJsonLd,
+} from "../utils/structuredData";
+
+import { trackViewItem } from "../analytics";
+
+import Error from "./Error";
+import DetailLoading from "../components/DetailLoading";
 
 const PropertyPage = () => {
-
-
     const { id } = useParams();
     const { t, i18n } = useTranslation();
     const { rate } = useCurrency() ?? {};
 
+    const { getVilla, villa, villaStatus } = useContext(MyContext);
 
-    const {
-        getVilla,
-        villa,
-        villaStatus
-    } = useContext(MyContext);
+    const lastTrackedId = useRef(null);
 
-
+    // Load property
     useEffect(() => {
+        if (id) {
+            getVilla(id);
+        }
+    }, [id, getVilla]);
 
-        getVilla(id);
+    // Available translations
+    const availableLangs = [];
 
-    }, [id]);
+    if (villa?.title?.ru?.trim()) availableLangs.push("ru");
+    if (villa?.title?.en?.trim()) availableLangs.push("en");
+    if (villa?.title?.uz?.trim()) availableLangs.push("uz");
 
+    if (availableLangs.length === 0) {
+        availableLangs.push("ru");
+    }
 
-    if (villaStatus === "notfound" || villaStatus === "error") return <Error />;
+    const effectiveLang = availableLangs.includes(i18n.language)
+        ? i18n.language
+        : "ru";
 
-    if (villaStatus !== "ready" || !villa || String(villa.card_id) !== String(id)) {
+    const seoTitle = villa?.title?.[effectiveLang] || villa?.title?.ru;
+    const seoDesc = villa?.about?.[effectiveLang] || villa?.about?.ru;
+    const seoImage = villa?.images?.[0];
+    const seoUrl = `https://urbankey.uz/${effectiveLang}/property/${id}`;
+
+    const isCurrentVilla =
+        villaStatus === "ready" &&
+        villa &&
+        String(villa.card_id) === String(id);
+
+    // Track property view
+    useEffect(() => {
+        if (!isCurrentVilla || !id) return;
+
+        const propertyId = String(id);
+
+        if (lastTrackedId.current === propertyId) return;
+
+        trackViewItem({
+            id: propertyId,
+            name: seoTitle,
+            category: "property",
+            price:
+                typeof villa.price === "number"
+                    ? villa.price
+                    : undefined,
+        });
+
+        lastTrackedId.current = propertyId;
+    }, [id, isCurrentVilla, villa, seoTitle]);
+
+    // All hooks are above conditional returns
+    if (villaStatus === "notfound" || villaStatus === "error") {
+        return <Error />;
+    }
+
+    if (!isCurrentVilla) {
         return <DetailLoading />;
     }
 
-    const seoTitle = villa.title?.[i18n.language] || villa.title?.ru;
-    const seoDesc = villa.about?.[i18n.language] || villa.about?.ru;
-    const seoImage = villa.images?.[0];
-    const seoUrl = `https://urbankey.uz/${i18n.language}/property/${id}`;
-
     const jsonLd = [
-        buildResidenceJsonLd({ villa, lang: i18n.language, url: seoUrl, rate }),
+        buildResidenceJsonLd({
+            villa,
+            lang: effectiveLang,
+            url: seoUrl,
+            rate,
+        }),
         buildBreadcrumbJsonLd(
             [
                 { name: "UrbanKey", path: "/" },
                 { name: t("properties"), path: "/Properties" },
                 { name: seoTitle || "", path: `/property/${id}` },
             ],
-            i18n.language
+            effectiveLang
         ),
     ];
 
     return (
-
         <>
-            <Seo title={seoTitle} description={seoDesc} image={seoImage} jsonLd={jsonLd} />
+            <Seo
+                title={seoTitle}
+                description={seoDesc}
+                image={seoImage}
+                jsonLd={jsonLd}
+                availableLangs={availableLangs}
+            />
 
             <Villa data={villa} />
 
-
             <Property data={villa} />
-
 
             <Amenities data={villa} />
 
-
             <Feautured data={villa} />
 
-
             <Footer />
-
-
         </>
-
-    )
-
-
-}
-
+    );
+};
 
 export default PropertyPage;

@@ -21,7 +21,8 @@ SELECT
     link,
     created_by,
     boosted_until
-FROM cardss;
+FROM cardss
+WHERE coalesce(is_sold, false) = false;
 
 
 CREATE OR REPLACE VIEW public.commercials_public AS
@@ -58,4 +59,5 @@ SELECT
     image,
     created_by,
     boosted_until
-FROM commercials;
+FROM commercials
+WHERE coalesce(is_sold, false) = false;

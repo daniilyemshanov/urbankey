@@ -1,5 +1,6 @@
 import { Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { trackClickTelegram } from "../analytics";
 import s from "./TelegramFloatButton.module.css";
 
 const TELEGRAM_USERNAME = "VladislavBroker";
@@ -16,6 +17,7 @@ const TelegramFloatButton = () => {
             className={s.button}
             aria-label={label}
             title={label}
+            onClick={() => trackClickTelegram(`https://t.me/${TELEGRAM_USERNAME}`)}
         >
             <Send size={22} className={s.icon} strokeWidth={2.2} />
             <span className={s.label}>{t("chatButton")}</span>

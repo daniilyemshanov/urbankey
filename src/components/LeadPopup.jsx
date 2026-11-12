@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import { X } from "lucide-react"
 import { sendLead } from "../utils/sendLead"
+import { trackFormStart } from "../analytics"
 import TurnstileWidget from "./TurnstileWidget"
 import { useOnlineStatus } from "../hooks/useOnlineStatus"
 import { MyContext } from "../Context"
@@ -200,6 +201,7 @@ const LeadPopup = () => {
                                 <form
                                     className={s.form}
                                     onSubmit={handleSubmit(onSubmit)}
+                                    onFocus={() => trackFormStart("lead_popup")}
                                 >
 
                                     <div className={s.field}>

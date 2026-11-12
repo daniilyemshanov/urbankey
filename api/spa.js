@@ -65,49 +65,63 @@ export default async function handler(req, res) {
     let pageHead = null;
 
     if (kind === "property" || kind === "commercial") {
-        let exists;
-
         if (id === null) {
-            exists = false;
+            status = 404;
         } else {
             const supabase = getSupabase({ timeoutMs: 3000 });
 
             if (!supabase) {
-                console.error("spa: Supabase env vars not configured, skipping existence check");
-                checkState = "skipped-no-config";
-                exists = true;
+                console.error("spa: Supabase env vars not configured");
+                res.setHeader("Cache-Control", "no-store");
+                res.setHeader("Retry-After", "300");
+                res.setHeader("X-SPA-Existence-Check", "skipped-no-config");
+                res.status(503).send("Service temporarily unavailable");
+                return;
+            }
+
+            let result = null;
+            try {
+                result = kind === "property"
+                    ? await propertyExists(supabase, id)
+                    : await commercialExists(supabase, id);
+            } catch (err) {
+                console.error("spa: existence check threw:", err);
+            }
+
+            if (result === null) {
+                console.error(`spa: existence check failed for ${kind} #${id}`);
+                res.setHeader("Cache-Control", "no-store");
+                res.setHeader("Retry-After", "300");
+                res.setHeader("X-SPA-Existence-Check", "skipped-error");
+                res.status(503).send("Service temporarily unavailable");
+                return;
+            }
+
+            if (result === false) {
+                status = 404;
             } else {
-                let result = null;
-                try {
-                    result = kind === "property"
-                        ? await propertyExists(supabase, id)
-                        : await commercialExists(supabase, id);
-                } catch (err) {
-                    console.error("spa: existence check threw:", err);
+                const [meta, storedRate] = await Promise.all([
+                    getListingMeta(supabase, kind, id),
+                    loadStoredRate(supabase).catch((err) => {
+                        console.error("spa: exchange rate unavailable:", err?.message);
+                        return null;
+                    }),
+                ]);
+
+                if (!meta) {
+                    console.error(`spa: failed to load listing meta for ${kind} #${id}`);
+                    res.setHeader("Cache-Control", "no-store");
+                    res.setHeader("Retry-After", "300");
+                    res.setHeader("X-SPA-Existence-Check", "skipped-error");
+                    res.status(503).send("Service temporarily unavailable");
+                    return;
                 }
 
-                if (result === true) {
-                    const [meta, storedRate] = await Promise.all([
-                        getListingMeta(supabase, kind, id),
-                        loadStoredRate(supabase).catch((err) => {
-                            console.error("spa: exchange rate unavailable:", err?.message);
-                            return null;
-                        }),
-                    ]);
-                    listingMeta = meta;
-                    rate = storedRate?.rate ?? null;
-                }
-
-                if (result === null) {
-                    checkState = "skipped-error";
-                    exists = true;
-                } else {
-                    exists = result;
-                }
+                listingMeta = meta;
+                rate = storedRate?.rate ?? null;
+                status = 200;
             }
         }
-
-        status = exists ? 200 : 404;
     }
 
     if (kind === "district") {

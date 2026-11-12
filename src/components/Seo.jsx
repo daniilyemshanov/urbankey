@@ -29,24 +29,35 @@ const shortDescription = (text, max = 160) => {
     return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,.;:!-]+$/, "") + "…";
 };
 
-const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
+const Seo = ({ title, description, image, noIndex = false, jsonLd, availableLangs = null, canonicalUrl: customCanonical = null }) => {
     const { i18n } = useTranslation();
     const { pathname } = useLocation();
-    const lang = SUPPORTED_LANGS.includes(i18n.language) ? i18n.language : DEFAULT_LANG;
+    const currentLang = SUPPORTED_LANGS.includes(i18n.language) ? i18n.language : DEFAULT_LANG;
 
-    const fullTitle = title ? `${title} — ${SITE_NAME}` : DEFAULT_TITLE[lang];
-    const desc = shortDescription(description) || DEFAULT_DESCRIPTION[lang];
+    const langsToRender = availableLangs && availableLangs.length > 0 ? availableLangs : SUPPORTED_LANGS;
+    const isCurrentLangAvailable = langsToRender.includes(currentLang);
+    const effectiveLang = isCurrentLangAvailable ? currentLang : DEFAULT_LANG;
+
+    const fullTitle = title ? `${title} — ${SITE_NAME}` : DEFAULT_TITLE[effectiveLang];
+    const desc = shortDescription(description) || DEFAULT_DESCRIPTION[effectiveLang];
     const ogImage = image
         ? (image.startsWith("http") ? image : `${SITE_ORIGIN}${image}`)
         : `${SITE_ORIGIN}${FALLBACK_IMAGE}`;
 
-    const canonicalUrl = `${SITE_ORIGIN}${pathname}`;
-
     const basePath = stripLangPrefix(pathname);
+    const canonicalUrl = customCanonical || (isCurrentLangAvailable
+        ? `${SITE_ORIGIN}/${currentLang}${basePath}`
+        : `${SITE_ORIGIN}/${DEFAULT_LANG}${basePath}`);
 
     useEffect(() => {
         document.querySelectorAll("[data-ssr-seo]").forEach((el) => el.remove());
     }, []);
+
+    useEffect(() => {
+        if (typeof document !== "undefined") {
+            document.documentElement.lang = effectiveLang;
+        }
+    }, [effectiveLang]);
 
     const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
@@ -58,7 +69,7 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
 
             <link rel="canonical" href={canonicalUrl} />
 
-            {SUPPORTED_LANGS.map((code) => (
+            {langsToRender.map((code) => (
                 <link
                     key={code}
                     rel="alternate"
@@ -78,8 +89,8 @@ const Seo = ({ title, description, image, noIndex = false, jsonLd }) => {
             <meta property="og:description" content={desc} />
             <meta property="og:image" content={ogImage} />
             <meta property="og:url" content={canonicalUrl} />
-            <meta property="og:locale" content={OG_LOCALES[lang]} />
-            {SUPPORTED_LANGS.filter((c) => c !== lang).map((c) => (
+            <meta property="og:locale" content={OG_LOCALES[effectiveLang]} />
+            {langsToRender.filter((c) => c !== effectiveLang).map((c) => (
                 <meta key={c} property="og:locale:alternate" content={OG_LOCALES[c]} />
             ))}
 

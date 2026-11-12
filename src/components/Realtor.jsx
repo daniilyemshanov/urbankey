@@ -9,6 +9,7 @@ import {
     ShieldCheck, Building2, Home, Tag, Wallet, ClipboardCheck,
     Camera, Megaphone, Newspaper, Users, Phone, ChevronLeft, ChevronRight
 } from 'lucide-react'
+import { trackClickToCall } from '../analytics'
 
 const PHONE = "+998 78 707 04 47"
 const PHONE_HREF = "+998787070447"
@@ -117,6 +118,7 @@ const Realtor = () => {
                                                 href={`tel:${PHONE_HREF}`}
                                                 whileHover={{ scale: 1.04 }}
                                                 whileTap={{ scale: 0.96 }}
+                                                onClick={() => trackClickToCall(PHONE_HREF)}
                                             >
                                                 <Phone size={18} />
                                                 {PHONE}

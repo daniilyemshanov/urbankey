@@ -8,6 +8,7 @@ import {
     RiTelegram2Fill,
     RiFacebookFill,
 } from "react-icons/ri";
+import { trackClickTelegram } from '../analytics';
 const Gray = () => {
 
     const { t } = useTranslation()
@@ -107,6 +108,7 @@ const Gray = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}
+                        onClick={() => trackClickTelegram("https://t.me/UrbanKeyNedvizhimost_Tashkent")}
                     >
                         <RiTelegram2Fill size={22} />
                     </motion.a>
@@ -117,6 +119,7 @@ const Gray = () => {
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ y: -6, scale: 1.08 }}
+                        onClick={() => trackClickTelegram("https://t.me/Vladislav_commercia")}
                     >
                         <RiTelegram2Fill size={22} />
                     </motion.a>

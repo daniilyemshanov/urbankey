@@ -1,7 +1,7 @@
 import Nav from "./components/Nav";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import Error from "./pages/Error";
 import Burger from "./components/Burger";
@@ -14,6 +14,7 @@ import CallFloatButton from "./components/CallFloatButton";
 import LeadPopup from "./components/LeadPopup";
 import LanguageLayout from "./components/LanguageLayout";
 import LegacyRedirect from "./components/LegacyRedirect";
+import { trackPageView } from "./analytics";
 
 const AboutUs = lazy(() => import("./pages/AboutUs"));
 const Properties = lazy(() => import("./pages/Properties"));
@@ -52,6 +53,12 @@ const App = () => {
 
   const { isDark, profile } = useContext(MyContext);
   const isAdmin = profile?.role === "admin";
+  const location = useLocation();
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
+
   useEffect(() => {
 
     const bodyEl = document.body;

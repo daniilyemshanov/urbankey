@@ -64,18 +64,6 @@ export async function propertyExists(supabase, id) {
 }
 
 export async function commercialExists(supabase, id) {
-    const { data: page, error } = await noRetry(
-        supabase
-            .from("commercial_pages")
-            .select("commercial_id")
-            .eq("commercial_id", id)
-            .maybeSingle()
-    );
-
-    if (error) {
-        console.error("commercialExists(page) failed:", error.message);
-        return null;
-    }
     const { data: base, error: baseError } = await noRetry(
         supabase
             .from("commercials_public")
@@ -88,7 +76,6 @@ export async function commercialExists(supabase, id) {
         console.error("commercialExists(base) failed:", baseError.message);
         return null;
     }
-    if (page && !base) return false;
     return Boolean(base);
 }
 
@@ -171,47 +158,58 @@ export async function getListingMeta(supabase, kind, id) {
     }
 }
 
+export async function fetchAllRows(supabase, table, columns, orderColumn = "id", pageSize = 1000) {
+    const rows = [];
+    for (let from = 0; ; from += pageSize) {
+        const { data, error } = await noRetry(
+            supabase
+                .from(table)
+                .select(columns)
+                .order(orderColumn, { ascending: true })
+                .range(from, from + pageSize - 1)
+        );
+
+        if (error) throw new Error(`${table}: ${error.message}`);
+        if (!data || !Array.isArray(data)) break;
+        rows.push(...data);
+        if (data.length < pageSize) break;
+    }
+    return rows;
+}
+
 export async function getDistrictsWithListings(supabase) {
     try {
         const [homes, commercials, villas] = await Promise.all([
-            noRetry(
-                supabase
-                    .from("cardss_public")
-                    .select("id, title_ru, title_en, title_uz, description_ru, description_en, description_uz")
-                    .limit(2000)
+            fetchAllRows(
+                supabase,
+                "cardss_public",
+                "id, title_ru, title_en, title_uz, description_ru, description_en, description_uz",
+                "id"
             ),
-            noRetry(
-                supabase
-                    .from("commercials_public")
-                    .select(
-                        "title_ru, title_en, title_uz, description_ru, description_en, description_uz, " +
-                        "district_ru, district_en, district_uz, address_ru, address_en, address_uz"
-                    )
-                    .limit(2000)
+            fetchAllRows(
+                supabase,
+                "commercials_public",
+                "title_ru, title_en, title_uz, description_ru, description_en, description_uz, " +
+                "district_ru, district_en, district_uz, address_ru, address_en, address_uz",
+                "id"
             ),
-            noRetry(
-                supabase
-                    .from("villas")
-                    .select("card_id, location_ru, location_en, location_uz")
-                    .limit(5000)
+            fetchAllRows(
+                supabase,
+                "villas",
+                "card_id, location_ru, location_en, location_uz",
+                "id"
             ),
         ]);
-        if (homes.error || commercials.error) {
-            console.error("getDistrictsWithListings failed:", (homes.error || commercials.error).message);
-            return null;
-        }
 
         const locationByCard = new Map();
-        if (!villas.error) {
-            for (const v of villas.data || []) {
-                if (v.card_id != null && !locationByCard.has(v.card_id)) {
-                    locationByCard.set(v.card_id, [v.location_ru, v.location_en, v.location_uz]);
-                }
+        for (const v of villas) {
+            if (v.card_id != null && !locationByCard.has(v.card_id)) {
+                locationByCard.set(v.card_id, [v.location_ru, v.location_en, v.location_uz]);
             }
         }
 
         const apartments = new Set();
-        for (const r of homes.data || []) {
+        for (const r of homes) {
             const key = detectDistrict([
                 ...(locationByCard.get(r.id) || []),
                 r.title_ru, r.title_en, r.title_uz,
@@ -221,7 +219,7 @@ export async function getDistrictsWithListings(supabase) {
         }
 
         const commercial = new Set();
-        for (const r of commercials.data || []) {
+        for (const r of commercials) {
             const key = detectDistrict([
                 r.district_ru, r.district_en, r.district_uz,
                 r.address_ru, r.address_en, r.address_uz,
@@ -232,7 +230,7 @@ export async function getDistrictsWithListings(supabase) {
         }
         return { apartments, commercial };
     } catch (err) {
-        console.error("getDistrictsWithListings threw:", err);
+        console.error("getDistrictsWithListings failed:", err?.message || err);
         return null;
     }
 }

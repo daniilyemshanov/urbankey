@@ -1,5 +1,6 @@
 import { Phone } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { trackClickToCall } from "../analytics";
 import s from "./CallFloatButton.module.css";
 
 const PHONE_NUMBER = "+998 78 707 04 47";
@@ -15,6 +16,7 @@ const CallFloatButton = () => {
             className={s.button}
             aria-label={label}
             title={label}
+            onClick={() => trackClickToCall(PHONE_HREF)}
         >
             <Phone size={22} className={s.icon} strokeWidth={2.2} />
             <span className={s.label}>{t("callButton")}</span>
