@@ -13,12 +13,9 @@ import Seo from "../components/Seo";
 import { MyContext } from "../Context";
 import { useCurrency } from "../context/CurrencyContext";
 
-import {
-    buildResidenceJsonLd,
-    buildBreadcrumbJsonLd,
-} from "../utils/structuredData";
-
+import { buildResidenceJsonLd, buildBreadcrumbJsonLd } from "../utils/structuredData";
 import { trackViewItem } from "../analytics";
+import { markListingViewed } from "../utils/viewedListings";
 
 import Error from "./Error";
 import DetailLoading from "../components/DetailLoading";
@@ -36,6 +33,7 @@ const PropertyPage = () => {
     useEffect(() => {
         if (id) {
             getVilla(id);
+            markListingViewed(id, "residential");
         }
     }, [id, getVilla]);
 

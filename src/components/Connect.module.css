@@ -71,11 +71,11 @@
 
 
 
-    border-radius: 26px;
+    border-radius: 18px;
 
 
 
-    padding: 50px;
+    padding: 32px;
 
 
 
@@ -176,11 +176,11 @@
 
 
 
-    border-radius: 14px;
+    border-radius: 10px;
 
 
 
-    padding: 18px 20px;
+    padding: 14px 18px;
 
 
 
@@ -232,7 +232,7 @@
         0 0 0 4px rgba(201, 168, 106, .12);
 
 
-    transform: translateY(-2px);
+    
 }
 
 
@@ -256,11 +256,11 @@
 
 
 
-    border-radius: 14px;
+    border-radius: 10px;
 
 
 
-    padding: 18px 20px;
+    padding: 14px 18px;
 
 
 
@@ -317,7 +317,7 @@
 
 
 
-    transform: translateY(-2px);
+    
 }
 
 
@@ -352,7 +352,7 @@
 
 
 
-    border-radius: 14px;
+    border-radius: 10px;
 
 
 

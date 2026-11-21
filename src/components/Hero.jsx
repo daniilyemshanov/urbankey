@@ -99,33 +99,24 @@ const Hero = () => {
 
                     <motion.h1
                         className={s.titl}
-                        initial={{ opacity: 0, y: 40 }}
+                        initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7 }}
+                        transition={{ duration: 0.6 }}
                         viewport={{ amount: 0.2 }}
                     >
-                        {t("heroTitle1")}
+                        <span>{t("heroTitle1")}</span>
+                        <span className={s.titlAccent}> {t("heroTitle2")}</span>
                     </motion.h1>
 
-                    <motion.h2
-                        className={s.titl}
-                        initial={{ opacity: 0, y: 40 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.15 }}
-                        viewport={{ amount: 0.2 }}
-                    >
-                        {t("heroTitle2")}
-                    </motion.h2>
-
-                    <motion.h3
+                    <motion.p
                         className={s.subtitle}
-                        initial={{ opacity: 0, y: 40 }}
+                        initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.3 }}
+                        transition={{ duration: 0.6, delay: 0.15 }}
                         viewport={{ amount: 0.2 }}
                     >
                         {t("heroSubtitle")}
-                    </motion.h3>
+                    </motion.p>
 
                 </div>
 
@@ -160,11 +151,11 @@ const Hero = () => {
 
                     <motion.div
                         className={s.card}
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.6 }}
+                        transition={{ duration: 0.5 }}
                         viewport={{ amount: 0.2 }}
-                        whileHover={{ y: -10, scale: 1.03 }}
+                        whileHover={{ y: -2 }}
                     >
                         <p className={s.statValue}>{propertiesCount ? `${propertiesCount}+` : "—"}</p>
                         <p>{t("propertiesForClients")}</p>
@@ -172,11 +163,11 @@ const Hero = () => {
 
                     <motion.div
                         className={s.card}
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.6, delay: 0.15 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
                         viewport={{ amount: 0.2 }}
-                        whileHover={{ y: -10, scale: 1.03 }}
+                        whileHover={{ y: -2 }}
                     >
                         <p className={s.statValue}>6+</p>
                         <p>{t("yearsExperience")}</p>
@@ -184,11 +175,11 @@ const Hero = () => {
 
                     <motion.div
                         className={s.card}
-                        initial={{ opacity: 0, scale: 0.8 }}
+                        initial={{ opacity: 0, scale: 0.95 }}
                         whileInView={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
                         viewport={{ amount: 0.2 }}
-                        whileHover={{ y: -10, scale: 1.03 }}
+                        whileHover={{ y: -2 }}
                     >
                         <p className={s.statValue}>3</p>
                         <p>{t("languagesSupported")}</p>

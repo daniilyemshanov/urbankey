@@ -1,96 +1,73 @@
 .bar {
-
     position: relative;
     z-index: 2;
-
     display: flex;
     align-items: center;
     gap: 12px;
-
     width: 100%;
     max-width: 720px;
-
-    padding: 10px 10px 10px 22px;
-
+    padding: 8px 8px 8px 20px;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 999px;
-
-    box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
     transition: border-color .25s, box-shadow .25s;
 }
 
-
 .bar:focus-within {
     border-color: var(--violet);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, .45), 0 0 0 3px rgba(214, 168, 58, .15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .35), 0 0 0 2px rgba(214, 168, 58, .15);
 }
-
 
 .icon {
     flex-shrink: 0;
     color: var(--violet);
 }
 
-
 .bar input {
-
     flex: 1;
     min-width: 0;
-
     background: none;
     border: none;
     outline: none;
-
     color: var(--white);
-    font-size: 16px;
+    font-size: 15px;
 }
-
 
 .bar input::placeholder {
     color: var(--gray);
 }
 
-
 .submit {
-
     flex-shrink: 0;
-
     display: flex;
     align-items: center;
     gap: 8px;
-
-    padding: 14px 24px;
+    padding: 12px 22px;
     border: none;
-    border-radius: 999px;
-
+    border-radius: 14px;
     background: var(--violet);
     color: #101010;
-
-    font-size: 15px;
-    font-weight: 700;
-
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: transform .2s, opacity .2s;
+    transition: opacity .2s, transform .2s;
 }
-
 
 .submit:hover {
-    transform: scale(1.03);
+    opacity: .92;
+    transform: translateY(-1px);
 }
-
 
 .submit:active {
-    transform: scale(.98);
+    transform: translateY(0);
 }
 
-
 @media (max-width: 576px) {
-
     .bar {
         flex-wrap: wrap;
-        padding: 14px 16px;
-        border-radius: 22px;
+        padding: 12px 14px;
+        border-radius: 16px;
     }
 
     .bar input {
@@ -98,13 +75,9 @@
         order: 1;
     }
 
-    .icon {
-        order: 0;
-    }
-
     .submit {
-        order: 2;
         width: 100%;
+        order: 2;
         justify-content: center;
     }
 }

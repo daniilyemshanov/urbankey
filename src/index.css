@@ -56,6 +56,18 @@ svg {
 
 body {
   background: var(--black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove decorative AI sparkle artifact */
+img[src*="Abstract Design"] {
+  display: none !important;
+}
+
+::selection {
+  background: rgba(214, 168, 58, .3);
+  color: var(--white);
 }
 
 main[data-ssr-seo] {

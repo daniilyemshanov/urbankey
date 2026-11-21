@@ -22,6 +22,7 @@ import {
 import { districtPagePath } from "../utils/districtPages";
 import FavoriteButton from "./FavoriteButton";
 import { SkeletonGrid } from "./SkeletonCard";
+import { isListingViewed, markListingViewed } from "../utils/viewedListings";
 import s from "./Catalog.module.css";
 
 
@@ -748,6 +749,10 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
                                         {item.isRent ? t("dealType.rent") : t("dealType.sale")}
                                     </span>
 
+                                    {!isListingViewed(item.id, item.category) && (
+                                        <span className={s.newBadge}>NEW</span>
+                                    )}
+
                                     <FavoriteButton
                                         item={{
                                             id: item.id,
@@ -840,7 +845,11 @@ const Catalog = ({ presetCategory = null, presetKind = null, presetDistrict = nu
 
                                         <span className={s.price}>{formatPriceIn(item.price, currency, rate)}</span>
 
-                                        <Link to={item.link} className={s.link}>
+                                        <Link
+                                            to={item.link}
+                                            className={s.link}
+                                            onClick={() => markListingViewed(item.id, item.category)}
+                                        >
                                             {t("viewProperty")}
                                         </Link>
 

@@ -15,8 +15,8 @@
     height: 26px;
 
     background: linear-gradient(135deg,
-            #703bf7,
-            #9b6dff);
+            #d6a83a,
+            #b8860b);
 
     border-radius: 50% 50% 50% 0;
 
@@ -29,8 +29,8 @@
         translate(-50%, -50%) rotate(-45deg);
 
     box-shadow:
-        0 0 25px rgba(112, 59, 247, .7),
-        0 10px 25px rgba(0, 0, 0, .25);
+        0 0 15px rgba(214, 168, 58, .4),
+        0 6px 12px rgba(0, 0, 0, .25);
 
     border: 3px solid white;
 
@@ -60,7 +60,7 @@
     width: 22px;
     height: 22px;
 
-    background: rgba(112, 59, 247, .25);
+    background: rgba(214, 168, 58, .25);
 
     border-radius: 50%;
 

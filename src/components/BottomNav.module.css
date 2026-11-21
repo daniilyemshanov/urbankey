@@ -74,28 +74,17 @@
     }
 
     .addItem svg {
-        width: 46px;
-        height: 46px;
-        padding: 11px;
+        width: 44px;
+        height: 44px;
+        padding: 10px;
         border-radius: 50%;
         color: #050505;
         background: linear-gradient(135deg, #d6a83a, #f4d06f);
-        box-shadow: 0 6px 16px rgba(214, 168, 58, .4);
-    }
-
-    .addItem.active svg {
-        color: #050505;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
     }
 
     .guestPulse svg {
-        animation: guestGlow 3.2s ease-in-out infinite;
         border-radius: 50%;
-    }
-
-    @keyframes guestGlow {
-        0%, 70%, 100% { box-shadow: 0 0 0 0 rgba(214, 168, 58, 0); }
-        80% { box-shadow: 0 0 0 6px rgba(214, 168, 58, .25); }
-        90% { box-shadow: 0 0 0 2px rgba(214, 168, 58, .35); }
     }
 
     @media (prefers-reduced-motion: reduce) {

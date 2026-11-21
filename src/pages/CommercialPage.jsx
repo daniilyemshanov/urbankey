@@ -21,6 +21,7 @@ import {
 } from "../utils/structuredData";
 import { trackViewItem } from "../analytics";
 import { useCurrency } from "../context/CurrencyContext";
+import { markListingViewed } from "../utils/viewedListings";
 
 const CommercialPage = () => {
     const { id } = useParams();
@@ -39,6 +40,7 @@ const CommercialPage = () => {
     useEffect(() => {
         if (id) {
             getCommercialById(id);
+            markListingViewed(id, "commercial");
         }
     }, [id, getCommercialById]);
 

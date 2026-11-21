@@ -520,7 +520,7 @@ footer {
     &:hover {
 
         transform:
-            translateY(-10px);
+            translateY(-2px);
 
         border-color:
             rgba(214, 168, 58, .28);
@@ -1261,7 +1261,7 @@ footer {
 
     transform:
 
-        perspective(1200px) rotateX(2deg) rotateY(-2deg) translateY(-10px) scale(1.015);
+        perspective(1200px) rotateX(2deg) rotateY(-2deg) translateY(-2px) scale(1.015);
 
     border-color:
 

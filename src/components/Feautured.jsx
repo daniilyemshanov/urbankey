@@ -138,6 +138,8 @@ const Feautured = ({ excludeId } = {}) => {
                             >
 
                                 <ListingCard
+                                    id={item.id}
+                                    type="residential"
                                     image={item.image}
                                     favoriteItem={{
                                         id: item.id,

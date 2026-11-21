@@ -1,10 +1,11 @@
 import { useState, useRef, useLayoutEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { MapPin, Flame } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 import s from "./ListingCard.module.css";
 import FavoriteButton from "./FavoriteButton";
+import { useIsListingNew, markListingViewed } from "../utils/viewedListings";
 
 const readMoreLabels = {
     ru: { more: "Подробнее", less: "Скрыть" },
@@ -13,8 +14,10 @@ const readMoreLabels = {
 };
 
 const ListingCard = ({
+    id,
+    type = "residential",
     image,
-    badge = false,
+    badge,
     favoriteItem,
     title,
     location,
@@ -36,6 +39,9 @@ const ListingCard = ({
     const [overflowing, setOverflowing] = useState(false);
     const descRef = useRef(null);
 
+    const isListingNew = useIsListingNew(id, type, badge !== false);
+    const showNewBadge = badge !== false && (id ? isListingNew : Boolean(badge));
+
     useLayoutEffect(() => {
 
         if (!descRef.current) return;
@@ -51,6 +57,12 @@ const ListingCard = ({
     const Wrapper = animation ? animation.Component : "article";
     const wrapperProps = animation ? animation.props : {};
 
+    const handleMarkViewed = () => {
+        if (id) {
+            markListingViewed(id, type);
+        }
+    };
+
     return (
 
         <Wrapper className={s.card} {...wrapperProps}>
@@ -65,10 +77,9 @@ const ListingCard = ({
                     decoding="async"
                 />
 
-                {badge && (
+                {showNewBadge && (
                     <div className={s.badge}>
-                        <Flame size={16} />
-                        Hot
+                        NEW
                     </div>
                 )}
 
@@ -139,10 +150,13 @@ const ListingCard = ({
 
                 <div className={s.price}>
                     {price}
-                    <Flame size={20} />
                 </div>
 
-                <Link to={detailsLink} className={s.moreBtn}>
+                <Link
+                    to={detailsLink}
+                    className={s.moreBtn}
+                    onClick={handleMarkViewed}
+                >
 
                     {detailsLabel}
 

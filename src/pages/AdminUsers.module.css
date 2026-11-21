@@ -154,7 +154,7 @@
     color: #d4af37;
     border: 1px solid rgba(212, 175, 55, 0.35);
     padding: 5px 12px;
-    border-radius: 999px;
+    border-radius: 10px;
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
@@ -166,7 +166,7 @@
     color: #999;
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 5px 12px;
-    border-radius: 999px;
+    border-radius: 10px;
     font-size: 12px;
     white-space: nowrap;
 }

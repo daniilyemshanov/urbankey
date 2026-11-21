@@ -20,6 +20,7 @@ import useVillaLocations from "../hooks/useVillaLocations";
 import { rankSimilar } from "../utils/similarListings";
 import { itemRoomsLabel } from "../utils/rooms";
 import { hasValue } from "../utils/hasValue"
+import { isListingViewed, markListingViewed } from "../utils/viewedListings";
 
 const readMoreLabels = {
     ru: { more: "Подробнее", less: "Скрыть" },
@@ -311,6 +312,10 @@ const Feautured = ({ data, commercial, items }) => {
 
                                 />
 
+                                {!isListingViewed(item.id, commercial ? "commercial" : "residential") && (
+                                    <div className={s.badge}>NEW</div>
+                                )}
+
                             </div>
 
 
@@ -460,6 +465,8 @@ const Feautured = ({ data, commercial, items }) => {
                                     to={localizedPath(commercial ? `/commercial/${item.id}` : `/property/${item.id}`, i18n.language)}
 
                                     className={s.linkk}
+
+                                    onClick={() => markListingViewed(item.id, commercial ? "commercial" : "residential")}
 
                                 >
 

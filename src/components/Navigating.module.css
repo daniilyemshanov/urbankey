@@ -67,7 +67,7 @@
             &:hover {
 
                 transform:
-                    perspective(1000px) rotateX(6deg) rotateY(-6deg) translateY(-12px) scale(1.03);
+                    perspective(1000px) rotateX(6deg) rotateY(-6deg) translateY(-2px) scale(1.03);
 
 
 

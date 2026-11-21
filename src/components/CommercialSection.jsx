@@ -190,8 +190,9 @@ const CommercialSection = () => {
                                 <SwiperSlide key={item.id}>
 
                                     <ListingCard
+                                        id={item.id}
+                                        type="commercial"
                                         image={item.image}
-                                        badge
                                         favoriteItem={{
                                             id: item.id,
                                             type: "commercial",

@@ -47,7 +47,7 @@
 .input,
 .textarea {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 18px;
   padding: 12px 14px;
   font-size: 15px;
   font-family: inherit;
@@ -141,7 +141,7 @@
   background: transparent;
   color: var(--white);
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 18px;
   cursor: pointer;
   font-size: 14px;
   transition: 0.25s;
@@ -236,7 +236,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--white);
-  border-radius: 10px;
+  border-radius: 18px;
   padding: 0 16px;
   cursor: pointer;
   font-size: 13px;
@@ -349,7 +349,7 @@
   font-size: 11px;
   font-weight: 700;
   padding: 3px 9px;
-  border-radius: 10px;
+  border-radius: 18px;
 }
 
 .photoActions {

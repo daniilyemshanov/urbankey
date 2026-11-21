@@ -224,7 +224,7 @@
 
 
 
-            transform: translateY(-8px);
+            transform: translateY(-2px);
 
 
 
@@ -448,7 +448,7 @@
     width: 100%;
     max-width: 700px;
 
-    border-radius: 24px;
+    border-radius: 10px;
 
     object-fit: cover;
 
@@ -469,7 +469,5 @@
     filter:
         contrast(1.1) brightness(1) saturate(1);
 
-    box-shadow:
-        0 30px 80px rgba(0, 0, 0, .8),
-        0 0 60px rgba(214, 168, 58, .25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }

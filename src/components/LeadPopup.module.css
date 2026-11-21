@@ -20,12 +20,13 @@
     width: 100%;
     max-width: 440px;
 
-    padding: 40px 32px 32px;
+    padding: 36px 28px 30px;
 
-    border-radius: 20px;
+    border-radius: 18px;
     border: 1px solid var(--border);
 
     background: var(--card);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .4);
 }
 
 
@@ -101,9 +102,9 @@
 
 .inp {
     width: 100%;
-    padding: 14px 16px;
+    padding: 13px 16px;
 
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--border);
 
     background: transparent;
@@ -111,7 +112,7 @@
 
     font-size: 14px;
 
-    transition: .25s;
+    transition: .2s;
 }
 
 .inp::placeholder {
@@ -147,18 +148,18 @@
 
 .btn {
     width: 100%;
-    padding: 14px;
+    padding: 13px;
 
-    border-radius: 12px;
+    border-radius: 10px;
 
     background: var(--violet);
     color: var(--black);
 
     font-weight: 600;
-    font-size: 15px;
+    font-size: 14.5px;
 
     cursor: pointer;
-    transition: .25s;
+    transition: .2s;
 }
 
 .btn:hover {

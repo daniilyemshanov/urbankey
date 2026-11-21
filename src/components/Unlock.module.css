@@ -99,7 +99,7 @@
 
         &:hover {
 
-            transform: translateY(-8px);
+            transform: translateY(-2px);
 
             border-color: var(--violet);
 
@@ -204,7 +204,7 @@
 
         overflow: hidden;
 
-        border-radius: 24px;
+        border-radius: 10px;
 
         padding: 48px;
 

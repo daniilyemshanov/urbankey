@@ -88,7 +88,7 @@
 
         &:hover {
 
-            transform: translateY(-8px);
+            transform: translateY(-2px);
 
             border-color: var(--violet);
 
@@ -170,7 +170,7 @@
 
         padding: 18px;
 
-        border-radius: 24px;
+        border-radius: 10px;
 
         background: var(--card);
 
@@ -226,7 +226,7 @@
 
         &:hover {
 
-            transform: translateY(-8px);
+            transform: translateY(-2px);
 
             border-color: var(--violet);
 
