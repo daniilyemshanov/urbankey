@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Phone, Send, ExternalLink } from "lucide-react";
 import { MyContext } from "../Context";
+import { openLeadModal } from "../utils/leadModal";
 import s from "./AdminLeads.module.css";
 
 const STATUSES = ["new", "in_contact", "deal", "closed"];
@@ -67,7 +68,16 @@ export default function AdminLeads() {
 
     return (
         <main className={s.wrap}>
-            <h1>{t("crmLeadsTitle")}</h1>
+            <div className={s.headRow}>
+                <h1>{t("crmLeadsTitle")}</h1>
+                <button
+                    type="button"
+                    className={s.testModalBtn}
+                    onClick={() => openLeadModal({ source: "admin_leads_test", force: true })}
+                >
+                    + Тест формы заявки
+                </button>
+            </div>
 
             <div className={s.filters}>
                 {["all", ...STATUSES].map((st) => (

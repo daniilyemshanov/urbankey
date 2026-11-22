@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { MyContext } from "../Context";
 import { AdminPage, AdminDenied, ak as s } from "../components/admin/AdminKit";
+import { openLeadModal } from "../utils/leadModal";
 
 const Icon = ({ d }) => (
   <svg
@@ -33,6 +34,9 @@ const ICONS = {
   inbox: [
     "M22 12h-6l-2 3h-4l-2-3H2",
     "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+  ],
+  modal: [
+    "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
   ]
 };
 
@@ -103,6 +107,12 @@ const GROUPS = [
         icon: "inbox",
         name: "Заявки (CRM)",
         desc: "Обращения клиентов и их статусы"
+      },
+      {
+        onClick: () => openLeadModal({ source: "admin_hub", force: true }),
+        icon: "modal",
+        name: "Тест окна заявки",
+        desc: "Проверить всплывающую форму Lead Modal"
       }
     ]
   }
@@ -122,16 +132,38 @@ const Admin = () => {
           <h2 className={s.hubGroupTitle}>{group.title}</h2>
 
           <div className={s.hubGrid}>
-            {group.items.map((item) => (
-              <Link key={item.to} className={s.hubCard} to={item.to}>
-                <span className={s.hubIcon}>
-                  <Icon d={ICONS[item.icon]} />
-                </span>
+            {group.items.map((item) =>
+              item.to ? (
+                <Link key={item.name} className={s.hubCard} to={item.to}>
+                  <span className={s.hubIcon}>
+                    <Icon d={ICONS[item.icon]} />
+                  </span>
 
-                <span className={s.hubName}>{item.name}</span>
-                <span className={s.hubDesc}>{item.desc}</span>
-              </Link>
-            ))}
+                  <span className={s.hubName}>{item.name}</span>
+                  <span className={s.hubDesc}>{item.desc}</span>
+                </Link>
+              ) : (
+                <button
+                  key={item.name}
+                  type="button"
+                  className={s.hubCard}
+                  onClick={item.onClick}
+                  style={{
+                    textAlign: "left",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontFamily: "inherit"
+                  }}
+                >
+                  <span className={s.hubIcon}>
+                    <Icon d={ICONS[item.icon]} />
+                  </span>
+
+                  <span className={s.hubName}>{item.name}</span>
+                  <span className={s.hubDesc}>{item.desc}</span>
+                </button>
+              )
+            )}
           </div>
         </div>
       ))}

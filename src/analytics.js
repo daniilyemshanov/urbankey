@@ -111,3 +111,37 @@ export const trackFormStart = (formName) => {
     form_name: key,
   });
 };
+
+export const trackLeadModalOpen = ({ trigger = 'auto_timer', source = 'LeadPopup' } = {}) => {
+  trackEvent('lead_modal_open', {
+    trigger_method: String(trigger),
+    lead_source: String(source),
+  });
+};
+
+export const trackLeadFormStart = ({ source = 'LeadPopup' } = {}) => {
+  trackEvent('lead_form_start', {
+    lead_source: String(source),
+  });
+};
+
+export const trackLeadFormSubmit = ({ source = 'LeadPopup', request_type = 'general' } = {}) => {
+  trackEvent('lead_form_submit', {
+    lead_source: String(source),
+    request_type: String(request_type),
+  });
+};
+
+export const trackLeadFormSuccess = ({ source = 'LeadPopup', request_type = 'general' } = {}) => {
+  trackEvent('lead_form_success', {
+    lead_source: String(source),
+    request_type: String(request_type),
+  });
+};
+
+export const trackLeadFormError = ({ source = 'LeadPopup', error_code = 'unknown' } = {}) => {
+  trackEvent('lead_form_error', {
+    lead_source: String(source),
+    error_code: String(error_code || 'unknown'),
+  });
+};

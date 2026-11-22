@@ -4,6 +4,42 @@
   padding: 120px 20px 90px;
 }
 
+.headRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.headRow h1 {
+  margin-bottom: 0;
+  color: var(--white);
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.testModalBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(214, 168, 58, 0.15);
+  border: 1px solid var(--violet);
+  color: var(--violet);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.testModalBtn:hover {
+  background: var(--violet);
+  color: var(--black);
+}
+
 .wrap h1 {
   margin-bottom: 28px;
   color: var(--white);

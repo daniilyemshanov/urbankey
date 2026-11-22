@@ -15,8 +15,10 @@ import {
     Heart,
     Coins,
     PlusSquare,
-    ListChecks
+    ListChecks,
+    MessageSquarePlus
 } from "lucide-react";
+import { openLeadModal } from "../utils/leadModal";
 
 const LANGUAGES = [
     { code: "ru", label: "Рус" },
@@ -251,6 +253,17 @@ const Nav = () => {
                                 >
                                     <ListChecks size={18} />
                                 </NavLink>
+                            )}
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    className={s.iconBtn}
+                                    onClick={() => openLeadModal({ source: "admin_navbar", force: true })}
+                                    aria-label="Тест Lead Modal"
+                                    title="Тест Lead Modal (Админ)"
+                                >
+                                    <MessageSquarePlus size={18} />
+                                </button>
                             )}
                             <NavLink
                                 to="/favorites"
