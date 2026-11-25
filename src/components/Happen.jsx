@@ -25,6 +25,7 @@ const Happen = () => {
     } = useForm();
 
     const [captchaToken, setCaptchaToken] = useState(null);
+    const [captchaReset, setCaptchaReset] = useState(0);
     const [submitting, setSubmitting] = useState(false);
 
     const sendTelegram = async (data) => {
@@ -56,6 +57,8 @@ const Happen = () => {
 
         } finally {
             setSubmitting(false);
+            setCaptchaToken(null);
+            setCaptchaReset((n) => n + 1);
         }
     };
 
@@ -400,6 +403,7 @@ const Happen = () => {
                     className={s.captcha}
                     onVerify={setCaptchaToken}
                     onExpire={() => setCaptchaToken(null)}
+                    resetSignal={captchaReset}
                 />
 
                 <motion.button

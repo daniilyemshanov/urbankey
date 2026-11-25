@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 
 const getSupabaseAdmin = () => {
 
@@ -136,7 +137,7 @@ const notifyCrmWebhook = async (source, leadRow) => {
 
 };
 
-const saveLead = async (source, data, skipCrm) => {
+const saveLead = async (source, data, skipCrm, meta = {}) => {
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -152,7 +153,7 @@ const saveLead = async (source, data, skipCrm) => {
         phone: data.phone || data.Phone || data.tel || null,
         telegram: data.telegram || data.Telegram || null,
         message: data.message || data.Message || data.description || data.comment || null,
-        raw_data: data
+        raw_data: meta.ipHash ? { ...data, _ip: meta.ipHash } : data
     };
 
     try {
@@ -229,7 +230,14 @@ const verifyTurnstile = async (token, ip) => {
 
     const secret = process.env.TURNSTILE_SECRET_KEY;
 
-    if (!secret) return true;
+    if (!secret) {
+        // Fail closed in production: without the secret anybody could skip the captcha
+        if (process.env.VERCEL_ENV === "production") {
+            console.error("TURNSTILE_SECRET_KEY is not set in production - rejecting lead");
+            return false;
+        }
+        return true;
+    }
 
     if (!token) return false;
 
@@ -297,6 +305,69 @@ const buildMessage = (source, data) => {
 };
 
 
+
+// ---------- Anti-spam helpers ----------
+
+const hashIp = (ip) =>
+    createHash("sha256")
+        .update(`${ip}|${process.env.LEAD_IP_SALT || "urbankey"}`)
+        .digest("hex")
+        .slice(0, 24);
+
+const isValidPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length >= 9 && digits.length <= 15;
+};
+
+const countLinks = (data) =>
+    Object.values(data)
+        .map((v) => (String(v).match(/https?:\/\/|www\./gi) || []).length)
+        .reduce((a, b) => a + b, 0);
+
+const MAX_LEADS_PER_IP_PER_HOUR = 10;
+const DUPLICATE_WINDOW_MIN = 10;
+
+// Persistent limits (work on serverless, unlike the in-memory counter).
+// Returns "ok" | "duplicate" | "too_many". Fails open if the DB is unavailable.
+const checkLeadLimits = async (ipHash, phone) => {
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    if (!supabaseAdmin) return "ok";
+
+    try {
+
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+        const { count: ipCount } = await supabaseAdmin
+            .from("leads")
+            .select("id", { count: "exact", head: true })
+            .eq("raw_data->>_ip", ipHash)
+            .gte("created_at", hourAgo);
+
+        if ((ipCount || 0) >= MAX_LEADS_PER_IP_PER_HOUR) return "too_many";
+
+        if (phone) {
+
+            const since = new Date(Date.now() - DUPLICATE_WINDOW_MIN * 60 * 1000).toISOString();
+
+            const { count: dupCount } = await supabaseAdmin
+                .from("leads")
+                .select("id", { count: "exact", head: true })
+                .eq("phone", phone)
+                .gte("created_at", since);
+
+            if ((dupCount || 0) > 0) return "duplicate";
+        }
+
+        return "ok";
+
+    } catch (err) {
+        console.error("checkLeadLimits failed:", err);
+        return "ok";
+    }
+};
+
 export default async function handler(req, res) {
 
     if (req.method !== "POST") {
@@ -340,6 +411,29 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Captcha verification failed" });
     }
 
+    // Silent drop (looks like success to bots) for junk submissions
+    const needsPhone = safeSource !== "Footer newsletter";
+
+    if (needsPhone && !isValidPhone(safeData.phone)) {
+        return res.status(400).json({ error: "Invalid phone number" });
+    }
+
+    if (countLinks(safeData) > 2) {
+        return res.status(200).json({ ok: true });
+    }
+
+    const ipHash = hashIp(ip);
+    const limitState = await checkLeadLimits(ipHash, needsPhone ? safeData.phone : null);
+
+    if (limitState === "too_many") {
+        return res.status(429).json({ error: "Too many requests, try again later" });
+    }
+
+    if (limitState === "duplicate") {
+        // Same phone just submitted: do not spam Telegram/CRM again
+        return res.status(200).json({ ok: true });
+    }
+
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -369,7 +463,7 @@ export default async function handler(req, res) {
         }
 
         // await: on serverless the function can be frozen right after the response
-        await saveLead(safeSource, safeData, skipCrm).catch((err) =>
+        await saveLead(safeSource, safeData, skipCrm, { ipHash }).catch((err) =>
             console.error("saveLead call failed:", err)
         );
 

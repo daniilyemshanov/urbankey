@@ -76,6 +76,7 @@ const LeadPopup = () => {
     const [comment, setComment] = useState("");
     const [honeypot, setHoneypot] = useState("");
     const [captchaToken, setCaptchaToken] = useState(null);
+    const [captchaReset, setCaptchaReset] = useState(0);
 
     // Contextual titles
     const [customTitle, setCustomTitle] = useState(null);
@@ -413,6 +414,8 @@ const LeadPopup = () => {
             trackLeadFormError({ source: "LeadPopup", error_code: msg });
         } finally {
             setSubmitting(false);
+            setCaptchaToken(null);
+            setCaptchaReset((n) => n + 1);
         }
     };
 
@@ -621,6 +624,7 @@ const LeadPopup = () => {
                                         className={s.captcha}
                                         onVerify={setCaptchaToken}
                                         onExpire={() => setCaptchaToken(null)}
+                                        resetSignal={captchaReset}
                                     />
 
                                     {/* Privacy policy note */}
