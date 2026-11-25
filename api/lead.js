@@ -27,13 +27,88 @@ const buildBitrix24Payload = (source, leadRow) => ({
     params: { REGISTER_SONET_EVENT: "Y" }
 });
 
+const normalizePhoneDigits = (value) => {
+
+    const digits = String(value || "").replace(/\D/g, "");
+
+    if (!digits) return "";
+
+    // Uzbekistan local 9-digit number -> add country code
+    if (digits.length === 9) return `998${digits}`;
+
+    return digits;
+};
+
+const buildLeadName = (data) =>
+    [data.firstname, data.secondname].filter(Boolean).join(" ").trim() ||
+    data.name ||
+    data.Name ||
+    null;
+
+const notifyBinotel = async (source, leadRow) => {
+
+    const key = process.env.BINOTEL_KEY;
+    const secret = process.env.BINOTEL_SECRET;
+
+    if (!key || !secret) return false;
+
+    const raw = leadRow.raw_data || {};
+    const phone = normalizePhoneDigits(leadRow.phone);
+
+    // Binotel creates a customer only by phone number
+    if (!phone) return false;
+
+    // In Binotel customer names are expected to be unique -> append the phone number
+    const baseName = leadRow.name || `Заявка с сайта (${source})`;
+    const name = `${baseName} +${phone}`.slice(0, 100);
+
+    const description = [
+        `Источник: ${source}`,
+        raw.inquiry && `Тип запроса: ${raw.inquiry}`,
+        raw.request_type && `Тип запроса: ${raw.request_type}`,
+        raw.hear && `Откуда узнал: ${raw.hear}`,
+        leadRow.message && `Сообщение: ${leadRow.message}`
+    ].filter(Boolean).join("\n");
+
+    const res = await fetch("https://api.binotel.com/api/4.0/customers/create.json", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            key,
+            secret,
+            name,
+            numbers: [phone],
+            email: raw.email || undefined,
+            description
+        })
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (json.status !== "success") {
+        console.error("Binotel customers/create error:", res.status, json);
+        return false;
+    }
+
+    return true;
+};
+
 const notifyCrmWebhook = async (source, leadRow) => {
+
+    const crmType = (process.env.CRM_TYPE || "generic").toLowerCase();
+
+    if (crmType === "binotel") {
+        try {
+            return await notifyBinotel(source, leadRow);
+        } catch (err) {
+            console.error("Binotel error:", err);
+            return false;
+        }
+    }
 
     const url = process.env.CRM_WEBHOOK_URL;
 
-    if (!url) return;
-
-    const crmType = (process.env.CRM_TYPE || "generic").toLowerCase();
+    if (!url) return false;
 
     const payload = crmType === "bitrix24"
         ? buildBitrix24Payload(source, leadRow)
@@ -49,10 +124,14 @@ const notifyCrmWebhook = async (source, leadRow) => {
 
         if (!res.ok) {
             console.error("CRM webhook responded with error status:", res.status, await res.text());
+            return false;
         }
+
+        return true;
 
     } catch (err) {
         console.error("CRM webhook error:", err);
+        return false;
     }
 
 };
@@ -69,16 +148,20 @@ const saveLead = async (source, data, skipCrm) => {
     const leadRow = {
         type: "contact_form",
         source,
-        name: data.name || data.Name || null,
+        name: buildLeadName(data),
         phone: data.phone || data.Phone || data.tel || null,
         telegram: data.telegram || data.Telegram || null,
-        message: data.message || data.Message || null,
+        message: data.message || data.Message || data.description || data.comment || null,
         raw_data: data
     };
 
     try {
 
-        const { error } = await supabaseAdmin.from("leads").insert([leadRow]);
+        const { data: inserted, error } = await supabaseAdmin
+            .from("leads")
+            .insert([leadRow])
+            .select("id")
+            .single();
 
         if (error) {
             console.error("Failed to save lead to Supabase:", error);
@@ -86,7 +169,15 @@ const saveLead = async (source, data, skipCrm) => {
         }
 
         if (!skipCrm) {
-            await notifyCrmWebhook(source, leadRow);
+
+            const synced = await notifyCrmWebhook(source, leadRow);
+
+            if (synced && inserted?.id) {
+                await supabaseAdmin
+                    .from("leads")
+                    .update({ crm_synced_at: new Date().toISOString() })
+                    .eq("id", inserted.id);
+            }
         }
 
     } catch (err) {
@@ -277,7 +368,8 @@ export default async function handler(req, res) {
             return res.status(502).json({ error: "Failed to deliver message" });
         }
 
-        saveLead(safeSource, safeData, skipCrm).catch((err) =>
+        // await: on serverless the function can be frozen right after the response
+        await saveLead(safeSource, safeData, skipCrm).catch((err) =>
             console.error("saveLead call failed:", err)
         );
 
