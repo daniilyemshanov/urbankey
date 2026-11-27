@@ -27,19 +27,19 @@ const PAGES = {
     },
     Properties: {
         ru: {
-            title: "Купить недвижимость в Ташкенте",
+            title: "Недвижимость в Ташкенте",
             h1: "Недвижимость в Ташкенте: квартиры и коммерческие объекты",
             description: "Каталог недвижимости в Ташкенте: квартиры и коммерческие объекты. Актуальные предложения и цены от UrbanKey.",
             intro: "Каталог недвижимости UrbanKey в Ташкенте: квартиры и коммерческие объекты с ценами и фото. Выберите район или воспользуйтесь фильтрами.",
         },
         en: {
-            title: "Buy Real Estate in Tashkent",
+            title: "Real Estate in Tashkent",
             h1: "Real estate in Tashkent: apartments and commercial properties",
             description: "Real estate catalog in Tashkent: apartments and commercial properties. Current listings and prices from UrbanKey.",
             intro: "UrbanKey's real estate catalog in Tashkent: apartments and commercial properties with prices and photos. Choose a district or use the filters.",
         },
         uz: {
-            title: "Toshkentda ko'chmas mulk sotib olish",
+            title: "Toshkentda ko'chmas mulk",
             h1: "Toshkentda ko'chmas mulk: kvartiralar va tijorat obyektlari",
             description: "Toshkentdagi ko'chmas mulk katalogi: kvartiralar va tijorat obyektlari. UrbanKey'dan dolzarb takliflar va narxlar.",
             intro: "UrbanKey'ning Toshkentdagi ko'chmas mulk katalogi: narxlar va rasmlar bilan kvartiralar va tijorat obyektlari. Tumanni tanlang yoki filtrlardan foydalaning.",
@@ -89,20 +89,20 @@ const PAGES = {
         ru: {
             title: "Контакты",
             h1: "Контакты UrbanKey",
-            description: "Свяжитесь с UrbanKey в Ташкенте: телефон, адрес офиса, форма обратной связи.",
-            intro: "Телефон, адрес офиса и форма обратной связи UrbanKey в Ташкенте.",
+            description: "Свяжитесь с UrbanKey в Ташкенте по вопросам подбора квартир и коммерческой недвижимости.",
+            intro: "Свяжитесь с командой UrbanKey в Ташкенте по вопросам недвижимости или отправьте запрос через форму обратной связи.",
         },
         en: {
             title: "Contact Us",
             h1: "Contact UrbanKey",
-            description: "Get in touch with UrbanKey in Tashkent: phone, office address, contact form.",
-            intro: "Phone, office address and contact form of UrbanKey in Tashkent.",
+            description: "Contact UrbanKey in Tashkent about apartment and commercial property services.",
+            intro: "Contact the UrbanKey team in Tashkent about real estate or send an enquiry through the contact form.",
         },
         uz: {
             title: "Kontaktlar",
             h1: "UrbanKey kontaktlari",
-            description: "UrbanKey bilan Toshkentda bog'laning: telefon, ofis manzili, aloqa formasi.",
-            intro: "UrbanKey'ning Toshkentdagi telefoni, ofis manzili va aloqa formasi.",
+            description: "Kvartiralar va tijorat ko'chmas mulki bo'yicha UrbanKey bilan Toshkentda bog'laning.",
+            intro: "Ko'chmas mulk masalalari bo'yicha Toshkentdagi UrbanKey jamoasiga murojaat qiling yoki aloqa formasi orqali so'rov yuboring.",
         },
     },
 };

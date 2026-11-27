@@ -142,21 +142,21 @@ const KIND_TEXT = {
             uz: (loc) => `${loc} kvartiralar`,
         },
         description: {
-            ru: (loc) => `Квартиры ${loc} Ташкента: объявления о продаже и аренде от UrbanKey с ценами, фото и контактами агента.`,
-            en: (loc) => `Apartments ${loc}, Tashkent: sale and rental listings from UrbanKey with prices, photos and agent contacts.`,
-            uz: (loc) => `${loc} kvartiralar (Toshkent): UrbanKey'dan sotuv va ijara e'lonlari, narxlar, rasmlar va agent aloqasi.`,
+            ru: (loc) => `Квартиры ${loc} Ташкента: актуальные объявления о продаже от UrbanKey с ценами, фото и контактами агента.`,
+            en: (loc) => `Apartments for sale ${loc}, Tashkent: current UrbanKey listings with prices, photos and agent contacts.`,
+            uz: (loc) => `${loc} Toshkent kvartiralari: UrbanKey'dan sotuv bo'yicha dolzarb e'lonlar, narxlar, rasmlar va agent aloqasi.`,
         },
         outro: {
-            ru: "Ниже — актуальные квартиры UrbanKey в этом районе. Фильтруйте по цене, комнатам и типу сделки.",
-            en: "Below are UrbanKey's current apartments in this district. Filter by price, rooms and deal type.",
-            uz: "Quyida shu tumandagi UrbanKey kvartiralari. Narx, xonalar soni va bitim turi bo'yicha saralang.",
+            ru: "Ниже — квартиры на продажу от UrbanKey в этом районе. Сравните цену, число комнат и характеристики объектов.",
+            en: "Below are UrbanKey apartments for sale in this district. Compare prices, room counts and property details.",
+            uz: "Quyida UrbanKey'ning shu tumandagi sotiladigan kvartiralari. Narx, xonalar soni va obyekt xususiyatlarini solishtiring.",
         },
     },
     commercial: {
         title: {
-            ru: (loc) => `Коммерческая недвижимость ${loc}, Ташкент`,
-            en: (loc) => `Commercial property ${loc}, Tashkent`,
-            uz: (loc) => `${loc} tijorat binolari, Toshkent`,
+            ru: (loc) => `Продажа и аренда коммерческой недвижимости ${loc}, Ташкент`,
+            en: (loc) => `Commercial property for sale and rent ${loc}, Tashkent`,
+            uz: (loc) => `${loc} tijorat ko'chmas mulki: sotuv va ijara, Toshkent`,
         },
         h1: {
             ru: (loc) => `Коммерческая недвижимость ${loc}`,

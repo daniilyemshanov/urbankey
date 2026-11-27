@@ -1,0 +1,1 @@
+import{n as e,t}from"./vendor-react-Ay93qfQX.js";import n from"./ListingsManager-B6_Yc3i0.js";var r=e(),i=t(),a=()=>{let e=(0,r.c)(1),t;return e[0]===Symbol.for(`react.memo_cache_sentinel`)?(t=(0,i.jsx)(n,{kind:`card`}),e[0]=t):t=e[0],t};export{a as default};

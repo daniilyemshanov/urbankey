@@ -1,0 +1,371 @@
+.clients {
+    max-width: 1440px;
+    width: 100%;
+    margin: 90px auto;
+    padding: 20px;
+}
+
+.clients .text {
+    margin-top: 6px;
+    margin-bottom: 10px;
+    animation: titleShow 1s cubic-bezier(.22, 1, .36, 1);
+}
+
+.clients .text h1 {
+    font-weight: 600;
+    font-size: 48px;
+    line-height: 150%;
+    color: var(--white);
+    margin-top: 10px;
+    margin-bottom: 14px;
+}
+
+.clients .text p {
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 150%;
+    color: var(--gray);
+    max-width: 1030px;
+}
+
+.clients .swiper {
+    margin-top: 60px;
+    padding: 20px 60px 80px;
+    overflow: hidden;
+    position: relative;
+}
+
+.clients .swiper-slide {
+    height: auto !important;
+    display: flex;
+}
+
+.clients .card {
+    width: 100%;
+    min-height: auto;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    padding: 26px;
+
+    border: 1px solid var(--border);
+    border-radius: 18px;
+
+    background: var(--card);
+
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+
+    transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.clients .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--violet);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .35), 0 0 0 1px rgba(214, 168, 58, .2);
+}
+
+.clients .card:hover .button {
+    background: var(--violet);
+    color: var(--black);
+}
+
+.clients .card .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 32px;
+    gap: 20px;
+}
+
+.clients .card .top span {
+    font-size: 15px;
+    color: var(--gray);
+}
+
+.clients .card .top h2 {
+    font-size: 32px;
+    color: var(--white);
+    margin-top: 8px;
+    font-weight: 700;
+}
+
+.clients .card .top .button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 10px 18px;
+
+    border-radius: 10px;
+    border: 1px solid var(--border);
+
+    background: var(--dark-gray);
+    color: var(--white);
+    font-size: 13.5px;
+    font-weight: 500;
+
+    text-decoration: none;
+
+    transition: .25s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.clients .card .top .button:hover {
+    background: var(--violet);
+    color: var(--black);
+    transform: translateY(-1px);
+}
+
+.clients .card .info {
+    display: flex;
+    margin-bottom: 24px;
+}
+
+.clients .card .info .item {
+    flex: 1;
+}
+
+.clients .card .info .item:first-child {
+    border-right: 1px solid var(--border);
+    padding-right: 20px;
+}
+
+.clients .card .info .item:last-child {
+    padding-left: 20px;
+}
+
+.clients .card .info .item h3 {
+    font-size: 13px;
+    color: var(--gray);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.clients .card .info .item p {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--white);
+    line-height: 140%;
+}
+
+.clients .card .review {
+    margin-top: auto;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    padding: 18px;
+
+    background: rgba(255, 255, 255, .03);
+}
+
+.clients .card .review h4 {
+    color: var(--gray);
+    font-size: 13px;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.clients .card .review p {
+    color: var(--white);
+    font-size: 14px;
+    line-height: 160%;
+}
+
+.clients .swiper-button-prev,
+.clients .swiper-button-next {
+    width: 52px;
+    height: 52px;
+
+    border-radius: 100px;
+
+    background: var(--dark-gray);
+    border: 1px solid var(--border);
+
+    transition: .4s;
+
+    top: 55% !important;
+    z-index: 20;
+}
+
+.clients .swiper-button-prev::after,
+.clients .swiper-button-next::after {
+    font-size: 18px;
+    color: var(--white);
+    font-weight: 700;
+}
+
+.clients .swiper-button-prev:hover,
+.clients .swiper-button-next:hover {
+    background: var(--violet);
+    border-color: var(--violet);
+    transform: scale(1.08);
+}
+
+.clients .swiper-button-prev {
+    left: 0px !important;
+}
+
+.clients .swiper-button-next {
+    right: 0px !important;
+}
+
+.clients .swiper-pagination {
+    bottom: 0 !important;
+}
+
+.clients .swiper-pagination-bullet {
+    background: #777;
+    opacity: 1;
+    transition: .4s;
+}
+
+.clients .swiper-pagination-bullet-active {
+    background: var(--violet);
+    width: 24px;
+    border-radius: 30px;
+}
+
+@media (max-width: 1200px) {
+
+    .clients .card {
+        min-height: 500px;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .clients {
+        margin: 70px auto;
+    }
+
+    .clients .text h1 {
+        font-size: clamp(26px, 6vw, 32px);
+        line-height: 1.15;
+        text-wrap: balance;
+        overflow-wrap: anywhere;
+    }
+
+    .clients .text p {
+        font-size: 15px;
+    }
+
+    .clients .swiper {
+        padding: 20px 0 60px;
+    }
+
+    .clients .card {
+        min-height: auto;
+        padding: 24px;
+    }
+
+    .clients .card .top {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .clients .card .top h2 {
+        font-size: 28px;
+    }
+
+    .clients .card .top .button {
+        width: 100%;
+    }
+
+    .clients .card .info {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .clients .card .info .item:first-child {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding-right: 0;
+        padding-bottom: 20px;
+    }
+
+    .clients .card .info .item:last-child {
+        padding-left: 0;
+    }
+
+    .clients .card .info .item p {
+        font-size: 17px;
+    }
+
+    .clients .card .review {
+        padding: 18px;
+    }
+
+    .clients .card .review p {
+        font-size: 15px;
+        line-height: 160%;
+    }
+
+    .clients .swiper-button-prev,
+    .clients .swiper-button-next {
+        display: none;
+    }
+}
+
+@media (max-width: 576px) {
+
+    .clients {
+        padding: 14px;
+    }
+
+    .clients .text h1 {
+        font-size: 28px;
+    }
+
+    .clients .text p {
+        font-size: 14px;
+        line-height: 160%;
+    }
+
+    .clients .card {
+        padding: 18px;
+    }
+
+    .clients .card .top {
+        margin-bottom: 24px;
+    }
+
+    .clients .card .top span {
+        font-size: 13px;
+    }
+
+    .clients .card .top h2 {
+        font-size: 22px;
+    }
+
+    .clients .card .top .button {
+        padding: 14px;
+        font-size: 14px;
+    }
+
+    .clients .card .info {
+        margin-bottom: 24px;
+    }
+
+    .clients .card .info .item h3 {
+        font-size: 13px;
+    }
+
+    .clients .card .info .item p {
+        font-size: 15px;
+    }
+
+    .clients .card .review h4 {
+        font-size: 14px;
+    }
+
+    .clients .card .review p {
+        font-size: 14px;
+    }
+}

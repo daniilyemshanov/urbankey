@@ -33,7 +33,7 @@ function loadTurnstileScript() {
     return scriptLoadingPromise;
 }
 
-const TurnstileWidget = ({ onVerify, onExpire, className, resetSignal }) => {
+const TurnstileWidget = ({ onVerify, onExpire, className }) => {
 
     const { t } = useTranslation();
     const containerRef = useRef(null);
@@ -49,21 +49,6 @@ const TurnstileWidget = ({ onVerify, onExpire, className, resetSignal }) => {
         onVerifyRef.current = onVerify;
         onExpireRef.current = onExpire;
     });
-
-    // Turnstile tokens are single-use: reset the widget after each submit attempt
-    useEffect(() => {
-
-        if (!resetSignal) return;
-
-        if (widgetIdRef.current && window.turnstile) {
-            try {
-                window.turnstile.reset(widgetIdRef.current);
-            } catch (err) {
-                console.error("Turnstile reset failed:", err);
-            }
-        }
-
-    }, [resetSignal]);
 
     useEffect(() => {
 

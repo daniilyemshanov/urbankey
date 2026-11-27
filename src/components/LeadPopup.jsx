@@ -8,6 +8,8 @@ import s from "./LeadPopup.module.css";
 import { sendLead } from "../utils/sendLead";
 import {
     trackLeadModalOpen,
+    trackLeadModalClose,
+    trackLeadFormView,
     trackLeadFormStart,
     trackLeadFormSubmit,
     trackLeadFormSuccess,
@@ -73,10 +75,11 @@ const LeadPopup = () => {
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [requestType, setRequestType] = useState("buy");
+    const [buyCategory, setBuyCategory] = useState("new_building");
+    const [commercialOp, setCommercialOp] = useState("buy");
     const [comment, setComment] = useState("");
     const [honeypot, setHoneypot] = useState("");
     const [captchaToken, setCaptchaToken] = useState(null);
-    const [captchaReset, setCaptchaReset] = useState(0);
 
     // Contextual titles
     const [customTitle, setCustomTitle] = useState(null);
@@ -159,14 +162,26 @@ const LeadPopup = () => {
         }
 
         try {
-            trackLeadModalOpen({ trigger, source: "LeadPopup" });
+            trackLeadModalOpen({
+                form_id: "lead_popup",
+                trigger_method: trigger,
+                lead_source: "LeadPopup",
+                lead_type: targetType,
+            });
+            trackLeadFormView({
+                form_id: "lead_popup",
+                form_type: "modal",
+                form_location: "popup_modal",
+                lead_type: targetType,
+                lead_source: trigger,
+            });
         } catch {
             // Safe
         }
     }, [isAdmin, location.pathname, t]);
 
     // Close action
-    const handleClose = useCallback((dismissDays = 5) => {
+    const handleClose = useCallback((dismissDays = 5, closeMethod = "close_button") => {
         if (submitting) return; // Prevent closing while in-flight
 
         setOpen(false);
@@ -175,10 +190,21 @@ const LeadPopup = () => {
             autoCloseTimerRef.current = null;
         }
 
+        try {
+            trackLeadModalClose({
+                form_id: "lead_popup",
+                close_method: closeMethod,
+                lead_source: triggerSourceRef.current,
+                lead_type: requestType,
+            });
+        } catch {
+            // Safe
+        }
+
         if (!sent && !isAdminTesting) {
             markLeadModalDismissed(dismissDays);
         }
-    }, [submitting, sent, isAdminTesting]);
+    }, [submitting, sent, isAdminTesting, requestType]);
 
     // Global listener for manual trigger via events and [data-open-lead-modal]
     useEffect(() => {
@@ -211,7 +237,7 @@ const LeadPopup = () => {
 
         const handleKeyDown = (e) => {
             if (e.key === "Escape" && !submitting) {
-                handleClose(5);
+                handleClose(5, "escape_key");
             }
         };
 
@@ -332,7 +358,14 @@ const LeadPopup = () => {
         if (!formStartTrackedRef.current) {
             formStartTrackedRef.current = true;
             try {
-                trackLeadFormStart({ source: "LeadPopup" });
+                trackLeadFormStart({
+                    form_id: "lead_popup",
+                    form_type: "modal",
+                    form_location: "popup_modal",
+                    lead_type: requestType,
+                    lead_source: triggerSourceRef.current,
+                    source: "LeadPopup",
+                });
             } catch {
                 // Safe
             }
@@ -373,13 +406,30 @@ const LeadPopup = () => {
         const typeLabel = selectedTypeObj ? t(selectedTypeObj.labelKey) : requestType;
 
         try {
-            trackLeadFormSubmit({ source: "LeadPopup", request_type: requestType });
+            trackLeadFormSubmit({
+                form_id: "lead_popup",
+                form_type: "modal",
+                form_location: "popup_modal",
+                lead_type: requestType,
+                request_type: requestType,
+                lead_source: triggerSourceRef.current,
+                source: "LeadPopup",
+            });
 
             const payloadData = {
                 name: name.trim(),
                 phone: toE164UzPhone(phone) || phone.trim(),
                 formatted_phone: phone.trim(),
                 request_type: typeLabel,
+                request_type_key: requestType,
+                property_category:
+                    requestType === "buy"
+                        ? buyCategory
+                        : requestType === "commercial"
+                            ? "commercial"
+                            : undefined,
+                commercial_operation:
+                    requestType === "commercial" ? commercialOp : undefined,
                 comment: comment.trim() || undefined,
                 message: comment.trim()
                     ? `[${typeLabel}] ${comment.trim()}`
@@ -394,7 +444,15 @@ const LeadPopup = () => {
                 skipCrm: profile?.role === "admin",
             });
 
-            trackLeadFormSuccess({ source: "LeadPopup", request_type: requestType });
+            trackLeadFormSuccess({
+                form_id: "lead_popup",
+                form_type: "modal",
+                form_location: "popup_modal",
+                lead_type: requestType,
+                request_type: requestType,
+                lead_source: triggerSourceRef.current,
+                source: "LeadPopup",
+            });
             
             if (!isAdminTesting) {
                 markLeadModalConverted();
@@ -404,23 +462,29 @@ const LeadPopup = () => {
 
             // Auto-close after success
             autoCloseTimerRef.current = setTimeout(() => {
-                setOpen(false);
+                handleClose(0, "auto_timer");
             }, 4500);
 
         } catch (err) {
             console.error("Lead submission error:", err);
             const msg = err?.message || t("leadPopupErrorServer");
             setServerError(msg);
-            trackLeadFormError({ source: "LeadPopup", error_code: msg });
+            trackLeadFormError({
+                form_id: "lead_popup",
+                form_type: "modal",
+                form_location: "popup_modal",
+                lead_type: requestType,
+                lead_source: triggerSourceRef.current,
+                source: "LeadPopup",
+                error_code: msg,
+            });
         } finally {
             setSubmitting(false);
-            setCaptchaToken(null);
-            setCaptchaReset((n) => n + 1);
         }
     };
 
     const handleDismissForever = () => {
-        handleClose(30);
+        handleClose(30, "dismiss_link");
     };
 
     return (
@@ -432,7 +496,7 @@ const LeadPopup = () => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.25 }}
-                    onClick={() => handleClose(5)}
+                    onClick={() => handleClose(5, "overlay_click")}
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="lead-modal-title"
@@ -457,7 +521,7 @@ const LeadPopup = () => {
                         <button
                             type="button"
                             className={s.closeBtn}
-                            onClick={() => handleClose(5)}
+                            onClick={() => handleClose(5, "close_button")}
                             disabled={submitting}
                             aria-label={t("leadPopupClose")}
                         >
@@ -582,6 +646,72 @@ const LeadPopup = () => {
                                         </div>
                                     </div>
 
+                                    {requestType === "buy" && (
+                                        <div className={s.field}>
+                                            <label className={s.label}>
+                                                {t("leadPopupSubTypeLabel")}
+                                            </label>
+                                            <div className={s.typeGrid} role="radiogroup">
+                                                {[
+                                                    { id: "new_building", labelKey: "catNewBuilding" },
+                                                    { id: "secondary", labelKey: "catSecondary" },
+                                                    { id: "house_land", labelKey: "catHouseLand" },
+                                                ].map((sub) => {
+                                                    const isSelected = buyCategory === sub.id;
+                                                    return (
+                                                        <button
+                                                            key={sub.id}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={isSelected}
+                                                            disabled={submitting}
+                                                            className={`${s.typePill} ${isSelected ? s.typePillActive : ""}`}
+                                                            onClick={() => {
+                                                                handleInteractionStart();
+                                                                setBuyCategory(sub.id);
+                                                            }}
+                                                        >
+                                                            {t(sub.labelKey)}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {requestType === "commercial" && (
+                                        <div className={s.field}>
+                                            <label className={s.label}>
+                                                {t("leadPopupSubTypeLabel")}
+                                            </label>
+                                            <div className={s.typeGrid} role="radiogroup">
+                                                {[
+                                                    { id: "buy", labelKey: "leadPopupTypeBuy" },
+                                                    { id: "rent", labelKey: "leadPopupTypeRent" },
+                                                    { id: "sell", labelKey: "sellCommercial" },
+                                                ].map((sub) => {
+                                                    const isSelected = commercialOp === sub.id;
+                                                    return (
+                                                        <button
+                                                            key={sub.id}
+                                                            type="button"
+                                                            role="radio"
+                                                            aria-checked={isSelected}
+                                                            disabled={submitting}
+                                                            className={`${s.typePill} ${isSelected ? s.typePillActive : ""}`}
+                                                            onClick={() => {
+                                                                handleInteractionStart();
+                                                                setCommercialOp(sub.id);
+                                                            }}
+                                                        >
+                                                            {t(sub.labelKey)}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* 4. Comment (Optional) */}
                                     <div className={s.field}>
                                         <label htmlFor="lead-comment" className={s.label}>
@@ -624,7 +754,6 @@ const LeadPopup = () => {
                                         className={s.captcha}
                                         onVerify={setCaptchaToken}
                                         onExpire={() => setCaptchaToken(null)}
-                                        resetSignal={captchaReset}
                                     />
 
                                     {/* Privacy policy note */}

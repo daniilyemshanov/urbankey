@@ -21,11 +21,13 @@ const Connect = () => {
         register,
         handleSubmit,
         reset,
+        watch,
         formState: { errors },
     } = useForm();
 
+    const selectedInquiry = watch("inquiry");
+
     const [captchaToken, setCaptchaToken] = useState(null);
-    const [captchaReset, setCaptchaReset] = useState(0);
     const [submitting, setSubmitting] = useState(false);
 
     const sendTelegram = async (data) => {
@@ -36,7 +38,11 @@ const Connect = () => {
 
             await sendLead({
                 source: "Connect",
-                data,
+                data: {
+                    ...data,
+                    inquiry_key: data.inquiry,
+                    property_category: data.property_category || undefined,
+                },
                 captchaToken,
                 honeypot: data.company,
                 skipCrm: profile?.role === "admin"
@@ -53,8 +59,6 @@ const Connect = () => {
 
         } finally {
             setSubmitting(false);
-            setCaptchaToken(null);
-            setCaptchaReset((n) => n + 1);
         }
     };
 
@@ -284,29 +288,75 @@ const Connect = () => {
                                 {t("selectInquiry")}
                             </option>
 
-                            <option>
+                            <option value="buy">
                                 {t("buyingProperty")}
                             </option>
 
-                            <option>
+                            <option value="sell">
                                 {t("sellingProperty")}
                             </option>
 
-                            <option>
+                            <option value="invest">
                                 {t("investmentOpportunities")}
                             </option>
 
-                            <option>
+                            <option value="consult">
                                 {t("realEstateConsultation")}
                             </option>
 
-                            <option>
+                            <option value="other">
                                 {t("other")}
                             </option>
 
                         </select>
 
                     </motion.div>
+
+                    {(selectedInquiry === "buy" || selectedInquiry === "sell" || selectedInquiry === "invest") && (
+                        <motion.div
+                            className={s.type}
+                            variants={fadeUp}
+                            custom={5.5}
+                        >
+
+                            <label className={s.fieldLabel}>{t("propertyCategory")}</label>
+
+                            <select
+                                className={s.select}
+                                {...register("property_category", {
+                                    required: {
+                                        value: true,
+                                        message: t("fieldRequired")
+                                    }
+                                })}
+                            >
+                                <option value="">
+                                    {t("selectPropertyCategory")}
+                                </option>
+                                {selectedInquiry === "sell" ? (
+                                    <>
+                                        <option value="apartment">{t("catApartment")}</option>
+                                        <option value="commercial">{t("catCommercial")}</option>
+                                        <option value="house_land">{t("catHouseLand")}</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value="new_building">{t("catNewBuilding")}</option>
+                                        <option value="secondary">{t("catSecondary")}</option>
+                                        <option value="house_land">{t("catHouseLand")}</option>
+                                        <option value="commercial">{t("catCommercial")}</option>
+                                    </>
+                                )}
+                            </select>
+
+                            {errors.property_category && (
+                                <span className={s.error}>
+                                    {errors.property_category.message}
+                                </span>
+                            )}
+
+                        </motion.div>
+                    )}
 
                     <motion.div
                         className={s.how}
@@ -382,7 +432,6 @@ const Connect = () => {
                     className={s.captcha}
                     onVerify={setCaptchaToken}
                     onExpire={() => setCaptchaToken(null)}
-                    resetSignal={captchaReset}
                 />
 
                 <motion.button

@@ -15,3 +15,23 @@ Disallow: /my-listings
 Disallow: /commercial/edit/
 
 Sitemap: https://urbankey.uz/sitemap.xml
+
+# Allow ChatGPT Search discovery; OAI-SearchBot is separate from training crawlers.
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /profile
+Disallow: /favorites
+Disallow: /user/
+Disallow: /add-property
+Disallow: /my-listings
+Disallow: /commercial/edit/
+
+# Opt out of GPTBot training crawls without opting out of ChatGPT Search.
+User-agent: GPTBot
+Disallow: /

@@ -9,7 +9,6 @@ import { trackFormStart } from "../analytics"
 import TurnstileWidget from "./TurnstileWidget"
 import { MyContext } from "../Context"
 import ConsentNote from "./ConsentNote";
-import { formatUzPhone, isUzPhoneValid, toE164UzPhone } from "../utils/phoneMask";
 
 const Happen = () => {
 
@@ -18,14 +17,12 @@ const Happen = () => {
 
     const {
         register,
-        setValue,
         handleSubmit,
         reset,
         formState: { errors },
     } = useForm();
 
     const [captchaToken, setCaptchaToken] = useState(null);
-    const [captchaReset, setCaptchaReset] = useState(0);
     const [submitting, setSubmitting] = useState(false);
 
     const sendTelegram = async (data) => {
@@ -36,11 +33,7 @@ const Happen = () => {
 
             await sendLead({
                 source: "Happen",
-                data: {
-                    ...data,
-                    phone: toE164UzPhone(data.phone) || data.phone,
-                    formatted_phone: data.phone
-                },
+                data,
                 captchaToken,
                 honeypot: data.company,
                 skipCrm: profile?.role === "admin"
@@ -57,8 +50,6 @@ const Happen = () => {
 
         } finally {
             setSubmitting(false);
-            setCaptchaToken(null);
-            setCaptchaReset((n) => n + 1);
         }
     };
 
@@ -276,56 +267,6 @@ const Happen = () => {
 
                     </motion.div>
 
-                    <motion.div
-
-                        initial={{
-                            opacity: 0,
-                            y: 40
-                        }}
-
-                        whileInView={{
-                            opacity: 1,
-                            y: 0
-                        }}
-
-                        transition={{
-                            duration: 0.8
-                        }}
-
-                        whileHover={{
-                            y: -4
-                        }}
-                    >
-
-                        <input
-                            className={s.inp}
-                            type="tel"
-                            inputMode="tel"
-                            autoComplete="tel"
-                            placeholder={t("phone")}
-
-                            {...register("phone", {
-                                required: {
-                                    value: true,
-                                    message: t("phoneRequired"),
-                                },
-                                validate: (v) =>
-                                    isUzPhoneValid(v) || t("phoneRequired"),
-                                onChange: (e) =>
-                                    setValue("phone", formatUzPhone(e.target.value), {
-                                        shouldValidate: false
-                                    }),
-                            })}
-                        />
-
-                        {errors.phone && (
-                            <span className={s.error}>
-                                {errors.phone.message}
-                            </span>
-                        )}
-
-                    </motion.div>
-
                 </motion.div>
 
                 <motion.textarea
@@ -403,7 +344,6 @@ const Happen = () => {
                     className={s.captcha}
                     onVerify={setCaptchaToken}
                     onExpire={() => setCaptchaToken(null)}
-                    resetSignal={captchaReset}
                 />
 
                 <motion.button

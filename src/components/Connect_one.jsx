@@ -33,7 +33,11 @@ const Connect = () => {
 
             await sendLead({
                 source: "Connect_one",
-                data,
+                data: {
+                    ...data,
+                    inquiry_key: data.inquiry,
+                    property_category: "commercial",
+                },
                 captchaToken,
                 honeypot: data.company,
                 skipCrm: profile?.role === "admin"
@@ -277,23 +281,23 @@ const Connect = () => {
                                 {t("selectInquiry")}
                             </option>
 
-                            <option>
-                                {t("buyingProperty")}
+                            <option value="commercial_buy">
+                                {t("buyCommercial")}
                             </option>
 
-                            <option>
-                                {t("sellingProperty")}
+                            <option value="commercial_rent">
+                                {t("rentCommercial")}
                             </option>
 
-                            <option>
+                            <option value="commercial_sell">
+                                {t("sellCommercial")}
+                            </option>
+
+                            <option value="invest">
                                 {t("investmentOpportunities")}
                             </option>
 
-                            <option>
-                                {t("realEstateConsultation")}
-                            </option>
-
-                            <option>
+                            <option value="other">
                                 {t("other")}
                             </option>
 
