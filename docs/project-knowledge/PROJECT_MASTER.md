@@ -27,6 +27,7 @@ UrbanKey — мультиязычный каталог квартир и ком�
 | `src/Context.jsx` | Общие данные, текущая сессия/профиль, объявления и CRUD |
 | `src/context/CurrencyContext.jsx` | Форматирование/состояние валюты |
 | `src/hooks/`, `src/utils/`, `src/api/` | Состояния, чистые helpers и клиентские API функции |
+| `src/api/propertySearch.js`, `src/utils/propertySearch.js` | RPC поиск, URL параметры и детерминированный разбор RU/UZ/EN; `PROPERTY_SEARCH.md` |
 | `src/locales/{ru,en,uz}/translation.json`, `src/i18n.js` | UI-тексты и настройка переводов |
 | `api/` | Vercel endpoints и общие серверные модули с `_` префиксом |
 | `server/` | Запуск Telegram polling bot и локальный check-keys tool |
@@ -89,6 +90,8 @@ flowchart LR
 Жилой каталог использует `cardss` как карточку/основную запись и `villas` как связанный объект с `card_id`; публичное чтение идёт через `cardss_public` и дополняется записью `villas`. Коммерческая ветка использует `commercials` (в коде также view `commercials_public`) и отдельные `commercial_pages` для расширенных данных; упрощённая запись commercial может отображаться без связанной `commercial_pages`.
 
 `is_rent`, `is_sold`, `sold_at`, `updated_at` и связанные поля появляются в эволюционных scripts/queries. Код sitemap/API полагается на public views; точное production определение views неизвестно. Telegram webhook/poll bot разбирает source post, передаёт текст по настроенной цепочке AI-провайдеров и сохраняет listing/media. Точный алгоритм смотрите в `api/listingParser.js`, `api/_listingDb.js` и тестах `listing.*`.
+
+Каталог использует постраничный `search_public_listings` RPC и не загружает весь inventory в браузер. SQL-контракт, подтверждённые поля и pending migration описаны в `PROPERTY_SEARCH.md`; production schema не проверена и migration не применялась.
 
 ## 9. Языки и контент
 

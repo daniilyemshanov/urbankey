@@ -3,6 +3,30 @@
     padding: 20px 20px 100px;
 }
 
+.searchHero {
+    display: flex; align-items: stretch; gap: 10px; padding: 10px;
+    border: 1px solid rgba(214, 168, 58, .42); border-radius: 18px;
+    background: linear-gradient(135deg, rgba(214, 168, 58, .08), rgba(0, 0, 0, .15)), var(--card);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, .22);
+}
+.searchHeroField { display: flex; align-items: center; flex: 1; min-width: 0; gap: 12px; padding: 0 12px; color: var(--violet); }
+.searchHeroField input { width: 100%; min-width: 0; height: 50px; border: 0; outline: 0; background: transparent; color: var(--white); font: inherit; font-size: 15px; }
+.searchHeroField input::placeholder { color: var(--gray); }
+.clearSearch, .searchSubmit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; cursor: pointer; }
+.clearSearch { background: transparent; color: var(--gray); padding: 8px; }
+.clearSearch:hover { color: var(--white); }
+.searchSubmit { flex: 0 0 auto; padding: 0 22px; color: #15120b; background: var(--violet); font-size: 14px; font-weight: 700; }
+.searchSubmit:hover { filter: brightness(1.08); }
+.quickSearches { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 2px 18px; color: var(--gray); font-size: 12px; }
+.quickSearches button { border: 1px solid var(--border); border-radius: 999px; padding: 7px 11px; color: var(--gray); background: rgba(255,255,255,.025); font: inherit; cursor: pointer; transition: border-color .18s ease, color .18s ease, background .18s ease; }
+.quickSearches button:hover { border-color: var(--violet); color: var(--white); background: rgba(214,168,58,.08); }
+.activeChips { display: flex; flex-wrap: wrap; gap: 7px; margin: -8px 0 18px; }
+.activeChip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(214,168,58,.34); border-radius: 999px; padding: 6px 10px; color: var(--white); background: rgba(214,168,58,.08); font-size: 12px; cursor: pointer; }
+.activeChip:hover { background: rgba(214,168,58,.18); }
+.resultHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.pageMeta { margin-bottom: 20px; color: var(--gray); font-size: 12px; }
+.filtersPanel { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; padding: 18px; margin: 12px 0 24px; border-radius: 18px; }
+
 .container {
     max-width: 1440px;
     margin: 0 auto;
@@ -50,25 +74,37 @@
 .districtNav {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -4px 20px;
+    padding: 2px 4px 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #d6a83a rgba(255, 255, 255, .08);
+    overscroll-behavior-x: contain;
 }
 
+.districtNav::-webkit-scrollbar { height: 6px; }
+.districtNav::-webkit-scrollbar-track { border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.districtNav::-webkit-scrollbar-thumb { border-radius: 999px; background: #d6a83a; }
+.districtNav::-webkit-scrollbar-thumb:hover { background: #f0c95d; }
+
 .districtChip {
-    padding: 8px 16px;
-    border-radius: 10px;
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    border-radius: 999px;
     background: var(--card);
     border: 1px solid var(--border);
     color: var(--gray);
     font-size: 13.5px;
     font-weight: 500;
     text-decoration: none;
-    transition: .2s ease;
+    transition: color .18s ease, border-color .18s ease, background .18s ease, transform .18s ease;
 }
 
 .districtChip:hover {
     color: var(--white);
     border-color: var(--violet);
+    transform: translateY(-1px);
 }
 
 .districtChipActive {
@@ -106,8 +142,8 @@
 
 .filtersPanel {
     display: none;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 205px), 1fr));
+    gap: 14px;
     align-items: end;
     padding: 24px;
     margin-bottom: 28px;
@@ -150,6 +186,27 @@
 .field input:focus,
 .field select:focus {
     border-color: var(--violet);
+    box-shadow: 0 0 0 3px rgba(214, 168, 58, .12);
+}
+
+.field select {
+    appearance: none;
+    padding-right: 38px;
+    text-overflow: ellipsis;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23d6a83a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    color-scheme: dark;
+}
+
+.field select option {
+    color: #f4f0e6;
+    background: #1b1a17;
+}
+
+.field select option:checked {
+    color: #111;
+    background: #d6a83a;
 }
 
 .field input::placeholder {
@@ -437,10 +494,28 @@
     line-height: 1.35;
 }
 
+.cardDescription {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--gray);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.addressInfo {
+    flex: 1 1 100%;
+    min-width: 0;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
 .info {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    min-width: 0;
 }
 
 .info span {
@@ -452,8 +527,10 @@
     background: rgba(0, 0, 0, .2);
     border: 1px solid var(--border);
     color: var(--white);
+    max-width: 100%;
     font-size: 12px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .bottom {
@@ -520,10 +597,16 @@
         padding: 0 16px 60px;
     }
 
-    .topBar {
-        flex-direction: column;
-        align-items: stretch;
-    }
+    .topBar { flex-direction: row; align-items: center; }
+    .searchHero { gap: 6px; padding: 7px; }
+    .searchHeroField { gap: 8px; padding: 0 6px; }
+    .searchHeroField input { height: 46px; font-size: 14px; }
+    .searchSubmit { padding: 0 14px; }
+    .quickSearches { margin-bottom: 14px; }
+    .filtersPanel { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px; gap: 10px; }
+    .districtNav { scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+    .districtNav::-webkit-scrollbar { display: none; height: 0; }
+    .districtChip { scroll-snap-align: start; }
 
     .tabs {
         justify-content: center;
@@ -532,6 +615,19 @@
     .grid {
         grid-template-columns: 1fr;
     }
+}
+
+@media(max-width: 460px) {
+    .searchHero { flex-direction: column; }
+    .searchSubmit { min-height: 44px; }
+    .quickSearches { align-items: flex-start; }
+    .quickSearches > span { width: 100%; }
+    .filtersPanel { grid-template-columns: 1fr; }
+    .content { padding: 16px; gap: 10px; }
+    .cardTitle { font-size: 16.5px; }
+    .cardDescription { font-size: 12.5px; }
+    .districtNav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 5px; }
+    .districtChip { flex: 0 0 auto; }
 }
 
 @media (max-width: 420px) {

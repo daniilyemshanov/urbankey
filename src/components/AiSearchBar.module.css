@@ -70,14 +70,23 @@
         border-radius: 16px;
     }
 
+    .bar {
+        gap: 10px;
+        padding: 10px 12px;
+    }
+
     .bar input {
-        width: 100%;
-        order: 1;
+        width: auto;
+        flex: 1 1 0;
+        min-height: 42px;
+        order: 0;
+        font-size: 14px;
     }
 
     .submit {
         width: 100%;
-        order: 2;
+        min-height: 44px;
+        order: 1;
         justify-content: center;
     }
 }

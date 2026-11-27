@@ -27,6 +27,7 @@ Local setup needs Supabase URL and publishable/anon key for client/backend reads
 - Shared auth/data: `src/Context.jsx`; Supabase client: `src/supabase.js`.
 - New localization: update all `src/locales/{ru,en,uz}/translation.json`; verify i18n checker; avoid inline text where translation pattern is used.
 - Client data logic: `src/utils/`, `src/hooks/`, `src/api/`; keep secrets/server-only operations out of client bundles.
+- Catalog search: `src/components/Catalog.jsx`, `src/api/propertySearch.js`, `src/utils/propertySearch.js`; read `PROPERTY_SEARCH.md`. The RPC migration is separate and must not be run against production without approval.
 - Vercel endpoint: add one top-level `api/name.js` handler, define allowed method(s), validate body/headers, authenticate privileged work, bound input/time, avoid logging PII, and update `API.md`/tests.
 - Supabase query/schema: inspect existing callers, SQL, RPC and RLS; use explicit selected columns. Never run a production migration without a change plan, backup and approval.
 - SEO metadata: `src/utils/staticPages.js`, `districtPages.js`, translations; SSR templates in `api/_seoMeta.js`, behavior in `api/spa.js` and sitemap in `api/sitemap.js`.

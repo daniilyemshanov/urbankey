@@ -21,6 +21,7 @@ npm run build
 - `sql/`, `supabase/` — инкрементальные SQL-скрипты, RLS helpers и Edge Function.
 - `public/` — публичная статика; не удалять без проверки runtime-ссылок и ссылок из данных.
 - `tests/` — unit/API-тесты и E2E-пробы с изолированными заглушками.
+- `docs/project-knowledge/PROPERTY_SEARCH.md` — контракт поиска, фильтры и pending Supabase migration.
 - `docs/project-knowledge/` — master-документация и журнал изменений ИИ.
 
 ## Документы

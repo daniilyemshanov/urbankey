@@ -33,16 +33,17 @@ function load() {
     return inflight;
 }
 
-export default function useVillaLocations() {
+export default function useVillaLocations(enabled = true) {
     const [locations, setLocations] = useState(cache || {});
 
     useEffect(() => {
+        if (!enabled) return undefined;
         let cancelled = false;
         load().then((map) => {
             if (!cancelled) setLocations(map);
         });
         return () => { cancelled = true; };
-    }, []);
+    }, [enabled]);
 
     return locations;
 }

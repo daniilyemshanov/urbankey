@@ -94,6 +94,15 @@ export const usdToCurrency = (usd, target, rate) => {
     return Math.round(usd * rate);
 };
 
+export const convertCurrencyAmount = (rawAmount, fromCurrency, toCurrency, rate) => {
+    if (rawAmount === "" || rawAmount == null) return "";
+    const amount = Number(rawAmount);
+    if (!Number.isFinite(amount)) return "";
+    if (fromCurrency === toCurrency) return Math.round(amount);
+    if (!isValidRate(rate)) return "";
+    return Math.round(fromCurrency === "USD" ? amount * rate : amount / rate);
+};
+
 const normalizeIsoDate = (value) => {
     if (typeof value !== "string") return null;
     const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);

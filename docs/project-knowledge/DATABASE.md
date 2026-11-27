@@ -73,6 +73,7 @@ No production policies were read or altered in this audit. Never infer “secure
 | `fix_telegram_pipeline.sql` | Telegram listing pipeline correction |
 | `optional_add_card_floor.sql` | Optional floor field support |
 | `recreate_public_views.sql` | Rebuild `cardss_public`, `commercials_public` projections |
+| `advanced_property_search.sql` | Pending: derived public search views, trigram indexes and invoker-rights paginated catalog RPC; not applied or production-validated |
 | `replace_villa_type_text.sql` | Data/text conversion for residence type; inspect before production use |
 
 Supabase scripts: `admin_only_listings.sql`, `profiles_privacy.sql`, `security_hardening.sql`, `user_commercial_pages_access.sql`, `user_listing_full_rpc.sql`, `user_listings_and_leads.sql`; Edge Function config/code under `supabase/functions/delete-account/`.

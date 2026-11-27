@@ -42,7 +42,6 @@ const Property = ({ data }) => {
 
 
     const [open, setOpen] = useState(false);
-
     const [index, setIndex] = useState(0);
 
 
@@ -86,96 +85,32 @@ const Property = ({ data }) => {
 
 
                     <Swiper
-
-
-                        modules={[
-                            Navigation,
-                            Pagination,
-                            Autoplay
-                        ]}
-
-
+                        modules={[Navigation, Pagination, Autoplay]}
                         navigation
-
-
-                        pagination={{
-                            clickable: true
-                        }}
-
-
-                        loop={
-                            images.length > 1
-                        }
-
-
-                        autoplay={{
-                            delay: 3000,
-                            disableOnInteraction: false
-                        }}
-
-
+                        pagination={{ clickable: true }}
+                        loop={images.length > 1}
+                        autoplay={{ delay: 3000, disableOnInteraction: false }}
                         observer
                         observeParents
-                        onSwiper={(swiper) => {
-                            requestAnimationFrame(() => swiper.update());
-                        }}
-
-
+                        onSwiper={(swiper) => requestAnimationFrame(() => swiper.update())}
+                        onResize={(swiper) => swiper.update()}
                         className={s.mySwiper}
-
-
-
                     >
-
-
-
-                        {
-                            images.map((img, i) => (
-
-
-                                <SwiperSlide
-
-                                    key={i}
-
-                                    className={s.slide}
-
-                                >
-
-
-
-                                    <img
-
-                                        src={img}
-
-                                        alt={`${data?.title?.[i18n.language] || data?.title?.ru || t("properties")} — ${t("photo")} ${i + 1}`}
-
-                                        loading="lazy"
-
-                                        decoding="async"
-
-                                        onClick={() => {
-
-                                            setIndex(i)
-
-                                            setOpen(true)
-
-                                        }}
-
-
-                                    />
-
-
-                                </SwiperSlide>
-
-
-                            ))
-                        }
-
-
-
+                        {images.map((img, i) => (
+                            <SwiperSlide key={i} className={s.slide}>
+                                <img
+                                    src={img}
+                                    alt={`${data?.title?.[i18n.language] || data?.title?.ru || t("properties")} — ${t("photo")} ${i + 1}`}
+                                    loading="lazy"
+                                    decoding="async"
+                                    onClick={() => {
+                                        setIndex(i);
+                                        setOpen(true);
+                                    }}
+                                />
+                            </SwiperSlide>
+                        ))}
                     </Swiper>
-
-
 
                 </motion.div>
 

@@ -23,6 +23,8 @@ flowchart TB
   VercelAPI --> Search[CBU / IndexNow / Translate / AI providers]
 ```
 
+The catalog calls `search_public_listings` through `src/api/propertySearch.js`; `src/utils/propertySearch.js` parses natural-language queries locally without a paid model call. The derived views and invoker-rights RPC are in the unapplied `sql/advanced_property_search.sql` migration. Read `PROPERTY_SEARCH.md` before changing this contract.
+
 This map reflects code integrations. Optional env-gated connections and their production state are listed in `INTEGRATIONS.md`.
 
 ## Frontend and server boundary

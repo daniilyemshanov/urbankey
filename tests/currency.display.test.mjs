@@ -7,7 +7,7 @@ import { createServer } from "vite";
 
 import {
     formatPriceIn, parsePrice, normalizeRateRecord, getRateNoteParams,
-    formatRateDate, formatRateValue, isValidRate, priceInCurrency, usdToCurrency,
+    formatRateDate, formatRateValue, isValidRate, priceInCurrency, usdToCurrency, convertCurrencyAmount,
 } from "../src/utils/currency.js";
 
 const sp = (s) => String(s).replace(/[\u00a0\u202f]/g, " ");
@@ -250,8 +250,20 @@ test("usdToCurrency: цены из ИИ-поиска (всегда USD) прив
     assert.equal(usdToCurrency(Number.NaN, "USD", 12000), null);
 });
 
-test("Catalog.jsx: цены сравниваются через priceInCurrency, а не голыми цифрами строки", () => {
-    const src = readFileSync("src/components/Catalog.jsx", "utf8");
-    assert.match(src, /priceInCurrency\(item\.price, currency, rate,/);
-    assert.doesNotMatch(src, /parsePriceValue/);
+test("Catalog delegates currency-aware price filtering to the paginated RPC", () => {
+    const catalog = readFileSync("src/components/Catalog.jsx", "utf8");
+    const client = readFileSync("src/api/propertySearch.js", "utf8");
+    const migration = readFileSync("sql/advanced_property_search.sql", "utf8");
+    assert.match(catalog, /searchPublicListings\(/);
+    assert.match(client, /p_currency: currency/);
+    assert.match(client, /p_rate:/);
+    assert.match(migration, /uk_search_price_value\(/);
+});
+
+
+test("price filter bounds survive changing the selected currency", () => {
+    assert.equal(convertCurrencyAmount("100000", "USD", "UZS", 12000), 1200000000);
+    assert.equal(convertCurrencyAmount("1200000000", "UZS", "USD", 12000), 100000);
+    assert.equal(convertCurrencyAmount("100000", "USD", "USD", null), 100000);
+    assert.equal(convertCurrencyAmount("100000", "USD", "UZS", null), "");
 });

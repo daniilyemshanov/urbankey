@@ -139,6 +139,8 @@
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .slide {
@@ -168,6 +170,8 @@
     object-position: center;
     border-radius: 18px;
     border: 1px solid var(--border);
+    user-select: none;
+    -webkit-user-drag: none;
     transition: transform .4s ease;
 }
 
@@ -227,6 +231,20 @@
 @media(max-width: 1024px) {
     .property .all {
         flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .swiperWrapper {
+        flex: 0 0 auto;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .mySwiper {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .property .texts {
@@ -235,7 +253,7 @@
 
     .mySwiper {
         max-width: 100%;
-        height: 450px;
+        height: clamp(260px, 58vw, 450px);
     }
 }
 
@@ -251,7 +269,13 @@
     }
 
     .mySwiper {
-        height: 320px;
+        height: clamp(230px, 72vw, 320px);
+    }
+
+    :global(.swiper-button-next),
+    :global(.swiper-button-prev) {
+        width: 38px !important;
+        height: 38px !important;
     }
 
     .property .text {

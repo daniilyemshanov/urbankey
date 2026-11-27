@@ -21,7 +21,7 @@ UrbanKey is a React 19/Vite 8 real-estate catalog for Tashkent, deployed/configu
 
 ## Status summary
 
-- **Implemented in source:** public localized SPA, user profile/listing flows, admin screens, Telegram parsing variants, lead intake, CRM/analytics/SEO helpers and Vercel/Supabase configs.
+- **Implemented in source:** public localized SPA, user profile/listing flows, admin screens, Telegram parsing variants, lead intake, advanced paginated catalog UI/client parser, CRM/analytics/SEO helpers and Vercel/Supabase configs.
 - **Partially implemented:** external accounts/providers, their credentials, Edge deployment, production RLS/views, webhook mode, GA4 property and live SEO.
 - **Planned:** ownership-confirmed Local SEO facts, expert articles, profile cleanup, organic lead analysis and repeatable AI-search sampling.
 - **Deprecated/isolated:** three React component candidates are preserved in `src/unused/`; five old reports are archived under `docs/project-knowledge/archive/`.
@@ -31,6 +31,7 @@ UrbanKey is a React 19/Vite 8 real-estate catalog for Tashkent, deployed/configu
 
 - Overall: `PROJECT_MASTER.md`; architecture: `ARCHITECTURE.md`.
 - SQL/RLS/RPC/data access: `DATABASE.md` before any schema edit.
+- Catalog search, filters, URL state and RPC: `PROPERTY_SEARCH.md`; the SQL migration requires schema/RLS review and explicit production approval.
 - Endpoint: `API.md`; provider or account: `INTEGRATIONS.md`.
 - SEO work: `SEO_GEO.md` plus `docs/SEO-GEO-FINAL-REPORT.md` and `docs/SEO-GEO-90-DAY-PLAN.md`.
 - Local setup or coding patterns: `DEVELOPMENT_GUIDE.md`.

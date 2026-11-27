@@ -2,6 +2,10 @@
 
 **Scope:** Serverless entrypoint files in `api/*.js` without a leading `_`; underscore modules are internal helpers, not endpoints. Vercel maps each entrypoint to `/api/<filename>`. Local in-memory rate limits are per serverless process/instance and are not a distributed quota. Production host, env and endpoint health are **Unknown**.
 
+## Supabase catalog RPC (pending migration)
+
+`src/api/propertySearch.js` calls `public.search_public_listings` over the existing Supabase client. The function is defined in `sql/advanced_property_search.sql`, which is **not applied**. It accepts `p_filters` (JSON: text, category, type, deal type, district, price, room, area, floor, location), `p_sort` (`relevance`, `newest`, `priceAsc`, `priceDesc`), `p_page`, `p_page_size` (clamped to 48), display `p_currency`, `p_rate`, and district aliases. It returns JSON `{ items, total, page, pageSize }`; errors surface as an unavailable-search state. The function is `SECURITY INVOKER`, granted to `anon` and `authenticated`, and reads derived views over the existing public views. Its actual RLS behavior and production grants must be verified after applying it to a non-production project. No privileged key is sent from the browser.
+
 ## Public/client-facing endpoints
 
 | Endpoint | Method and input | Authorization / validation | Result and failures | Dependencies |
